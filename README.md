@@ -2,7 +2,23 @@
 
 AI-native payment collection for freelancers. **Python (FastAPI)** brain + **Next.js** UI.
 
-## Quick start (Yusuf + team)
+## Production deploy (Docker on VPS)
+
+```bash
+cd /opt/gentletap
+cp .env.example .env   # edit secrets + your domain/IP
+docker compose down
+docker compose up -d --build
+docker ps
+```
+
+- Web: `http://YOUR_IP:3000`
+- API: `http://YOUR_IP:8000`
+- API docs: `http://YOUR_IP:8000/docs`
+
+Set `NEXT_PUBLIC_API_URL`, `API_URL`, `WEB_URL`, `CORS_ORIGINS`, and OAuth redirect URIs to your public IP or domain before building.
+
+## Quick start (local dev)
 
 **One command setup (Windows):**
 

@@ -2,6 +2,7 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: gentletap-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: gentletap
       POSTGRES_PASSWORD: gentletap
@@ -19,6 +20,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: gentletap-redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
     healthcheck:
@@ -26,6 +28,47 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: gentletap-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://gentletap:gentletap@postgres:5432/gentletap
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/v1/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    container_name: gentletap-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
 
 volumes:
   gentletap_pgdata:
