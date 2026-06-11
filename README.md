@@ -16,7 +16,9 @@ docker ps
 - API: `http://YOUR_IP:8000`
 - API docs: `http://YOUR_IP:8000/docs`
 
-Set `NEXT_PUBLIC_API_URL`, `API_URL`, `WEB_URL`, `CORS_ORIGINS`, and OAuth redirect URIs to your public IP or domain before building.
+Set `API_URL`, `WEB_URL`, `CORS_ORIGINS`, and OAuth redirect URIs to your public domain (use `https://` when TLS is enabled). The web app proxies `/v1/*` to the API via `API_PROXY_URL` so the browser never makes insecure HTTP requests from an HTTPS page.
+
+If you terminate TLS with nginx, proxy **all** paths (including `/v1`) to the web container on port 3000 — not directly to port 8000.
 
 ## Quick start (local dev)
 

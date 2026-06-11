@@ -1,4 +1,11 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+// Browser: same-origin /v1 (proxied by Next.js) avoids mixed-content on HTTPS.
+// Server: direct backend URL for SSR or non-proxied environments.
+const API_URL =
+  typeof window !== "undefined"
+    ? ""
+    : (process.env.API_PROXY_URL ??
+      process.env.NEXT_PUBLIC_API_URL ??
+      "http://localhost:8000");
 
 export type User = {
   id: string;
