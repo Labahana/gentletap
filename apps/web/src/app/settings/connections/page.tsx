@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { api, getToken } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { planLabel } from "@/lib/pricing";
@@ -10,7 +10,7 @@ import { WhatsappEmbeddedSignup } from "@/components/whatsapp-embedded-signup";
 
 type WhatsappStatus = Awaited<ReturnType<typeof api.whatsappStatus>>;
 
-export default function ConnectionsSettingsPage() {
+function ConnectionsSettingsContent() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -481,5 +481,13 @@ export default function ConnectionsSettingsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function ConnectionsSettingsPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-full items-center justify-center text-muted">Loading…</div>}>
+      <ConnectionsSettingsContent />
+    </Suspense>
   );
 }
