@@ -2,17 +2,18 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { PricingGrid } from "@/components/pricing-grid";
 import { api, getToken } from "@/lib/api";
 import { isUpgrade, planLabel, type PlanFeature, type PlanId } from "@/lib/pricing";
 import { useAuth } from "@/lib/auth-context";
 
-export default function BillingSettingsPage() {
-  const { user, loading } = useAuth();
+function BillingContent() {
+  const { user, loading, refresh } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [plans, setPlans] = useState<PlanFeature[]>([]);
+  const [checkoutAvailable, setCheckoutAvailable] = useState(true);
   const [annual, setAnnual] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -24,10 +25,20 @@ export default function BillingSettingsPage() {
   useEffect(() => {
     const token = getToken();
     if (!token) return;
-    api.billingStatus(token).then((s) => setPlans(s.plans));
+    api.billingStatus(token).then((s) => {
+      setPlans(s.plans);
+      setCheckoutAvailable(s.checkout_available);
+    });
   }, [user]);
 
   const success = searchParams.get("success") === "1";
+  const cancelled = searchParams.get("cancelled") === "1";
+
+  useEffect(() => {
+    if (success) {
+      void refresh();
+    }
+  }, [success, refresh]);
 
   async function checkout(plan: PlanId) {
     if (plan === "free") return;
@@ -87,9 +98,21 @@ export default function BillingSettingsPage() {
         </p>
       )}
 
+      {cancelled && (
+        <p className="mt-4 rounded-xl border border-border bg-background px-4 py-3 text-sm text-muted">
+          Checkout cancelled — no changes were made.
+        </p>
+      )}
+
       {error && (
         <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
+        </p>
+      )}
+
+      {!checkoutAvailable && (
+        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Paddle checkout is not configured yet. Add price IDs to your environment to enable upgrades.
         </p>
       )}
 
@@ -107,5 +130,13 @@ export default function BillingSettingsPage() {
 
       {busy && <p className="mt-4 text-center text-sm text-muted">Redirecting to checkout…</p>}
     </div>
+  );
+}
+
+export default function BillingSettingsPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-full items-center justify-center text-muted">Loading…</div>}>
+      <BillingContent />
+    </Suspense>
   );
 }

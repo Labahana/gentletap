@@ -10,6 +10,8 @@ from gentletap.integrations.twilio import whatsapp as twilio_whatsapp
 from gentletap.intelligence.schemas import Channel
 from gentletap.plans import has_whatsapp
 from gentletap.services.context_builder import build_reminder_context
+from gentletap.services.whatsapp_connection import resolve_twilio_credentials, resolve_whatsapp_from
+from gentletap.services.whatsapp_usage import get_active_connection
 
 
 def get_send_provider(db: Session, user_id) -> str | None:
@@ -42,7 +44,9 @@ def get_send_provider(db: Session, user_id) -> str | None:
 def has_delivery_capability(db: Session, user_id, *, plan: str = "free") -> bool:
     if get_send_provider(db, user_id):
         return True
-    return has_whatsapp(plan) and twilio_whatsapp.is_configured()
+    if has_whatsapp(plan) and get_active_connection(db, user_id) and twilio_whatsapp.is_configured():
+        return True
+    return False
 
 
 def send_reminder_message(
@@ -55,29 +59,14 @@ def send_reminder_message(
     to_phone: str | None = None,
 ) -> str:
     if channel == Channel.WHATSAPP:
-        if not to_phone:
-            raise ValueError("Client phone number required for WhatsApp")
-        ctx = build_reminder_context(db, message.invoice_id, user_id)
-        if ctx is None:
-            raise ValueError("Invoice context not found")
-        user = db.query(Profile).filter(Profile.id == user_id).one()
-        sender_name = ctx.sender_name or (user.full_name or user.email.split("@")[0])
-        payload = wa_templates.build_payload(
-            ctx,
-            sender_name=sender_name,
+        return send_whatsapp_reminder(
+            db,
+            user_id,
+            message,
+            to_phone=to_phone or "",
             sequence_step=message.sequence_step,
             tone=message.tone,
         )
-        external_id = twilio_whatsapp.send_whatsapp_template(
-            to_phone=to_phone,
-            content_sid=payload.content_sid,
-            content_variables=payload.variables,
-        )
-        message.send_provider = "twilio"
-        message.channel = "whatsapp"
-        message.subject = f"WhatsApp · {payload.template_key}"
-        message.body = payload.preview_body
-        return external_id
 
     if not to_email:
         raise ValueError("Client email required")
@@ -120,4 +109,48 @@ def send_reminder_message(
     )
     message.send_provider = "resend"
     message.channel = "email"
+    return external_id
+
+
+def send_whatsapp_reminder(
+    db: Session,
+    user_id,
+    message: ReminderMessage,
+    *,
+    to_phone: str,
+    sequence_step: int,
+    tone: str | None,
+) -> str:
+    if not to_phone:
+        raise ValueError("Client phone number required for WhatsApp")
+
+    ctx = build_reminder_context(db, message.invoice_id, user_id)
+    if ctx is None:
+        raise ValueError("Invoice context not found")
+
+    user = db.query(Profile).filter(Profile.id == user_id).one()
+    sender_name = ctx.sender_name or (user.full_name or user.email.split("@")[0])
+    payload = wa_templates.build_payload(
+        ctx,
+        sender_name=sender_name,
+        sequence_step=sequence_step,
+        tone=tone,
+    )
+    from_number = resolve_whatsapp_from(db, user_id)
+    if not from_number:
+        raise ValueError("WhatsApp is not connected")
+
+    account_sid, auth_token, from_number = resolve_twilio_credentials(db, user_id)
+    external_id = twilio_whatsapp.send_whatsapp_template(
+        to_phone=to_phone,
+        content_sid=payload.content_sid,
+        content_variables=payload.variables,
+        from_number=from_number,
+        account_sid=account_sid,
+        auth_token=auth_token,
+    )
+    message.send_provider = "twilio"
+    message.channel = "whatsapp"
+    message.subject = f"WhatsApp · {payload.template_key}"
+    message.body = payload.preview_body
     return external_id

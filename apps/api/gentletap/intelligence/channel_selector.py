@@ -1,18 +1,12 @@
 from gentletap.intelligence.schemas import Channel, ReminderContext
-from gentletap.plans import has_whatsapp
+from gentletap.plans import whatsapp_step_eligible
 
 
 def select_channel(ctx: ReminderContext) -> Channel:
-    """Email first; WhatsApp on step 1+ for Pro+ / Team when phone exists."""
-    inv = ctx.invoice
-    profile = ctx.profile
-
-    use_whatsapp = (
-        has_whatsapp(ctx.user_plan)
-        and ctx.client_phone
-        and inv.sequence_step >= 1
-        and profile.preferred_channel != "email"
-    )
-    if use_whatsapp:
-        return Channel.WHATSAPP
+    """Primary outbound is always email; WhatsApp is scheduled separately on steps 1–3."""
     return Channel.EMAIL
+
+
+def whatsapp_followup_planned(ctx: ReminderContext) -> bool:
+    """Whether a staggered WhatsApp follow-up will be scheduled after email."""
+    return whatsapp_step_eligible(ctx.invoice.sequence_step) and bool(ctx.client_phone)

@@ -4,9 +4,11 @@ AI-native payment collection for freelancers. **Python (FastAPI)** brain + **Nex
 
 ## Production deploy (Docker + Supabase Postgres)
 
-1. Create a [Supabase](https://supabase.com) project and copy connection strings into `.env`:
-   - `DATABASE_URL` — Transaction pooler (port **6543**) for the API/worker
-   - `DATABASE_MIGRATIONS_URL` — Direct/session connection (port **5432**) for Alembic
+1. Create a [Supabase](https://supabase.com) project and set **one** connection string in `.env`:
+   - `DATABASE_URL` — Supabase **Direct** connection (port **5432**), prefix `postgresql+psycopg2://`, add `?sslmode=require`
+   - `SKIP_DB_MIGRATIONS=true` — skip Alembic on every container restart (recommended once schema exists)
+   - **First deploy on empty DB:** run once: `docker compose run --rm api alembic upgrade head`
+   - Optional `DATABASE_MIGRATIONS_URL` only if you use the transaction pooler (`:6543`) for runtime
 
 2. Deploy on your VPS:
 
@@ -79,6 +81,16 @@ gentletap/
 │   └── web/                    # Next.js frontend
 ```
 
+### Paddle billing
+
+1. Create products/prices in [Paddle](https://developer.paddle.com/) (sandbox first).
+2. Set `PADDLE_API_KEY`, `PADDLE_WEBHOOK_SECRET`, price IDs, and `PADDLE_ENVIRONMENT=sandbox` in `.env`.
+3. Add webhook destination: `{API_URL}/v1/webhooks/paddle` — subscribe to `subscription.*` and `transaction.completed`.
+4. Approve your default checkout payment link in Paddle → Checkout settings.
+5. Run migration `008`: `docker compose run --rm api alembic upgrade head`
+
+Customer portal (“Manage subscription”) uses Paddle portal sessions — no extra frontend SDK required.
+
 ## Production features
 
 - QuickBooks OAuth + invoice sync (Celery)
@@ -86,7 +98,7 @@ gentletap/
 - OpenAI reminder generation
 - Autonomous reminder sequences (Day 0/3/7/14/21)
 - Payment detection + sequence stop
-- Stripe Pro billing ($19/mo)
+- Paddle billing (Pro / Pro+ / Team)
 - Live dashboard (green/yellow/red)
 
 Partner: **Yusuf** — product guidance & QA.

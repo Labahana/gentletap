@@ -9,7 +9,7 @@ def escalation_recommendation(ctx: ReminderContext) -> str:
             f"{name} is {inv.days_overdue} days late with no payment — "
             "consider a formal demand letter or pausing future work."
         )
-    if inv.amount > 10_000 and inv.days_overdue >= 14:
+    if inv.balance > 10_000 and inv.days_overdue >= 14:
         return (
             f"{name} owes ${inv.balance:,.2f} and hasn't paid in {inv.days_overdue} days — "
             "a personal phone call would be most effective now."
@@ -27,4 +27,8 @@ def escalation_recommendation(ctx: ReminderContext) -> str:
 
 def needs_human(ctx: ReminderContext) -> bool:
     inv = ctx.invoice
-    return inv.days_overdue >= 21 or (inv.amount > 10_000 and inv.days_overdue >= 14)
+    return (
+        inv.days_overdue >= 21
+        or (float(inv.balance) > 10_000 and inv.days_overdue >= 14)
+        or inv.sequence_step >= 4
+    )

@@ -17,6 +17,7 @@ class PlanFeature(BaseModel):
     price_monthly: int
     price_annual: int
     active_sequence_limit: int | None
+    monthly_collection_limit: int | None = None
     features: list[str]
     checkout_monthly_available: bool = False
     checkout_annual_available: bool = False
@@ -25,6 +26,6 @@ class PlanFeature(BaseModel):
 class BillingStatusResponse(BaseModel):
     plan: str
     plan_display_name: str
-    stripe_customer_id: str | None = None
+    paddle_customer_id: str | None = None
     checkout_available: bool = False
     plans: list[PlanFeature] = Field(default_factory=list)

@@ -61,9 +61,13 @@ def content_sid_for(template_key: str) -> str | None:
 
 def templates_configured() -> bool:
     settings = get_settings()
-    if not (settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_whatsapp_from):
+    if not (settings.twilio_account_sid and settings.twilio_auth_token):
         return False
     return any(content_sid_for(key) for key in META_TEMPLATE_COPY)
+
+
+def platform_sender_configured() -> bool:
+    return bool((get_settings().twilio_whatsapp_from or "").strip())
 
 
 def _format_amount(balance: float, currency: str) -> str:

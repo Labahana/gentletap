@@ -7,6 +7,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from gentletap.database import Invoice, ReminderJob
+from gentletap.services.whatsapp_scheduler import cancel_whatsapp_followups
 
 # Day overdue thresholds per sequence step (0–4)
 SEQUENCE_DAY_THRESHOLDS = [0, 3, 7, 14, 21]
@@ -16,11 +17,12 @@ MAX_SEQUENCE_STEP = 4
 def cancel_invoice_jobs(db: Session, invoice_id: UUID) -> int:
     jobs = (
         db.query(ReminderJob)
-        .filter(ReminderJob.invoice_id == invoice_id, ReminderJob.status == "pending")
+        .filter(ReminderJob.invoice_id == invoice_id, ReminderJob.status.in_(("pending", "processing")))
         .all()
     )
     for job in jobs:
         job.status = "cancelled"
+    cancel_whatsapp_followups(db, invoice_id)
     return len(jobs)
 
 
@@ -28,12 +30,19 @@ def mark_invoice_paid(db: Session, invoice: Invoice) -> None:
     invoice.balance = 0
     invoice.status = "paid"
     invoice.paid_at = datetime.now(UTC)
+    invoice.client_claimed_paid_at = None
     invoice.sequence_active = False
     invoice.sequence_paused = True
     cancel_invoice_jobs(db, invoice.id)
 
 
-def schedule_next_job(db: Session, invoice: Invoice, *, delay_days: int | None = None) -> ReminderJob | None:
+def schedule_next_job(
+    db: Session,
+    invoice: Invoice,
+    *,
+    delay_days: int | None = None,
+    scheduled_for: datetime | None = None,
+) -> ReminderJob | None:
     if not invoice.sequence_active or invoice.sequence_paused or float(invoice.balance) <= 0:
         return None
 
@@ -53,10 +62,13 @@ def schedule_next_job(db: Session, invoice: Invoice, *, delay_days: int | None =
     if existing:
         return existing
 
-    if delay_days is not None:
-        scheduled = datetime.now(UTC) + timedelta(days=delay_days)
+    now = datetime.now(UTC)
+    if scheduled_for is not None:
+        scheduled = scheduled_for
+    elif delay_days is not None:
+        scheduled = now + timedelta(days=delay_days)
     else:
-        scheduled = datetime.now(UTC) + timedelta(hours=1)
+        scheduled = now + timedelta(hours=1)
 
     job = ReminderJob(
         invoice_id=invoice.id,
@@ -65,6 +77,17 @@ def schedule_next_job(db: Session, invoice: Invoice, *, delay_days: int | None =
         status="pending",
     )
     db.add(job)
+    db.flush()
+
+    if scheduled <= now + timedelta(minutes=2):
+        try:
+            from gentletap.tasks.reminders import send_reminder_job
+
+            send_reminder_job.delay(str(job.id))
+            job.celery_task_id = str(job.id)
+        except Exception:
+            pass
+
     return job
 
 
@@ -74,7 +97,44 @@ def advance_sequence_after_send(db: Session, invoice: Invoice) -> None:
     if invoice.sequence_step > MAX_SEQUENCE_STEP:
         invoice.sequence_active = False
         return
-    schedule_next_job(db, invoice, delay_days=_days_until_next_step(invoice))
+    scheduled_for = _scheduled_for_next_step(db, invoice)
+    schedule_next_job(db, invoice, scheduled_for=scheduled_for)
+
+
+def scheduled_for_current_step(db: Session, invoice: Invoice) -> datetime:
+    """Earliest send time for the invoice's current sequence step (respects intelligence send window)."""
+    from gentletap.intelligence.engine import engine
+    from gentletap.intelligence.schemas import Action
+    from gentletap.services.context_builder import build_reminder_context
+
+    now = datetime.now(UTC)
+    ctx = build_reminder_context(db, invoice.id, invoice.user_id)
+    if ctx is None:
+        return now
+    ctx.invoice.approved = invoice.sequence_approved
+    result = engine.decide(ctx)
+    if result.action == Action.SEND and result.send_at and result.send_at > now:
+        return result.send_at
+    return now
+
+
+def _scheduled_for_next_step(db: Session, invoice: Invoice) -> datetime:
+    from gentletap.intelligence.engine import engine
+    from gentletap.intelligence.schemas import Action
+    from gentletap.services.context_builder import build_reminder_context
+
+    now = datetime.now(UTC)
+    delay = _days_until_next_step(invoice)
+    earliest = now + timedelta(days=delay)
+
+    ctx = build_reminder_context(db, invoice.id, invoice.user_id)
+    if ctx is None:
+        return earliest
+    ctx.invoice.approved = invoice.sequence_approved
+    result = engine.decide(ctx)
+    if result.action == Action.SEND and result.send_at and result.send_at > earliest:
+        return result.send_at
+    return earliest
 
 
 def _days_until_next_step(invoice: Invoice) -> int:

@@ -6,6 +6,7 @@ export type PlanFeature = {
   price_monthly: number;
   price_annual: number;
   active_sequence_limit: number | null;
+  monthly_collection_limit?: number | null;
   features: string[];
   checkout_monthly_available: boolean;
   checkout_annual_available: boolean;
@@ -43,12 +44,13 @@ export const PRICING_PLANS: Omit<
     name: "Starter",
     price_monthly: 0,
     price_annual: 0,
-    active_sequence_limit: 5,
+    active_sequence_limit: null,
+    monthly_collection_limit: 5,
     features: [
       "QuickBooks sync",
       "AI reminder previews",
       "Email reminders",
-      "5 active sequences",
+      "5 invoice collections per month",
     ],
   },
   {
@@ -72,7 +74,8 @@ export const PRICING_PLANS: Omit<
     active_sequence_limit: null,
     features: [
       "Everything in Pro",
-      "WhatsApp (approved templates)",
+      "450 WhatsApp/month (steps 1–3)",
+      "Email first, WhatsApp hours later",
       "Priority AI (GPT-4o)",
       "Escalation dashboard",
     ],
@@ -85,6 +88,7 @@ export const PRICING_PLANS: Omit<
     active_sequence_limit: null,
     features: [
       "Everything in Pro+",
+      "850 WhatsApp/month",
       "3 team seats",
       "Shared dashboard",
       "Priority support",

@@ -8,7 +8,21 @@ client = TestClient(app)
 def test_health():
     r = client.get("/v1/health")
     assert r.status_code == 200
-    assert r.json()["status"] == "ok"
+    data = r.json()
+    assert data["status"] in ("ok", "degraded")
+
+
+def test_pause_invoice_not_found(requires_db):
+    email = "pause-test@gentletap.dev"
+    password = "securepass123"
+    client.post("/v1/auth/register", json={"email": email, "password": password, "full_name": "Pause"})
+    login = client.post("/v1/auth/login", json={"email": email, "password": password})
+    token = login.json()["access_token"]
+    r = client.post(
+        "/v1/invoices/00000000-0000-0000-0000-000000000001/pause",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 404
 
 
 def test_register_and_login(requires_db):
@@ -24,7 +38,7 @@ def test_register_and_login(requires_db):
     r = client.get("/v1/auth/me", headers={"Authorization": f"Bearer {data['access_token']}"})
     assert r.status_code == 200
     assert r.json()["email"] == email
-    assert r.json()["onboarding_step"] == "quickbooks"
+    assert r.json()["onboarding_step"] == "account"
 
 
 def test_invoices_summary_requires_auth():

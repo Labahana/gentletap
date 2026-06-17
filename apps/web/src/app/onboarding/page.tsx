@@ -14,6 +14,14 @@ const STEPS = [
   { id: "preview", title: "Preview reminders" },
 ];
 
+const BACKEND_STEP_INDEX: Record<string, number> = {
+  account: 0,
+  quickbooks: 1,
+  import: 2,
+  email: 3,
+  preview: 4,
+};
+
 type ImportSummary = {
   count: number;
   total: number;
@@ -33,6 +41,7 @@ function OnboardingContent() {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [resendEmail, setResendEmail] = useState("");
   const [approving, setApproving] = useState(false);
+  const [approveNote, setApproveNote] = useState<string | null>(null);
   const [importSummary, setImportSummary] = useState<ImportSummary>({
     count: 0,
     total: 0,
@@ -43,6 +52,16 @@ function OnboardingContent() {
   useEffect(() => {
     if (!loading && !user) router.replace("/signup");
   }, [loading, user, router]);
+
+  useEffect(() => {
+    if (!user) return;
+    if (user.onboarding_step === "live" || user.onboarding_completed_at) {
+      router.replace("/dashboard");
+      return;
+    }
+    const idx = BACKEND_STEP_INDEX[user.onboarding_step];
+    if (idx !== undefined) setStep(idx);
+  }, [user, router]);
 
   useEffect(() => {
     const qb = searchParams.get("qb");
@@ -57,7 +76,7 @@ function OnboardingContent() {
       setQbError(message ?? "QuickBooks connection failed");
       router.replace("/onboarding");
     } else if (email === "connected") {
-      setStep(4);
+      setStep(BACKEND_STEP_INDEX.preview);
       router.replace("/onboarding");
     } else if (email === "error") {
       setStep(3);
@@ -149,13 +168,31 @@ function OnboardingContent() {
     }
   }
 
+  async function continueFromImport() {
+    const token = getToken();
+    if (token) {
+      await api.advanceOnboardingEmail(token);
+      await refresh();
+    }
+    setStep(BACKEND_STEP_INDEX.email);
+  }
+
   async function verifyResend() {
     const token = getToken();
     if (!token || !resendEmail) return;
     setEmailError(null);
     try {
       await api.verifyResendSender(token, resendEmail);
-      setStep(4);
+      for (let attempt = 0; attempt < 30; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        const status = await api.resendSenderStatus(token);
+        if (status.verified) {
+          await refresh();
+          setStep(BACKEND_STEP_INDEX.preview);
+          return;
+        }
+      }
+      setEmailError("Verification pending — check your inbox, then reload this page.");
     } catch (err) {
       setEmailError(err instanceof Error ? err.message : "Verification failed");
     }
@@ -165,12 +202,34 @@ function OnboardingContent() {
     const token = getToken();
     if (!token) return;
     setApproving(true);
+    setApproveNote(null);
+    setEmailError(null);
     try {
-      await api.approveAll(token);
+      const result = await api.approveAll(token);
       await refresh();
+      const skipped = result.skipped_escalation.length + result.skipped_other.length;
+      if (skipped > 0) {
+        const parts: string[] = [];
+        if (result.skipped_escalation.length > 0) {
+          parts.push(
+            `${result.skipped_escalation.length} invoice(s) need you personally (see Needs you)`,
+          );
+        }
+        if (result.skipped_other.length > 0) {
+          parts.push(`${result.skipped_other.length} skipped (missing contact or other issue)`);
+        }
+        setApproveNote(`Activated ${result.activated}. ${parts.join(". ")}.`);
+      }
       router.push("/dashboard");
     } catch (err) {
-      setEmailError(err instanceof Error ? err.message : "Could not activate reminders");
+      const msg = err instanceof Error ? err.message : "Could not activate reminders";
+      if (msg.includes("collections per month") || msg.includes("Upgrade")) {
+        setEmailError(
+          `${msg} Visit billing to upgrade.`,
+        );
+      } else {
+        setEmailError(msg);
+      }
       setApproving(false);
     }
   }
@@ -251,7 +310,7 @@ function OnboardingContent() {
               )}
             </div>
             <p className="text-sm text-muted">{importSummary.message}</p>
-            <button className="btn-primary w-full" onClick={() => setStep(3)} disabled={importSummary.syncing}>
+            <button className="btn-primary w-full" onClick={continueFromImport} disabled={importSummary.syncing}>
               Continue
             </button>
           </div>
@@ -305,15 +364,20 @@ function OnboardingContent() {
                       </p>
                       {p.subject && <p className="mt-1 font-medium">{p.subject}</p>}
                       <pre className="mt-2 whitespace-pre-wrap font-sans leading-relaxed">{p.body}</pre>
-                      {p.channel === "whatsapp" && (
+                      {p.whatsapp_followup && (
                         <p className="mt-2 text-xs text-muted">
-                          Sent via Meta-approved WhatsApp template — wording is fixed per policy.
+                          WhatsApp follow-up scheduled a few hours after this email (steps 1–3 only).
                         </p>
                       )}
                     </>
                   )}
                 </div>
               ))
+            )}
+            {approveNote && (
+              <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                {approveNote}
+              </p>
             )}
             {emailError && (
               <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{emailError}</p>

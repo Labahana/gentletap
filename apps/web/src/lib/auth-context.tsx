@@ -8,13 +8,13 @@ import {
   useMemo,
   useState,
 } from "react";
-import { api, clearToken, getToken, setTokens, type User } from "./api";
+import { api, clearToken, getRefreshToken, getToken, setTokens, type User } from "./api";
 
 type AuthContextValue = {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, fullName: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
+  register: (email: string, password: string, fullName: string) => Promise<User>;
   logout: () => void;
   refresh: () => Promise<void>;
 };
@@ -49,16 +49,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     const { access_token, refresh_token } = await api.login({ email, password });
     setTokens(access_token, refresh_token);
-    setUser(await api.me(access_token));
+    const me = await api.me(access_token);
+    setUser(me);
+    return me;
   }, []);
 
   const register = useCallback(async (email: string, password: string, fullName: string) => {
     const { access_token, refresh_token } = await api.register({ email, password, full_name: fullName });
     setTokens(access_token, refresh_token);
-    setUser(await api.me(access_token));
+    const me = await api.me(access_token);
+    setUser(me);
+    return me;
   }, []);
 
   const logout = useCallback(() => {
+    const refresh = getRefreshToken();
+    if (refresh) {
+      api.logout(refresh).catch(() => undefined);
+    }
     clearToken();
     setUser(null);
   }, []);

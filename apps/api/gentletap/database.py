@@ -60,9 +60,79 @@ class Profile(Base, TimestampMixin):
     full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     persona: Mapped[str | None] = mapped_column(String(50), nullable=True)
     plan: Mapped[str] = mapped_column(String(20), default="free", nullable=False)
-    stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    paddle_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    paddle_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     onboarding_step: Mapped[str] = mapped_column(String(50), default="account", nullable=False)
     onboarding_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    timezone: Mapped[str] = mapped_column(String(64), default="America/New_York", nullable=False)
+    whatsapp_message_credits: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
+class BillingWebhookEvent(Base):
+    __tablename__ = "billing_webhook_events"
+
+    event_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class IntegrationWebhookEvent(Base):
+    __tablename__ = "integration_webhook_events"
+
+    event_key: Mapped[str] = mapped_column(String(512), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class WhatsappConnection(Base, TimestampMixin):
+    __tablename__ = "whatsapp_connections"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), unique=True, index=True, nullable=False)
+    mode: Mapped[str] = mapped_column(String(20), nullable=False)
+    phone_e164: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    sender_sid: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    waba_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    meta_phone_number_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    twilio_subaccount_sid: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    twilio_subaccount_token_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)
+    connected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    disconnected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class WhatsappFollowupJob(Base, TimestampMixin):
+    __tablename__ = "whatsapp_followup_jobs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    invoice_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("invoices.id"), index=True, nullable=False)
+    sequence_step: Mapped[int] = mapped_column(Integer, nullable=False)
+    tone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    scheduled_for: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="pending", nullable=False)
+    reminder_message_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class WhatsappInboundMessage(Base):
+    __tablename__ = "whatsapp_inbound_messages"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    invoice_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True, nullable=True)
+    client_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    reminder_message_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    from_phone: Mapped[str] = mapped_column(String(50), nullable=False)
+    to_phone: Mapped[str] = mapped_column(String(50), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    external_sid: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    routed_via: Mapped[str] = mapped_column(String(30), default="shared_number", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
 
 class RefreshToken(Base, TimestampMixin):
@@ -144,6 +214,7 @@ class Client(Base, TimestampMixin):
     communication_style: Mapped[str] = mapped_column(String(20), default="unknown", nullable=False)
     risk_level: Mapped[str] = mapped_column(String(20), default="medium", nullable=False)
     preferred_channel: Mapped[str] = mapped_column(String(20), default="email", nullable=False)
+    email_suppressed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     profile_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
@@ -167,8 +238,10 @@ class Invoice(Base, TimestampMixin):
     sequence_step: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     sequence_paused: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     sequence_approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    sequence_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     dispute_flag: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     client_responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    client_claimed_paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_reminder_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     qb_last_updated: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

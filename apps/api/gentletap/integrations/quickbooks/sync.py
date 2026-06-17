@@ -188,29 +188,22 @@ def sync_unpaid_invoices(db: Session, user_id: UUID) -> dict:
         reprofile_user_clients(db, user_id)
 
         # Mark invoices paid if no longer returned by QB unpaid query
+        from decimal import Decimal as D
+
+        from gentletap.services.payments import apply_invoice_balance_update
+
         synced_qb_ids = {str(qb.get("Id")) for qb in qb_invoices}
+        stale_q = db.query(Invoice).filter(Invoice.user_id == user_id, Invoice.balance > 0)
         if synced_qb_ids:
-            from decimal import Decimal as D
-
-            from gentletap.services.payments import apply_invoice_balance_update
-
-            stale = (
-                db.query(Invoice)
-                .filter(
-                    Invoice.user_id == user_id,
-                    Invoice.balance > 0,
-                    Invoice.qb_invoice_id.notin_(synced_qb_ids),
-                )
-                .all()
+            stale_q = stale_q.filter(Invoice.qb_invoice_id.notin_(synced_qb_ids))
+        for inv in stale_q.all():
+            apply_invoice_balance_update(
+                db,
+                user_id=user_id,
+                qb_invoice_id=inv.qb_invoice_id,
+                balance=D("0"),
+                notify=True,
             )
-            for inv in stale:
-                apply_invoice_balance_update(
-                    db,
-                    user_id=user_id,
-                    qb_invoice_id=inv.qb_invoice_id,
-                    balance=D("0"),
-                    notify=True,
-                )
 
         result = {
             "status": "complete",

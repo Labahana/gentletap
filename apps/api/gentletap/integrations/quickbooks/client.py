@@ -56,11 +56,16 @@ def query(
         payload = response.json()
 
     query_response = payload.get("QueryResponse", {})
-    for key in ("Invoice", "Customer"):
+    for key in ("Invoice", "Customer", "Payment", "CreditMemo", "Estimate"):
         if key in query_response:
             items = query_response[key]
             return items if isinstance(items, list) else [items]
     return []
+
+
+def _safe_qb_id(entity_id: str) -> str | None:
+    value = str(entity_id).strip()
+    return value if value.isdigit() else None
 
 
 def get_customer(
@@ -70,10 +75,13 @@ def get_customer(
     *,
     settings: Settings | None = None,
 ) -> dict[str, Any] | None:
+    safe_id = _safe_qb_id(customer_id)
+    if not safe_id:
+        return None
     rows = query(
         db,
         connection,
-        f"SELECT * FROM Customer WHERE Id = '{customer_id}'",
+        f"SELECT * FROM Customer WHERE Id = '{safe_id}'",
         settings=settings,
     )
     return rows[0] if rows else None

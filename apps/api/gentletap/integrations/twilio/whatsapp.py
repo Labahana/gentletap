@@ -17,22 +17,30 @@ def send_whatsapp_template(
     to_phone: str,
     content_sid: str,
     content_variables: dict[str, str],
+    from_number: str | None = None,
+    account_sid: str | None = None,
+    auth_token: str | None = None,
 ) -> str:
     """Send a business-initiated WhatsApp message using an approved Content Template."""
     settings = get_settings()
-    if not settings.twilio_account_sid or not settings.twilio_auth_token or not settings.twilio_whatsapp_from:
+    sid = account_sid or settings.twilio_account_sid
+    token = auth_token or settings.twilio_auth_token
+    if not sid or not token:
         raise ValueError("WhatsApp is not configured")
 
+    from_num = from_number or settings.twilio_whatsapp_from
+    if not from_num:
+        raise ValueError("WhatsApp sender number is not configured")
+
     to = to_phone if to_phone.startswith("whatsapp:") else f"whatsapp:{to_phone}"
-    from_num = settings.twilio_whatsapp_from
     if not from_num.startswith("whatsapp:"):
         from_num = f"whatsapp:{from_num}"
 
-    url = f"https://api.twilio.com/2010-04-01/Accounts/{settings.twilio_account_sid}/Messages.json"
+    url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
     with httpx.Client(timeout=30.0) as client:
         response = client.post(
             url,
-            auth=(settings.twilio_account_sid, settings.twilio_auth_token),
+            auth=(sid, token),
             data={
                 "From": from_num,
                 "To": to,

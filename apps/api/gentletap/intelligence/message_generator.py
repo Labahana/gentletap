@@ -26,15 +26,17 @@ def _contains_banned(text: str) -> bool:
 
 def _fallback_message(ctx: ReminderContext, tone: Tone) -> GeneratedMessage:
     inv = ctx.invoice
-    due_str = inv.due_date.strftime("%B %d, %Y")
-    subject = f"Quick note on invoice #{inv.doc_number}"
+    due_str = inv.due_date.strftime("%B %d, %Y") if inv.due_date else "the due date"
+    overdue = f" ({inv.days_overdue} days overdue)" if inv.days_overdue > 0 else ""
+    subject = f"Invoice #{inv.doc_number} — payment reminder"
+    if tone in (Tone.FIRM, Tone.URGENT):
+        subject = f"Action needed: invoice #{inv.doc_number}"
     body = (
         f"Hi {ctx.client_name},\n\n"
-        f"Hope you're having a good week. Just a gentle check-in that invoice #{inv.doc_number} "
-        f"for ${inv.balance:,.2f} was due on {due_str}"
-        f"{f' ({inv.days_overdue} days ago)' if inv.days_overdue > 0 else ''}.\n\n"
-        f"I'm sure it just slipped through — wanted to make sure it's on your radar. "
-        f"Happy to answer any questions.\n\nBest regards"
+        f"This is a reminder that invoice #{inv.doc_number} for ${inv.balance:,.2f} "
+        f"was due on {due_str}{overdue}.\n\n"
+        f"{_tone_instruction(tone).capitalize()}.\n\n"
+        f"Please let me know if you have any questions.\n\nBest regards"
     )
     return GeneratedMessage(subject=subject, body=body)
 

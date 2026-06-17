@@ -13,6 +13,7 @@ celery_app = Celery(
         "gentletap.tasks.sync",
         "gentletap.tasks.reminders",
         "gentletap.tasks.tokens",
+        "gentletap.tasks.whatsapp",
     ],
 )
 
@@ -41,7 +42,15 @@ celery_app.conf.update(
         },
         "evaluate-reminders": {
             "task": "gentletap.tasks.reminders.evaluate_due_reminders",
-            "schedule": crontab(minute=0),
+            "schedule": crontab(minute="*/5"),
+        },
+        "evaluate-whatsapp-followups": {
+            "task": "gentletap.tasks.whatsapp.evaluate_followups",
+            "schedule": crontab(minute="*/15"),
+        },
+        "poll-registering-whatsapp-senders": {
+            "task": "gentletap.tasks.whatsapp.poll_registering_senders",
+            "schedule": crontab(minute="*/5"),
         },
     },
 )

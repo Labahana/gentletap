@@ -75,7 +75,29 @@ def test_engine_escalates_at_21_days():
     assert result.action == Action.ESCALATE
 
 
-def test_engine_selects_whatsapp_for_pro_step_one_plus():
+def test_needs_human_at_step_four():
+    from gentletap.intelligence.escalation import needs_human
+
+    ctx = ReminderContext(
+        client_id="c1",
+        client_name="Mike",
+        client_email="mike@example.com",
+        profile=ClientProfile(),
+        invoice=InvoiceContext(
+            invoice_id="inv2",
+            doc_number="5678",
+            amount=500,
+            balance=500,
+            days_overdue=10,
+            due_date=datetime.now(UTC),
+            sequence_step=4,
+            approved=True,
+        ),
+    )
+    assert needs_human(ctx) is True
+
+
+def test_engine_selects_email_and_plans_whatsapp_followup_on_step_one_plus():
     ctx = ReminderContext(
         client_id="c1",
         client_name="Sarah",
@@ -96,4 +118,4 @@ def test_engine_selects_whatsapp_for_pro_step_one_plus():
     )
     result = IntelligenceEngine().decide(ctx)
     assert result.action == Action.SEND
-    assert result.channel == Channel.WHATSAPP
+    assert result.channel == Channel.EMAIL

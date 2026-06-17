@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from gentletap.config import get_settings
 from gentletap.database import get_db
 from gentletap.dependencies import CurrentUser
-from gentletap.integrations.stripe import billing as stripe_billing
+from gentletap.integrations.paddle import billing as paddle_billing
 from gentletap.plans import plan_display_name
 from gentletap.schemas.billing import BillingStatusResponse, CheckoutRequest, PlanFeature
 
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/billing", tags=["billing"])
 @router.get("/status", response_model=BillingStatusResponse)
 def billing_status(user: CurrentUser) -> BillingStatusResponse:
     settings = get_settings()
-    catalog = stripe_billing.catalog_with_availability(settings)
+    catalog = paddle_billing.catalog_with_availability(settings)
     checkout_available = any(
         p["checkout_monthly_available"] or p["checkout_annual_available"]
         for p in catalog
@@ -23,7 +23,7 @@ def billing_status(user: CurrentUser) -> BillingStatusResponse:
     return BillingStatusResponse(
         plan=user.plan,
         plan_display_name=plan_display_name(user.plan),
-        stripe_customer_id=user.stripe_customer_id,
+        paddle_customer_id=user.paddle_customer_id,
         checkout_available=checkout_available,
         plans=[PlanFeature(**p) for p in catalog],
     )
@@ -32,7 +32,7 @@ def billing_status(user: CurrentUser) -> BillingStatusResponse:
 @router.get("/plans")
 def list_plans() -> dict:
     settings = get_settings()
-    return {"items": stripe_billing.catalog_with_availability(settings)}
+    return {"items": paddle_billing.catalog_with_availability(settings)}
 
 
 @router.post("/checkout")
@@ -43,7 +43,7 @@ def checkout(
 ) -> dict:
     settings = get_settings()
     try:
-        url = stripe_billing.create_checkout_session(
+        url = paddle_billing.create_checkout_session(
             db,
             user,
             plan=body.plan,
@@ -60,7 +60,7 @@ def checkout(
 def portal(user: CurrentUser) -> dict:
     settings = get_settings()
     try:
-        url = stripe_billing.create_portal_session(user, return_url=f"{settings.web_url}/settings/billing")
+        url = paddle_billing.create_portal_session(user, return_url=f"{settings.web_url}/settings/billing")
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return {"portal_url": url}

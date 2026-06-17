@@ -24,6 +24,7 @@
   --color-green: var(--green);
   --color-yellow: var(--yellow);
   --color-red: var(--red);
+  --color-primary: var(--accent);
   --font-sans: var(--font-dm-sans);
 }
 
@@ -42,4 +43,8 @@ body {
 
 .card {
   @apply rounded-2xl border border-border bg-card p-6 shadow-sm;
+}
+
+.input {
+  @apply w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm;
 }

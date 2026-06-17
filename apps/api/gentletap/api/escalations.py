@@ -27,7 +27,7 @@ def list_escalations(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
         ctx = build_reminder_context(db, inv.id, user.id)
         if ctx is None:
             continue
-        if needs_human(ctx) or inv.days_overdue >= 21:
+        if needs_human(ctx):
             items.append(
                 {
                     "invoice_id": str(inv.id),

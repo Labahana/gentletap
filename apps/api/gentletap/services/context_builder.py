@@ -72,6 +72,7 @@ def build_reminder_context(db: Session, invoice_id: UUID, user_id: UUID) -> Remi
         client_name=client.name,
         client_email=client.email,
         client_phone=client.phone,
+        email_suppressed=bool(client.email_suppressed),
         user_plan=user.plan,
         sender_name=sender_name,
         profile=client_profile_from_row(client),

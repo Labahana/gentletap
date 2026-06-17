@@ -1,15 +1,64 @@
 import json
+import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 from gentletap.config import get_settings
-from gentletap.database import Profile, get_db
+from gentletap.database import ReminderMessage, WhatsappConnection, get_db
+from gentletap.integrations.paddle import webhooks as paddle_webhooks
 from gentletap.integrations.quickbooks import webhooks as qb_webhooks
 from gentletap.integrations.resend import webhooks as resend_webhooks
-from gentletap.integrations.stripe import billing as stripe_billing
+from gentletap.integrations.twilio.phone import normalize_phone_e164, phones_match
+from gentletap.integrations.twilio.webhook_verify import verify_twilio_signature
+from gentletap.services.whatsapp_inbound import handle_inbound_whatsapp
+from gentletap.services.whatsapp_routing import routed_via_for_to_phone
+from gentletap.utils.crypto import decrypt_token
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
+
+
+def _twilio_auth_for_inbound(db: Session, to_phone: str) -> str:
+    settings = get_settings()
+    if not settings.twilio_auth_token:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Twilio webhooks not configured",
+        )
+
+    normalized_to = normalize_phone_e164(to_phone.replace("whatsapp:", ""))
+    if normalized_to:
+        conns = (
+            db.query(WhatsappConnection)
+            .filter(
+                WhatsappConnection.disconnected_at.is_(None),
+                WhatsappConnection.phone_e164.isnot(None),
+                WhatsappConnection.twilio_subaccount_token_enc.isnot(None),
+            )
+            .all()
+        )
+        for conn in conns:
+            if conn.phone_e164 and phones_match(conn.phone_e164, normalized_to):
+                token = decrypt_token(conn.twilio_subaccount_token_enc or "")
+                if token:
+                    return token
+    return settings.twilio_auth_token
+
+
+def _verify_twilio(request: Request, params: dict[str, str], db: Session) -> None:
+    settings = get_settings()
+    auth_token = _twilio_auth_for_inbound(db, params.get("To", ""))
+    signature = request.headers.get("X-Twilio-Signature")
+    url = f"{settings.api_url.rstrip('/')}{request.url.path}"
+    if not verify_twilio_signature(
+        url=url,
+        params=params,
+        signature=signature,
+        auth_token=auth_token,
+    ):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Twilio signature")
 
 
 @router.post("/quickbooks")
@@ -25,47 +74,88 @@ async def quickbooks_webhook(request: Request, db: Session = Depends(get_db)) ->
 
 @router.post("/resend")
 async def resend_webhook(request: Request, db: Session = Depends(get_db)) -> dict:
+    settings = get_settings()
+    if not settings.resend_webhook_secret:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Resend webhooks not configured")
     payload = await request.body()
-    signature = request.headers.get("svix-signature") or request.headers.get("resend-signature")
-    if get_settings().resend_webhook_secret and not resend_webhooks.verify_signature(payload, signature):
+    headers = {k: v for k, v in request.headers.items()}
+    if not resend_webhooks.verify_signature(payload, headers):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid signature")
     data = json.loads(payload.decode())
     resend_webhooks.handle_webhook_event(db, data)
     return {"received": True}
 
 
-@router.post("/stripe")
-async def stripe_webhook(request: Request, db: Session = Depends(get_db)) -> dict:
-    import stripe
-
+@router.post("/paddle")
+async def paddle_webhook(request: Request, db: Session = Depends(get_db)) -> dict:
     settings = get_settings()
-    if not settings.stripe_webhook_secret:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Stripe webhooks not configured")
+    if not settings.paddle_webhook_secret:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Paddle webhooks not configured")
 
     payload = await request.body()
-    sig = request.headers.get("Stripe-Signature", "")
-    stripe.api_key = settings.stripe_secret_key
-    try:
-        event = stripe.Webhook.construct_event(payload, sig, settings.stripe_webhook_secret)
-    except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    signature = request.headers.get("Paddle-Signature", "")
+    if not paddle_webhooks.verify_signature(payload, signature):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Paddle signature")
 
-    if event["type"] == "checkout.session.completed":
-        session = event["data"]["object"]
-        user_id = session.get("metadata", {}).get("user_id")
-        if user_id:
-            plan = session.get("metadata", {}).get("plan") or "pro"
-            stripe_billing.apply_subscription_update(db, user_id, plan)
-    elif event["type"] in ("customer.subscription.deleted", "customer.subscription.updated"):
-        sub = event["data"]["object"]
-        status_value = sub.get("status")
-        customer_id = sub.get("customer")
-        user = db.query(Profile).filter(Profile.stripe_customer_id == customer_id).one_or_none()
-        if user:
-            if status_value in ("active", "trialing"):
-                plan = stripe_billing.resolve_plan_from_subscription(sub, settings)
-            else:
-                plan = "free"
-            stripe_billing.apply_subscription_update(db, str(user.id), plan)
+    data = json.loads(payload.decode())
+    paddle_webhooks.handle_webhook_event(db, data, settings)
+    return {"received": True}
+
+
+@router.post("/twilio/whatsapp")
+async def twilio_whatsapp_inbound(request: Request, db: Session = Depends(get_db)) -> Response:
+    form = await request.form()
+    params = {k: str(v) for k, v in form.items()}
+    _verify_twilio(request, params, db)
+
+    from_phone = params.get("From", "")
+    to_phone = params.get("To", "")
+    body = params.get("Body", "")
+    message_sid = params.get("MessageSid")
+
+    if from_phone and body:
+        routed = routed_via_for_to_phone(db, to_phone)
+        try:
+            handle_inbound_whatsapp(
+                db,
+                from_phone=from_phone,
+                to_phone=to_phone,
+                body=body,
+                external_sid=message_sid,
+                routed_via=routed,
+            )
+            db.commit()
+        except ValueError as exc:
+            db.rollback()
+            logger.warning("Unroutable WhatsApp inbound from=%s to=%s: %s", from_phone, to_phone, exc)
+
+    return Response(
+        content='<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+        media_type="application/xml",
+    )
+
+
+@router.post("/twilio/whatsapp/status")
+async def twilio_whatsapp_status(request: Request, db: Session = Depends(get_db)) -> dict:
+    form = await request.form()
+    params = {k: str(v) for k, v in form.items()}
+    _verify_twilio(request, params, db)
+
+    message_sid = params.get("MessageSid")
+    message_status = (params.get("MessageStatus") or "").lower()
+    if message_sid:
+        msg = (
+            db.query(ReminderMessage)
+            .filter(ReminderMessage.external_message_id == message_sid)
+            .one_or_none()
+        )
+        if msg:
+            if message_status in ("delivered", "read", "sent"):
+                if msg.status != "sent":
+                    msg.status = "sent"
+            elif message_status in ("failed", "undelivered"):
+                msg.status = "failed"
+                msg.error_message = params.get("ErrorMessage") or message_status
+            db.commit()
 
     return {"received": True}

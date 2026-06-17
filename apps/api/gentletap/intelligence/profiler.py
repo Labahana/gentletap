@@ -13,6 +13,12 @@ def _months_between(start: date, end: date) -> int:
 
 
 def profile_client(db: Session, client: Client) -> None:
+    from gentletap.integrations.quickbooks.client import _safe_qb_id
+
+    safe_cid = _safe_qb_id(client.qb_customer_id or "")
+    if not safe_cid:
+        return
+
     connection = (
         db.query(QuickBooksConnection)
         .filter(
@@ -28,7 +34,7 @@ def profile_client(db: Session, client: Client) -> None:
         paid_rows = qb_client.query(
             db,
             connection,
-            f"SELECT * FROM Invoice WHERE CustomerRef = '{client.qb_customer_id}' AND Balance = '0' MAXRESULTS 100",
+            f"SELECT * FROM Invoice WHERE CustomerRef = '{safe_cid}' AND Balance = '0' MAXRESULTS 100",
         )
     except Exception:
         paid_rows = []
@@ -47,8 +53,14 @@ def profile_client(db: Session, client: Client) -> None:
         if txn_date:
             d = date.fromisoformat(txn_date)
             first_date = d if first_date is None or d < first_date else first_date
-        if due_date and txn_date:
-            days = (date.fromisoformat(txn_date) - date.fromisoformat(due_date)).days
+        if due_date:
+            due = date.fromisoformat(due_date)
+            paid_on = date.fromisoformat(txn_date) if txn_date else due
+            meta = row.get("MetaData") or {}
+            last_updated = meta.get("LastUpdatedTime")
+            if last_updated:
+                paid_on = date.fromisoformat(str(last_updated)[:10])
+            days = (paid_on - due).days
             days_list.append(days)
             if days <= 0:
                 on_time += 1

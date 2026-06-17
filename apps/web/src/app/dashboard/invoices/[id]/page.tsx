@@ -101,7 +101,37 @@ export default function InvoiceDetailPage() {
               </div>
             </div>
 
-            <div className="mt-6 flex gap-3">
+            {invoice.client_claimed_paid_at && invoice.balance > 0 && (
+              <p className="mt-6 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
+                Client claims they paid ({new Date(invoice.client_claimed_paid_at).toLocaleString()}
+                ). Reminders continue until QuickBooks shows this invoice as paid.
+              </p>
+            )}
+
+            {invoice.dispute_flag && (
+              <p className="mt-6 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-900 dark:text-red-100">
+                This invoice is marked as disputed — reminders are paused.
+              </p>
+            )}
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              {!invoice.sequence_active && !invoice.dispute_flag && (
+                <button
+                  className="btn-primary"
+                  onClick={async () => {
+                    const token = getToken();
+                    if (!token) return;
+                    try {
+                      await api.approveInvoice(token, invoice.id);
+                      load();
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : "Could not activate reminders");
+                    }
+                  }}
+                >
+                  Activate reminders
+                </button>
+              )}
               {invoice.sequence_active && !invoice.sequence_paused ? (
                 <button
                   className="btn-secondary"
@@ -127,6 +157,39 @@ export default function InvoiceDetailPage() {
                   Resume sequence
                 </button>
               ) : null}
+              {!invoice.dispute_flag ? (
+                <button
+                  className="btn-secondary"
+                  onClick={async () => {
+                    const token = getToken();
+                    if (!token) return;
+                    try {
+                      await api.markDispute(token, invoice.id);
+                      load();
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : "Could not mark dispute");
+                    }
+                  }}
+                >
+                  Mark disputed
+                </button>
+              ) : (
+                <button
+                  className="btn-secondary"
+                  onClick={async () => {
+                    const token = getToken();
+                    if (!token) return;
+                    try {
+                      await api.clearDispute(token, invoice.id);
+                      load();
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : "Could not clear dispute");
+                    }
+                  }}
+                >
+                  Clear dispute
+                </button>
+              )}
             </div>
 
             <div className="card mt-8">

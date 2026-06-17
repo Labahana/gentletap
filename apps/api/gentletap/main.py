@@ -17,14 +17,16 @@ from gentletap.api import (
     quickbooks,
     reminders,
     webhooks,
+    whatsapp,
 )
 from gentletap.api.google import email_router
-from gentletap.config import get_settings
+from gentletap.config import get_settings, validate_production_settings
 from gentletap.rate_limit import limiter
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    validate_production_settings(get_settings())
     yield
 
 
@@ -67,6 +69,7 @@ def create_app() -> FastAPI:
     app.include_router(escalations.router, prefix=prefix)
     app.include_router(notifications.router, prefix=prefix)
     app.include_router(billing.router, prefix=prefix)
+    app.include_router(whatsapp.router, prefix=prefix)
     app.include_router(webhooks.router, prefix=prefix)
 
     @app.get("/")

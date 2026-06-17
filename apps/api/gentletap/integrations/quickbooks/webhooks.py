@@ -8,7 +8,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from gentletap.config import get_settings
-from gentletap.database import QuickBooksConnection
+from gentletap.database import IntegrationWebhookEvent, QuickBooksConnection
 from gentletap.integrations.quickbooks import client as qb_client
 from gentletap.services.payments import apply_invoice_balance_update
 
@@ -43,7 +43,22 @@ def normalize_payload(payload: dict) -> list[dict]:
     return []
 
 
+def _claim_event(db: Session, event_key: str) -> bool:
+    if not event_key:
+        return True
+    if (
+        db.query(IntegrationWebhookEvent)
+        .filter(IntegrationWebhookEvent.event_key == event_key)
+        .one_or_none()
+    ):
+        return False
+    db.add(IntegrationWebhookEvent(event_key=event_key))
+    db.flush()
+    return True
+
+
 def handle_webhook_event(db: Session, payload: dict) -> None:
+    cloud_event_id = str(payload.get("id") or "")
     for notification in normalize_payload(payload):
         realm_id = notification.get("realmId")
         if not realm_id:
@@ -64,17 +79,29 @@ def handle_webhook_event(db: Session, payload: dict) -> None:
             entity_id = entity.get("id")
             if not entity_id:
                 continue
+            event_key = cloud_event_id or f"qb:{realm_id}:{name}:{entity_id}"
+            if not _claim_event(db, event_key):
+                continue
             if name == "Invoice":
                 _handle_invoice_event(db, connection, entity_id)
             elif name == "Payment":
                 _handle_payment_event(db, connection, entity_id)
+        db.commit()
+
+
+def _qb_entity_id(entity_id: str) -> str | None:
+    value = str(entity_id).strip()
+    return value if value.isdigit() else None
 
 
 def _handle_invoice_event(db: Session, connection: QuickBooksConnection, invoice_id: str) -> None:
+    safe_id = _qb_entity_id(invoice_id)
+    if not safe_id:
+        return
     rows = qb_client.query(
         db,
         connection,
-        f"SELECT * FROM Invoice WHERE Id = '{invoice_id}'",
+        f"SELECT * FROM Invoice WHERE Id = '{safe_id}'",
     )
     if not rows:
         return
@@ -90,10 +117,13 @@ def _handle_invoice_event(db: Session, connection: QuickBooksConnection, invoice
 
 
 def _handle_payment_event(db: Session, connection: QuickBooksConnection, payment_id: str) -> None:
+    safe_payment_id = _qb_entity_id(payment_id)
+    if not safe_payment_id:
+        return
     rows = qb_client.query(
         db,
         connection,
-        f"SELECT * FROM Payment WHERE Id = '{payment_id}'",
+        f"SELECT * FROM Payment WHERE Id = '{safe_payment_id}'",
     )
     if not rows:
         return
@@ -102,10 +132,13 @@ def _handle_payment_event(db: Session, connection: QuickBooksConnection, payment
         linked = line.get("LinkedTxn", [])
         for link in linked:
             if link.get("TxnType") == "Invoice":
+                safe_inv_id = _qb_entity_id(link.get("TxnId", ""))
+                if not safe_inv_id:
+                    continue
                 inv_rows = qb_client.query(
                     db,
                     connection,
-                    f"SELECT * FROM Invoice WHERE Id = '{link['TxnId']}'",
+                    f"SELECT * FROM Invoice WHERE Id = '{safe_inv_id}'",
                 )
                 if inv_rows:
                     balance = Decimal(str(inv_rows[0].get("Balance", 0)))

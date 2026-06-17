@@ -21,6 +21,10 @@ def set_json(key: str, value: dict[str, Any], ttl_seconds: int | None = None) ->
         client.set(key, payload)
 
 
+def delete_key(key: str) -> None:
+    get_redis().delete(key)
+
+
 def get_json(key: str) -> dict[str, Any] | None:
     raw = get_redis().get(key)
     if not raw:

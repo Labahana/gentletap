@@ -22,7 +22,7 @@ class IntelligenceEngine:
 
     def should_send(self, ctx: ReminderContext) -> tuple[bool, str | None]:
         inv = ctx.invoice
-        channel = select_channel(ctx)
+        step = inv.sequence_step
         if inv.balance <= 0:
             return False, "invoice_paid"
         if inv.days_overdue < 0:
@@ -35,11 +35,13 @@ class IntelligenceEngine:
             return False, "client_responded"
         if not inv.approved:
             return False, "pending_approval"
-        if channel.value == "email" and not ctx.client_email:
-            return False, "no_client_email"
-        if channel.value == "whatsapp" and not ctx.client_phone:
-            return False, "no_client_phone"
-        if not ctx.client_email and not ctx.client_phone:
+        if ctx.email_suppressed and ctx.client_email:
+            return False, "email_suppressed"
+
+        if step == 0 or step >= 4:
+            if not ctx.client_email:
+                return False, "no_client_email"
+        elif not ctx.client_email and not ctx.client_phone:
             return False, "no_client_contact"
         return True, None
 

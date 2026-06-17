@@ -13,10 +13,10 @@ from sqlalchemy.orm import Session
 from gentletap.config import Settings, get_settings
 from gentletap.database import EmailPreference, GoogleConnection, Profile
 from gentletap.utils.crypto import decrypt_token, encrypt_token
-from gentletap.utils.redis_client import get_json, set_json
+from gentletap.utils.redis_client import delete_key, get_json, set_json
 
 OAUTH_STATE_TTL = 600
-SCOPE = "https://www.googleapis.com/auth/gmail.send"
+SCOPE = "https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email"
 AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 
@@ -103,6 +103,8 @@ def handle_oauth_callback(db: Session, *, code: str, state: str) -> Profile:
     connection.disconnected_at = None
 
     user.onboarding_step = "preview"
+
+    delete_key(_state_key(state))
 
     pref = db.query(EmailPreference).filter(EmailPreference.user_id == user.id).one_or_none()
     if pref is None:

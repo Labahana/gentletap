@@ -54,7 +54,12 @@ def create_refresh_token(db: Session, user_id: UUID) -> str:
 def rotate_refresh_token(db: Session, raw_token: str) -> tuple[str, str] | None:
     token_hash = _hash_token(raw_token)
     row = db.query(RefreshToken).filter(RefreshToken.token_hash == token_hash).one_or_none()
-    if row is None or row.used or row.expires_at < datetime.now(UTC):
+    if row is None:
+        return None
+    if row.used or row.expires_at < datetime.now(UTC):
+        if row.used:
+            db.query(RefreshToken).filter(RefreshToken.family_id == row.family_id).update({"used": True})
+            db.commit()
         return None
     row.used = True
     user_id = row.user_id

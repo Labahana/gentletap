@@ -33,6 +33,7 @@ export type InvoiceItem = {
   sequence_active: boolean;
   sequence_paused: boolean;
   sequence_step: number;
+  dispute_flag?: boolean;
   due_date: string | null;
 };
 
@@ -48,6 +49,7 @@ export type ReminderPreviewItem = {
   body?: string;
   tone?: string;
   channel?: string;
+  whatsapp_followup?: boolean;
   error?: string;
 };
 
@@ -71,6 +73,11 @@ async function request<T>(
       if (!retry.ok) throw await parseError(retry);
       return retry.json() as Promise<T>;
     }
+    clearToken();
+    if (!window.location.pathname.startsWith("/login")) {
+      window.location.href = "/login";
+    }
+    throw new Error("Session expired — please log in again");
   }
   if (!res.ok) throw await parseError(res);
   return res.json() as Promise<T>;
@@ -97,7 +104,34 @@ export const api = {
   login: (body: { email: string; password: string }) =>
     request<TokenResponse>("/auth/login", { method: "POST", body: JSON.stringify(body) }),
 
+  googleAuthUrl: (intent: "signup" | "login" = "signup") =>
+    request<{ authorization_url: string }>(`/auth/google/url?intent=${intent}`),
+
+  googleAuthExchange: (code: string) =>
+    request<TokenResponse>("/auth/google/exchange", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
+
+  forgotPassword: (email: string) =>
+    request<{ message: string }>("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
+  resetPassword: (token: string, password: string) =>
+    request<{ message: string }>("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, password }),
+    }),
+
   me: (token: string) => request<User>("/auth/me", {}, token),
+
+  logout: (refreshToken: string) =>
+    request<{ status: string }>("/auth/logout", {
+      method: "POST",
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    }),
 
   onboardingStatus: (token: string) =>
     request<{ current_step: string; step_index: number; total_steps: number; completed: boolean }>(
@@ -111,6 +145,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ persona }),
     }, token),
+
+  advanceOnboardingEmail: (token: string) =>
+    request<{ current_step: string }>("/onboarding/advance-email", { method: "POST" }, token),
 
   qbConnectUrl: (token: string) =>
     request<{ authorization_url: string }>("/quickbooks/connect-url", {}, token),
@@ -159,6 +196,12 @@ export const api = {
       yellow_count: number;
       red_count: number;
       active_sequences: number;
+      monthly_collections: {
+        monthly_limit: number;
+        monthly_used: number;
+        monthly_remaining: number;
+        cap_reached: boolean;
+      } | null;
     }>("/invoices/summary", {}, token),
 
   invoices: (token: string, status?: string) =>
@@ -179,9 +222,32 @@ export const api = {
     ),
 
   approveAll: (token: string) =>
-    request<{ activated: number; message: string }>(
-      "/reminders/approve-all",
-      { method: "POST" },
+    request<{
+      activated: number;
+      message: string;
+      skipped_escalation: Array<{ invoice_id: string; doc_number: string | null; reason: string }>;
+      skipped_other: Array<{ invoice_id: string; doc_number: string | null; reason: string }>;
+    }>("/reminders/approve-all", { method: "POST" }, token),
+
+  approveInvoice: (token: string, id: string) =>
+    request<{ status: string }>(`/invoices/${id}/approve`, { method: "POST" }, token),
+
+  markDispute: (token: string, id: string) =>
+    request<{ status: string }>(`/invoices/${id}/dispute`, { method: "POST" }, token),
+
+  clearDispute: (token: string, id: string) =>
+    request<{ status: string }>(`/invoices/${id}/clear-dispute`, { method: "POST" }, token),
+
+  qbSync: (token: string) =>
+    request<{ status: string; message: string }>("/quickbooks/sync", { method: "POST" }, token),
+
+  qbDisconnect: (token: string) =>
+    request<{ status: string }>("/quickbooks/disconnect", { method: "POST" }, token),
+
+  updateEmailPreferences: (token: string, send_provider: "google" | "resend") =>
+    request<{ send_provider: string }>(
+      "/email/preferences",
+      { method: "PUT", body: JSON.stringify({ send_provider }) },
       token,
     ),
 
@@ -204,7 +270,9 @@ export const api = {
       sequence_active: boolean;
       sequence_paused: boolean;
       sequence_step: number;
+      dispute_flag: boolean;
       due_date: string | null;
+      client_claimed_paid_at: string | null;
       reminders: Array<{
         id: string;
         sequence_step: number;
@@ -269,6 +337,93 @@ export const api = {
 
   billingPortal: (token: string) =>
     request<{ portal_url: string }>("/billing/portal", {}, token),
+
+  whatsappStatus: (token: string) =>
+    request<{
+      plan_eligible: boolean;
+      connected: boolean;
+      mode: string | null;
+      phone: string | null;
+      status: string | null;
+      platform_configured: boolean;
+      shared_available: boolean;
+      monthly_limit: number;
+      monthly_used: number;
+      monthly_remaining: number;
+      extra_credits: number;
+      total_remaining: number;
+      cap_reached: boolean;
+      embedded_signup?: {
+        configured: boolean;
+        app_id: string | null;
+        config_id: string | null;
+        solution_id: string | null;
+        sdk_version: string;
+        feature_type: string;
+        requires_meta_validation?: boolean;
+      };
+    }>("/whatsapp/status", {}, token),
+
+  whatsappConnectShared: (token: string) =>
+    request<{ connected: boolean; mode: string; message: string }>(
+      "/whatsapp/connect/shared",
+      { method: "POST" },
+      token,
+    ),
+
+  whatsappConnectOwn: (
+    token: string,
+    phone_e164: string,
+    waba_id?: string,
+    meta_code?: string,
+    meta_phone_number_id?: string,
+  ) =>
+    request<{ connected: boolean; mode: string; phone: string; status: string; message: string }>(
+      "/whatsapp/connect/own",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          phone_e164,
+          waba_id: waba_id || null,
+          meta_code: meta_code || null,
+          meta_phone_number_id: meta_phone_number_id || null,
+        }),
+      },
+      token,
+    ),
+
+  whatsappDisconnect: (token: string) =>
+    request<{ connected: boolean }>("/whatsapp/disconnect", { method: "POST" }, token),
+
+  whatsappCheckoutMessages: (token: string, pack: "pack_250" | "pack_500") =>
+    request<{ checkout_url: string }>(
+      "/whatsapp/checkout-messages",
+      { method: "POST", body: JSON.stringify({ pack }) },
+      token,
+    ),
+
+  whatsappEmbeddedSignupComplete: (
+    token: string,
+    body: { waba_id: string; phone_e164: string; meta_phone_number_id?: string; meta_code?: string },
+  ) =>
+    request<{
+      connected: boolean;
+      mode: string;
+      phone: string;
+      status: string;
+      message: string;
+    }>("/whatsapp/embedded-signup/complete", { method: "POST", body: JSON.stringify(body) }, token),
+
+  whatsappInbound: (token: string) =>
+    request<{
+      items: Array<{
+        id: string;
+        from_phone: string;
+        body: string;
+        invoice_id: string | null;
+        created_at: string | null;
+      }>;
+    }>("/whatsapp/inbound", {}, token),
 };
 
 export const TOKEN_KEY = "gentletap_token";

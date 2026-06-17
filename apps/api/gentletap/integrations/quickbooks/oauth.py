@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from gentletap.config import Settings, get_settings
 from gentletap.database import Profile, QuickBooksConnection
 from gentletap.utils.crypto import encrypt_token
-from gentletap.utils.redis_client import get_json, set_json
+from gentletap.utils.redis_client import delete_key, get_json, set_json
 
 OAUTH_STATE_TTL = 600
 SCOPE = "com.intuit.quickbooks.accounting"
@@ -97,6 +97,7 @@ def handle_oauth_callback(
         raise ValueError("User not found")
 
     token_data = _exchange_token(grant_type="authorization_code", code=code, settings=cfg)
+    delete_key(_oauth_state_key(state))
     return _upsert_connection(db, user, realm_id, token_data)
 
 

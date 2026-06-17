@@ -6,7 +6,13 @@ from sqlalchemy.orm import Session
 
 from gentletap.database import Invoice, ReminderMessage, get_db
 from gentletap.dependencies import CurrentUser
-from gentletap.services.sequences import cancel_invoice_jobs, schedule_next_job
+from gentletap.services.email_router import has_delivery_capability
+from gentletap.services.plan_limits import ensure_can_activate, free_plan_collection_usage, mark_collection_started
+from gentletap.services.sequences import (
+    cancel_invoice_jobs,
+    schedule_next_job,
+    scheduled_for_current_step,
+)
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 
@@ -39,6 +45,7 @@ def list_invoices(
                 "sequence_active": inv.sequence_active,
                 "sequence_paused": inv.sequence_paused,
                 "sequence_step": inv.sequence_step,
+                "dispute_flag": inv.dispute_flag,
                 "due_date": inv.due_date.isoformat() if inv.due_date else None,
             }
             for inv in rows
@@ -108,6 +115,7 @@ def invoices_summary(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
         "yellow_count": yellow_count,
         "red_count": red_count,
         "active_sequences": active_sequences,
+        "monthly_collections": free_plan_collection_usage(db, user),
     }
 
 
@@ -143,7 +151,9 @@ def invoice_detail(invoice_id: UUID, user: CurrentUser, db: Session = Depends(ge
         "sequence_active": inv.sequence_active,
         "sequence_paused": inv.sequence_paused,
         "sequence_step": inv.sequence_step,
+        "dispute_flag": inv.dispute_flag,
         "due_date": inv.due_date.isoformat() if inv.due_date else None,
+        "client_claimed_paid_at": inv.client_claimed_paid_at.isoformat() if inv.client_claimed_paid_at else None,
         "reminders": [
             {
                 "id": str(m.id),
@@ -186,13 +196,18 @@ def resume_invoice(invoice_id: UUID, user: CurrentUser, db: Session = Depends(ge
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
     inv.sequence_paused = False
     if inv.sequence_active:
-        schedule_next_job(db, inv, delay_days=0)
+        schedule_next_job(db, inv, scheduled_for=scheduled_for_current_step(db, inv))
     db.commit()
     return {"status": "resumed"}
 
 
 @router.post("/{invoice_id}/approve")
 def approve_invoice(invoice_id: UUID, user: CurrentUser, db: Session = Depends(get_db)) -> dict:
+    if not has_delivery_capability(db, user.id, plan=user.plan):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Connect Gmail or verify an email sender before activating reminders",
+        )
     inv = (
         db.query(Invoice)
         .filter(Invoice.id == invoice_id, Invoice.user_id == user.id)
@@ -200,8 +215,44 @@ def approve_invoice(invoice_id: UUID, user: CurrentUser, db: Session = Depends(g
     )
     if inv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+    if not inv.sequence_active:
+        ensure_can_activate(db, user, [inv])
+        mark_collection_started(inv)
+        inv.sequence_active = True
     inv.sequence_approved = True
-    inv.sequence_active = True
-    schedule_next_job(db, inv, delay_days=0)
+    schedule_next_job(db, inv, scheduled_for=scheduled_for_current_step(db, inv))
     db.commit()
     return {"status": "approved"}
+
+
+@router.post("/{invoice_id}/dispute")
+def mark_dispute(invoice_id: UUID, user: CurrentUser, db: Session = Depends(get_db)) -> dict:
+    inv = (
+        db.query(Invoice)
+        .filter(Invoice.id == invoice_id, Invoice.user_id == user.id)
+        .one_or_none()
+    )
+    if inv is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+    inv.dispute_flag = True
+    inv.sequence_paused = True
+    cancel_invoice_jobs(db, inv.id)
+    db.commit()
+    return {"status": "disputed"}
+
+
+@router.post("/{invoice_id}/clear-dispute")
+def clear_dispute(invoice_id: UUID, user: CurrentUser, db: Session = Depends(get_db)) -> dict:
+    inv = (
+        db.query(Invoice)
+        .filter(Invoice.id == invoice_id, Invoice.user_id == user.id)
+        .one_or_none()
+    )
+    if inv is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+    inv.dispute_flag = False
+    inv.sequence_paused = False
+    if inv.sequence_active and float(inv.balance) > 0:
+        schedule_next_job(db, inv, scheduled_for=scheduled_for_current_step(db, inv))
+    db.commit()
+    return {"status": "cleared"}

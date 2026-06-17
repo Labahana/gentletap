@@ -13,6 +13,19 @@ PLAN_RANK: dict[str, int] = {
 
 PAID_PLANS: frozenset[str] = frozenset({"pro", "pro_plus", "team"})
 
+# WhatsApp: steps 1–3 per invoice; step 0 and 4 are email-only.
+WHATSAPP_MAX_SEQUENCE_STEP = 3
+
+WHATSAPP_MONTHLY_LIMITS: dict[str, int] = {
+    "pro_plus": 450,
+    "team": 850,
+}
+
+WHATSAPP_MESSAGE_PACKS: dict[str, int] = {
+    "pack_250": 250,
+    "pack_500": 500,
+}
+
 
 def normalize_plan(plan: str | None) -> PlanId:
     if plan in PLAN_RANK:
@@ -30,6 +43,14 @@ def has_unlimited_sequences(plan: str | None) -> bool:
 
 def has_whatsapp(plan: str | None) -> bool:
     return normalize_plan(plan) in {"pro_plus", "team"}
+
+
+def whatsapp_monthly_limit(plan: str | None) -> int:
+    return WHATSAPP_MONTHLY_LIMITS.get(normalize_plan(plan), 0)
+
+
+def whatsapp_step_eligible(sequence_step: int) -> bool:
+    return 1 <= sequence_step <= WHATSAPP_MAX_SEQUENCE_STEP
 
 
 def has_priority_ai(plan: str | None) -> bool:
@@ -56,12 +77,13 @@ PLAN_CATALOG: list[dict] = [
         "name": "Starter",
         "price_monthly": 0,
         "price_annual": 0,
-        "active_sequence_limit": 5,
+        "active_sequence_limit": None,
+        "monthly_collection_limit": 5,
         "features": [
             "QuickBooks sync",
             "AI reminder previews",
             "Email reminders (Gmail / Resend)",
-            "5 active invoice sequences",
+            "5 invoice collections per month",
         ],
     },
     {
@@ -71,7 +93,7 @@ PLAN_CATALOG: list[dict] = [
         "price_annual": 190,
         "active_sequence_limit": None,
         "features": [
-            "Unlimited active sequences",
+            "Unlimited invoice collections",
             "Autonomous day 0→21 follow-ups",
             "AI-personalized messages",
             "Send from your Gmail inbox",
@@ -85,7 +107,8 @@ PLAN_CATALOG: list[dict] = [
         "active_sequence_limit": None,
         "features": [
             "Everything in Pro",
-            "WhatsApp reminders (Meta-approved templates)",
+            "450 WhatsApp reminders/month (steps 1–3 per invoice)",
+            "Email first, WhatsApp follow-up a few hours later",
             "Priority AI (GPT-4o messages)",
             "Escalation dashboard",
         ],
@@ -98,6 +121,7 @@ PLAN_CATALOG: list[dict] = [
         "active_sequence_limit": None,
         "features": [
             "Everything in Pro+",
+            "850 WhatsApp reminders/month",
             "3 team seats (shared dashboard)",
             "Priority support",
         ],

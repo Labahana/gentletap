@@ -62,6 +62,7 @@ class ReminderContext(BaseModel):
     client_name: str
     client_email: str | None
     client_phone: str | None = None
+    email_suppressed: bool = False
     user_plan: str = "free"
     sender_name: str = "Your freelancer"
     invoice: InvoiceContext

@@ -11,7 +11,7 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: "GentleTap — Get paid. Keep the relationship.",
   description:
-    "AI-powered payment reminders for freelancers. Connect QuickBooks, send follow-ups from your email, get paid without the awkward conversations.",
+    "AI-powered payment reminders for freelancers. Connect QuickBooks, send follow-ups from your email, get paid without the awkward conversations. A tap on the shoulder — not a knock on the door.",
 };
 
 export default function RootLayout({

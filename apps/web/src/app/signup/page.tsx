@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { AuthDivider, GoogleAuthButton } from "@/components/google-auth-button";
+import { PasswordRequirements } from "@/components/password-requirements";
 import { useAuth } from "@/lib/auth-context";
 
 export default function SignupPage() {
@@ -17,6 +19,10 @@ export default function SignupPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
     setLoading(true);
     try {
       await register(email, password, name);
@@ -36,24 +42,32 @@ export default function SignupPage() {
       <div className="card w-full max-w-md">
         <h1 className="text-xl font-bold">Create your account</h1>
         <p className="mt-1 text-sm text-muted">Free for up to 5 active invoices</p>
-        <form onSubmit={onSubmit} className="mt-6 space-y-4">
+
+        <div className="mt-6">
+          <GoogleAuthButton intent="signup" disabled={loading} />
+        </div>
+        <AuthDivider />
+
+        <form onSubmit={onSubmit} className="space-y-4">
           <label className="block text-sm">
             Full name
             <input
-              className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5"
+              className="input mt-1"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
+              autoComplete="name"
             />
           </label>
           <label className="block text-sm">
             Email
             <input
               type="email"
-              className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5"
+              className="input mt-1"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="email"
             />
           </label>
           <label className="block text-sm">
@@ -61,17 +75,24 @@ export default function SignupPage() {
             <input
               type="password"
               minLength={8}
-              className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5"
+              className="input mt-1"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              autoComplete="new-password"
             />
+            <PasswordRequirements password={password} />
           </label>
           {error && <p className="text-sm text-red">{error}</p>}
           <button type="submit" disabled={loading} className="btn-primary w-full">
-            {loading ? "Creating account…" : "Continue"}
+            {loading ? "Creating account…" : "Create free account →"}
           </button>
         </form>
+
+        <p className="mt-4 text-center text-xs leading-relaxed text-muted">
+          No credit card. Cancel anytime. Your clients never know it&apos;s automated.
+        </p>
+
         <p className="mt-4 text-center text-sm text-muted">
           Already have an account?{" "}
           <Link href="/login" className="font-medium text-accent">
