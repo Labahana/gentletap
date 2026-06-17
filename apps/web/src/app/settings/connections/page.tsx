@@ -104,7 +104,7 @@ export default function ConnectionsSettingsPage() {
     }
   }
 
-  async function setEmailProvider(provider: "google" | "resend") {
+  async function switchEmailProvider(provider: "google" | "resend") {
     const token = getToken();
     if (!token) return;
     setLoadError(null);
@@ -278,7 +278,7 @@ export default function ConnectionsSettingsPage() {
                     className={`rounded-lg border px-3 py-1.5 text-xs capitalize ${
                       emailProvider === p ? "border-accent bg-accent/10" : "border-border"
                     }`}
-                    onClick={() => setEmailProvider(p)}
+                    onClick={() => switchEmailProvider(p)}
                   >
                     {p === "google" ? "Gmail" : "Resend"}
                   </button>
