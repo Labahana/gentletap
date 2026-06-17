@@ -1,6 +1,11 @@
 #!/bin/sh
 set -e
 
+# Allow one-off commands: docker compose run --rm api alembic upgrade head
+if [ "$#" -gt 0 ]; then
+  exec "$@"
+fi
+
 if [ "$SKIP_DB_MIGRATIONS" = "1" ] || [ "$SKIP_DB_MIGRATIONS" = "true" ]; then
   echo "Skipping database migrations (SKIP_DB_MIGRATIONS is set)."
 else

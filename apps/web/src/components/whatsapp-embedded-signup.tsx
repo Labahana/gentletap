@@ -144,8 +144,9 @@ export function WhatsappEmbeddedSignup({
     }
 
     window.FB.login(
-      (response: { authResponse?: { code?: string } }) => {
-        metaCodeRef.current = response.authResponse?.code;
+      (response) => {
+        const auth = response as { authResponse?: { code?: string } };
+        metaCodeRef.current = auth.authResponse?.code;
         tryCompleteSignup();
       },
       {

@@ -7,7 +7,6 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.orm import Session
 
 from gentletap.database import Invoice, Profile, WhatsappFollowupJob
-from gentletap.services.sequences import cancel_invoice_jobs
 
 
 def compute_whatsapp_followup_time(*, after: datetime, user_timezone: str) -> datetime:
@@ -74,5 +73,6 @@ def cancel_whatsapp_followups(db: Session, invoice_id: UUID) -> int:
 
 
 def cancel_all_invoice_automation(db: Session, invoice_id: UUID) -> None:
+    from gentletap.services.sequences import cancel_invoice_jobs
+
     cancel_invoice_jobs(db, invoice_id)
-    cancel_whatsapp_followups(db, invoice_id)

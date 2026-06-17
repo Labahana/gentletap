@@ -7,7 +7,6 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from gentletap.database import Invoice, ReminderJob
-from gentletap.services.whatsapp_scheduler import cancel_whatsapp_followups
 
 # Day overdue thresholds per sequence step (0–4)
 SEQUENCE_DAY_THRESHOLDS = [0, 3, 7, 14, 21]
@@ -22,6 +21,8 @@ def cancel_invoice_jobs(db: Session, invoice_id: UUID) -> int:
     )
     for job in jobs:
         job.status = "cancelled"
+    from gentletap.services.whatsapp_scheduler import cancel_whatsapp_followups
+
     cancel_whatsapp_followups(db, invoice_id)
     return len(jobs)
 
