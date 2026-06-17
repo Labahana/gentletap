@@ -37,6 +37,7 @@ def set_persona(
     db: Session = Depends(get_db),
 ) -> UserResponse:
     user.persona = body.persona
+    user.onboarding_step = "quickbooks"
     db.commit()
     db.refresh(user)
     return UserResponse.model_validate(user)

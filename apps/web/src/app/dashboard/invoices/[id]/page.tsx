@@ -1,0 +1,166 @@
+"use client";
+
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { api, getToken } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
+
+export default function InvoiceDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  const [invoice, setInvoice] = useState<Awaited<ReturnType<typeof api.invoiceDetail>> | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const token = getToken();
+    if (!token || !id) return;
+    try {
+      setInvoice(await api.invoiceDetail(token, id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load invoice");
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (!loading && !user) router.replace("/login");
+  }, [loading, user, router]);
+
+  useEffect(() => {
+    if (user) load();
+  }, [user, load]);
+
+  if (loading || !user) {
+    return <div className="flex min-h-full items-center justify-center text-muted">Loading…</div>;
+  }
+
+  return (
+    <div className="min-h-full bg-background">
+      <header className="border-b border-border bg-card">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
+          <Link href="/dashboard" className="text-sm text-accent hover:underline">
+            ← Dashboard
+          </Link>
+          <span className="text-sm text-muted">{user.email}</span>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-4xl px-6 py-10">
+        {error && (
+          <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </p>
+        )}
+
+        {invoice && (
+          <>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-bold">Invoice #{invoice.doc_number ?? "—"}</h1>
+                <p className="mt-1 text-muted">{invoice.client.name}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold">
+                  {invoice.currency}{" "}
+                  {invoice.balance.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </p>
+                <p className="text-sm capitalize text-muted">
+                  {invoice.status}
+                  {invoice.days_overdue > 0 ? ` · ${invoice.days_overdue}d overdue` : ""}
+                </p>
+              </div>
+            </div>
+
+            <div className="card mt-8 grid gap-4 sm:grid-cols-2">
+              <div>
+                <p className="text-xs uppercase text-muted">Client email</p>
+                <p>{invoice.client.email ?? "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-muted">Client phone</p>
+                <p>{invoice.client.phone ?? "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-muted">Sequence</p>
+                <p>
+                  Step {invoice.sequence_step}
+                  {invoice.sequence_active
+                    ? invoice.sequence_paused
+                      ? " · paused"
+                      : " · active"
+                    : " · inactive"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-muted">Due date</p>
+                <p>{invoice.due_date ?? "—"}</p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              {invoice.sequence_active && !invoice.sequence_paused ? (
+                <button
+                  className="btn-secondary"
+                  onClick={async () => {
+                    const token = getToken();
+                    if (!token) return;
+                    await api.pauseInvoice(token, invoice.id);
+                    load();
+                  }}
+                >
+                  Pause sequence
+                </button>
+              ) : invoice.sequence_paused ? (
+                <button
+                  className="btn-primary"
+                  onClick={async () => {
+                    const token = getToken();
+                    if (!token) return;
+                    await api.resumeInvoice(token, invoice.id);
+                    load();
+                  }}
+                >
+                  Resume sequence
+                </button>
+              ) : null}
+            </div>
+
+            <div className="card mt-8">
+              <h2 className="font-semibold">Reminder history</h2>
+              {invoice.reminders.length === 0 ? (
+                <p className="mt-4 text-sm text-muted">No reminders sent yet.</p>
+              ) : (
+                <ul className="mt-4 space-y-4">
+                  {invoice.reminders.map((r) => (
+                    <li key={r.id} className="rounded-lg border border-border p-4 text-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-medium">
+                          Step {r.sequence_step} · {r.channel}
+                        </span>
+                        <span className="capitalize text-muted">{r.status}</span>
+                      </div>
+                      {r.subject && <p className="mt-2 font-medium">{r.subject}</p>}
+                      <p className="mt-2 whitespace-pre-wrap text-muted">{r.body}</p>
+                      {r.channel === "whatsapp" && (
+                        <p className="mt-2 text-xs text-muted">Meta-approved WhatsApp template</p>
+                      )}
+                      {r.sent_at && (
+                        <p className="mt-2 text-xs text-muted">
+                          Sent {new Date(r.sent_at).toLocaleString()}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </>
+        )}
+      </main>
+    </div>
+  );
+}

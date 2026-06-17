@@ -2,21 +2,36 @@ import uuid
 from collections.abc import Generator
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint, create_engine, func
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    create_engine,
+    func,
+)
+from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
 from gentletap.config import get_settings
 
 settings = get_settings()
 
-engine = create_engine(
-    settings.database_url,
-    pool_pre_ping=True,
-    pool_size=5,
-    max_overflow=10,
-)
+_engine_kwargs: dict = {
+    "pool_pre_ping": True,
+    "pool_size": 5,
+    "max_overflow": 10,
+}
+if settings.database_url.startswith("postgresql") and "sslmode=" not in settings.database_url:
+    if "supabase.com" in settings.database_url:
+        _engine_kwargs["connect_args"] = {"sslmode": "require"}
 
+engine = create_engine(settings.database_url, **_engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
@@ -50,6 +65,17 @@ class Profile(Base, TimestampMixin):
     onboarding_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class RefreshToken(Base, TimestampMixin):
+    __tablename__ = "refresh_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    family_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    used: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class QuickBooksConnection(Base, TimestampMixin):
     __tablename__ = "quickbooks_connections"
 
@@ -64,6 +90,41 @@ class QuickBooksConnection(Base, TimestampMixin):
     disconnected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class GoogleConnection(Base, TimestampMixin):
+    __tablename__ = "google_connections"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), unique=True, index=True, nullable=False)
+    google_email: Mapped[str] = mapped_column(String(320), nullable=False)
+    access_token_enc: Mapped[str] = mapped_column(Text, nullable=False)
+    refresh_token_enc: Mapped[str] = mapped_column(Text, nullable=False)
+    token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    connected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    disconnected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class EmailSender(Base, TimestampMixin):
+    __tablename__ = "email_senders"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    email_address: Mapped[str] = mapped_column(String(320), nullable=False)
+    provider: Mapped[str] = mapped_column(String(20), default="resend", nullable=False)
+    verification_status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    resend_sender_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+
+class EmailPreference(Base, TimestampMixin):
+    __tablename__ = "email_preferences"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    send_provider: Mapped[str] = mapped_column(String(20), default="google", nullable=False)
+    require_approval: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    first_batch_approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class Client(Base, TimestampMixin):
     __tablename__ = "clients"
     __table_args__ = (UniqueConstraint("user_id", "qb_customer_id", name="uq_clients_user_qb_customer"),)
@@ -74,6 +135,16 @@ class Client(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     email: Mapped[str | None] = mapped_column(String(320), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    avg_days_to_pay: Mapped[float | None] = mapped_column(Numeric(8, 2), nullable=True)
+    late_payment_rate: Mapped[float] = mapped_column(Numeric(5, 4), default=0, nullable=False)
+    invoices_paid_on_time: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    invoices_paid_late: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    lifetime_value: Mapped[float] = mapped_column(Numeric(14, 2), default=0, nullable=False)
+    tenure_months: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    communication_style: Mapped[str] = mapped_column(String(20), default="unknown", nullable=False)
+    risk_level: Mapped[str] = mapped_column(String(20), default="medium", nullable=False)
+    preferred_channel: Mapped[str] = mapped_column(String(20), default="email", nullable=False)
+    profile_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Invoice(Base, TimestampMixin):
@@ -82,9 +153,7 @@ class Invoice(Base, TimestampMixin):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
-    client_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("clients.id"), nullable=False
-    )
+    client_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id"), nullable=False)
     qb_invoice_id: Mapped[str] = mapped_column(String(64), nullable=False)
     doc_number: Mapped[str | None] = mapped_column(String(64), nullable=True)
     amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
@@ -94,8 +163,85 @@ class Invoice(Base, TimestampMixin):
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     days_overdue: Mapped[int] = mapped_column(default=0, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="yellow", nullable=False)
+    sequence_active: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    sequence_step: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    sequence_paused: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    sequence_approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    dispute_flag: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    client_responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_reminder_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     qb_last_updated: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    client: Mapped["Client"] = relationship("Client", lazy="joined")
+
+
+class ReminderMessage(Base, TimestampMixin):
+    __tablename__ = "reminder_messages"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    invoice_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("invoices.id"), index=True, nullable=False)
+    sequence_step: Mapped[int] = mapped_column(Integer, nullable=False)
+    subject: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    tone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    channel: Mapped[str] = mapped_column(String(20), default="email", nullable=False)
+    send_provider: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="draft", nullable=False)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    external_message_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class ReminderJob(Base, TimestampMixin):
+    __tablename__ = "reminder_jobs"
+    __table_args__ = (UniqueConstraint("invoice_id", "sequence_step", name="uq_reminder_jobs_invoice_step"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    invoice_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("invoices.id"), index=True, nullable=False)
+    scheduled_for: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    sequence_step: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    celery_task_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+
+class AgentDecision(Base):
+    __tablename__ = "agent_decisions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    invoice_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("invoices.id"), index=True, nullable=False)
+    decision: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class UserNotification(Base, TimestampMixin):
+    __tablename__ = "user_notifications"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    kind: Mapped[str] = mapped_column(String(50), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    invoice_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class SyncLog(Base):
+    __tablename__ = "sync_logs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    source: Mapped[str] = mapped_column(String(30), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    invoices_synced: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
 
 def get_db() -> Generator:

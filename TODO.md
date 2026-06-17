@@ -1,56 +1,29 @@
-# GentleTap — Yusuf's build checklist
+# GentleTap — Production checklist
 
-## ✅ Done (Week 1 foundation)
+## ✅ Core product (complete)
 
-- [x] Monorepo: `apps/api` (Python) + `apps/web` (Next.js)
-- [x] Docker Compose: Postgres + Redis
-- [x] FastAPI: auth, health, onboarding status, QB stubs
-- [x] Intelligence engine: decide(), risk, tone, message generator
-- [x] Intelligence preview API: `POST /v1/intelligence/preview`
-- [x] Alembic migration: profiles, quickbooks_connections
-- [x] Landing page + signup + login + onboarding wizard + dashboard
-- [x] Live preview on homepage (calls Python API)
+- [x] Auth: register, login, JWT refresh rotation, logout
+- [x] QuickBooks OAuth, sync, webhooks (legacy + CloudEvents), payment detection
+- [x] Gmail OAuth + Resend sender verification + delivery router
+- [x] AI intelligence: risk, tone, channel, escalation, message generation
+- [x] Reminder sequences (day 0/3/7/14/21), Celery beat, approve-all
+- [x] WhatsApp via Twilio (Pro, step 1+)
+- [x] Stripe billing (Option B: Starter free / Pro $19 / Pro+ $39 / Team $59)
+- [x] Dashboard, onboarding, invoice detail, escalations, settings
+- [x] Notifications + mark-read, sync_logs, rate limiting, CI
+- [x] Privacy & Terms pages
 
-## 🔜 Week 2 — QuickBooks (Yusuf: get Intuit keys)
+## 🔧 Before launch (ops)
 
-- [ ] Create app at [developer.intuit.com](https://developer.intuit.com)
-- [ ] Add `INTUIT_CLIENT_ID` + `INTUIT_CLIENT_SECRET` to `.env`
-- [ ] Implement OAuth connect + callback
-- [ ] Sync unpaid invoices query
-- [ ] Import progress UI wired to real data
-- [ ] Webhook endpoint + payment detection
+- [ ] Supabase project + run migrations (`alembic upgrade head`)
+- [ ] Intuit, Google, OpenAI, Stripe, Resend keys in production `.env`
+- [ ] Google OAuth verification (2–4 weeks) for Gmail in production
+- [ ] Twilio WhatsApp Business setup (Pro channel)
+- [ ] Register webhook URLs: QB, Stripe, Resend → `https://gentletap.co/v1/webhooks/*`
+- [ ] Optional: `SENTRY_DSN` for error tracking
 
-## 🔜 Week 3 — Email
+## 📋 v1.1 (post-launch)
 
-- [ ] Google OAuth + Gmail send
-- [ ] Resend sender verification
-- [ ] Email router in Python
-
-## 🔜 Week 4 — Reminders live
-
-- [ ] Celery beat schedule
-- [ ] Approve-all → activate sequences
-- [ ] Dashboard with real invoice rows
-
-## 🔜 Week 5+ — Billing, beta
-
-- [ ] Stripe $19/mo
-- [ ] Free tier gate (5 invoices)
-- [ ] Beta users from Reddit/LinkedIn
-
----
-
-## Yusuf action items (today)
-
-1. **Install Python 3.12** from [python.org](https://www.python.org/downloads/) — check "Add to PATH"
-2. **Start Docker Desktop** → then `docker compose up -d`
-3. **Copy env:** `copy .env.example .env` and generate secrets (see README)
-4. **Run API:** see `scripts/setup.ps1`
-5. **Run web:** `cd apps\web` → `npm install` → `npm run dev`
-6. **Register** at http://localhost:3000/signup — test full flow
-
-## Partner notes
-
-- Product decisions → update BUILD_PLAN.md or ping in chat
-- QA: signup → onboarding → dashboard → homepage preview with API running
-- Intuit + Google developer accounts — Yusuf owns credentials
+- [ ] FreshBooks / Xero / CSV import
+- [ ] Client portal payment links
+- [ ] A/B tone experiments

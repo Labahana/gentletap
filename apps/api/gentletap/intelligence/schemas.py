@@ -39,6 +39,7 @@ class ClientProfile(BaseModel):
     tenure_months: int = 0
     communication_style: str = "unknown"
     risk_level: RiskLevel = RiskLevel.MEDIUM
+    preferred_channel: str = "email"
 
 
 class InvoiceContext(BaseModel):
@@ -60,14 +61,18 @@ class ReminderContext(BaseModel):
     client_id: str
     client_name: str
     client_email: str | None
+    client_phone: str | None = None
+    user_plan: str = "free"
+    sender_name: str = "Your freelancer"
     invoice: InvoiceContext
     profile: ClientProfile
     prior_messages_count: int = 0
 
 
 class GeneratedMessage(BaseModel):
-    subject: str
+    subject: str = ""
     body: str
+    whatsapp_template_key: str | None = None
 
 
 class DecideResult(BaseModel):

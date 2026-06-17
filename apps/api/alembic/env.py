@@ -7,7 +7,21 @@ from gentletap.config import get_settings
 from gentletap.database import Base
 
 # Import models so Alembic sees metadata
-from gentletap.database import Profile, QuickBooksConnection, Client, Invoice  # noqa: F401
+from gentletap.database import (  # noqa: F401
+    AgentDecision,
+    Client,
+    EmailPreference,
+    EmailSender,
+    GoogleConnection,
+    Invoice,
+    Profile,
+    QuickBooksConnection,
+    RefreshToken,
+    ReminderJob,
+    ReminderMessage,
+    SyncLog,
+    UserNotification,
+)
 
 config = context.config
 if config.config_file_name is not None:
@@ -15,7 +29,7 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 settings = get_settings()
-config.set_main_option("sqlalchemy.url", settings.database_url)
+config.set_main_option("sqlalchemy.url", settings.alembic_database_url)
 
 
 def run_migrations_offline() -> None:

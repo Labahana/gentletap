@@ -1,13 +1,20 @@
-from datetime import UTC, datetime, timedelta
-
-from gentletap.intelligence.message_generator import generate_message
-from gentletap.intelligence.risk_scorer import score_risk, select_tone
+from gentletap.intelligence.channel_selector import select_channel
+from gentletap.intelligence.risk_scorer import score_risk
+from gentletap.intelligence.escalation import needs_human
 from gentletap.intelligence.schemas import (
     Action,
     Channel,
     DecideResult,
     ReminderContext,
 )
+from gentletap.intelligence.timing_optimizer import next_send_window
+from gentletap.intelligence.tone_selector import select_tone
+
+
+def _generate_outbound_message(ctx: ReminderContext, tone, channel: Channel):
+    from gentletap.intelligence.message_generator import generate_message
+
+    return generate_message(ctx, tone, channel=channel)
 
 
 class IntelligenceEngine:
@@ -15,6 +22,7 @@ class IntelligenceEngine:
 
     def should_send(self, ctx: ReminderContext) -> tuple[bool, str | None]:
         inv = ctx.invoice
+        channel = select_channel(ctx)
         if inv.balance <= 0:
             return False, "invoice_paid"
         if inv.days_overdue < 0:
@@ -27,45 +35,40 @@ class IntelligenceEngine:
             return False, "client_responded"
         if not inv.approved:
             return False, "pending_approval"
-        if not ctx.client_email:
+        if channel.value == "email" and not ctx.client_email:
             return False, "no_client_email"
+        if channel.value == "whatsapp" and not ctx.client_phone:
+            return False, "no_client_phone"
+        if not ctx.client_email and not ctx.client_phone:
+            return False, "no_client_contact"
         return True, None
-
-    def needs_escalation(self, ctx: ReminderContext) -> bool:
-        inv = ctx.invoice
-        return inv.days_overdue >= 21 or (inv.amount > 10_000 and inv.days_overdue >= 14)
-
-    def next_send_window(self, ctx: ReminderContext) -> datetime:
-        # MVP: next Tue-Thu 10:00 UTC; refined in timing_optimizer.py later
-        now = datetime.now(UTC)
-        candidate = now + timedelta(hours=1)
-        while candidate.weekday() not in (1, 2, 3):  # Tue, Wed, Thu
-            candidate += timedelta(days=1)
-        return candidate.replace(hour=10, minute=0, second=0, microsecond=0)
 
     def decide(self, ctx: ReminderContext) -> DecideResult:
         should, reason = self.should_send(ctx)
         if not should:
             return DecideResult(action=Action.WAIT, reason=reason)
 
-        if self.needs_escalation(ctx):
+        channel = select_channel(ctx)
+
+        if needs_human(ctx):
             risk = score_risk(ctx)
             tone = select_tone(ctx, risk)
             return DecideResult(
                 action=Action.ESCALATE,
+                channel=channel,
                 tone=tone,
                 reason="human_handoff_recommended",
             )
 
         risk = score_risk(ctx)
         tone = select_tone(ctx, risk)
-        message = generate_message(ctx, tone)
+        message = _generate_outbound_message(ctx, tone, channel)
 
         return DecideResult(
             action=Action.SEND,
-            channel=Channel.EMAIL,
+            channel=channel,
             tone=tone,
-            send_at=self.next_send_window(ctx),
+            send_at=next_send_window(ctx),
             message=message,
         )
 

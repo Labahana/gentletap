@@ -1,28 +1,14 @@
-services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: gentletap-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: gentletap
-      POSTGRES_PASSWORD: gentletap
-      POSTGRES_DB: gentletap
-    ports:
-      - "5433:5432"
-    volumes:
-      - gentletap_pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U gentletap -d gentletap"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+# Production stack — Postgres via Supabase (set DATABASE_URL in .env).
+# Local dev with Docker Postgres: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 
+services:
   redis:
     image: redis:7-alpine
     container_name: gentletap-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - gentletap_redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -38,32 +24,76 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: "postgresql+psycopg2://gentletap:gentletap@postgres:5432/gentletap"
       REDIS_URL: "redis://redis:6379/0"
       CELERY_BROKER_URL: "redis://redis:6379/0"
       CELERY_RESULT_BACKEND: "redis://redis:6379/1"
     ports:
       - "8000:8000"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/v1/health')\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: gentletap-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: "redis://redis:6379/0"
+      CELERY_BROKER_URL: "redis://redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/1"
+    entrypoint: ["celery", "-A", "gentletap.tasks.celery_app", "worker", "-l", "info", "--concurrency=2"]
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+
+  beat:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: gentletap-beat
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: "redis://redis:6379/0"
+      CELERY_BROKER_URL: "redis://redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/1"
+    entrypoint: ["celery", "-A", "gentletap.tasks.celery_app", "beat", "-l", "info"]
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
         condition: service_healthy
 
   web:
     build:
       context: ./apps/web
       dockerfile: Dockerfile
-      args:
-        API_PROXY_URL: ${API_PROXY_URL:-http://api:8000}
     container_name: gentletap-web
     restart: unless-stopped
     environment:
-      API_PROXY_URL: ${API_PROXY_URL:-http://api:8000}
+      API_PROXY_URL: http://api:8000
     ports:
       - "3000:3000"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
 volumes:
-  gentletap_pgdata:
+  gentletap_redis:

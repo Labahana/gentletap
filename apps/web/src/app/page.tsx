@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { PreviewDemo } from "@/components/preview-demo";
+import { PricingGrid } from "@/components/pricing-grid";
+import { PRICING_PLANS } from "@/lib/pricing";
 
 export default function HomePage() {
   return (
@@ -67,18 +69,33 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-6xl px-6 pb-24 text-center">
-          <div className="card mx-auto max-w-xl bg-accent/5">
-            <p className="text-3xl font-bold">$19<span className="text-lg font-normal text-muted">/mo</span></p>
-            <p className="mt-2 text-sm text-muted">One recovered invoice pays for months of GentleTap</p>
-            <Link href="/signup" className="btn-primary mt-6 inline-flex">
-              Start free — 5 invoices included
-            </Link>
+        <section className="mx-auto max-w-6xl px-6 pb-24">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold">Simple, transparent pricing</h2>
+            <p className="mt-2 text-muted">Start free. Upgrade when GentleTap pays for itself.</p>
+          </div>
+          <div className="mt-10">
+            <PricingGrid
+              plans={PRICING_PLANS.map((p) => ({
+                ...p,
+                checkout_monthly_available: false,
+                checkout_annual_available: false,
+              }))}
+            />
           </div>
         </section>
       </main>
       <footer className="border-t border-border py-8 text-center text-sm text-muted">
-        © {new Date().getFullYear()} GentleTap · Built with Yusuf
+        <p>
+          © {new Date().getFullYear()} GentleTap ·{" "}
+          <Link href="/privacy" className="hover:text-foreground">
+            Privacy
+          </Link>
+          {" · "}
+          <Link href="/terms" className="hover:text-foreground">
+            Terms
+          </Link>
+        </p>
       </footer>
     </>
   );

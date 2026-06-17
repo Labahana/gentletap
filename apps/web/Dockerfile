@@ -10,9 +10,6 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-ARG API_PROXY_URL=http://api:8000
-ENV API_PROXY_URL=$API_PROXY_URL
-
 RUN npm run build
 
 FROM node:20-alpine AS runner

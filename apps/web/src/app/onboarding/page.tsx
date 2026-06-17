@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
-import { api, getToken } from "@/lib/api";
+import { api, getToken, type ReminderPreviewItem } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 
 const STEPS = [
@@ -27,9 +27,12 @@ function OnboardingContent() {
   const searchParams = useSearchParams();
   const [step, setStep] = useState(0);
   const [persona, setPersona] = useState("freelancer");
-  const [preview, setPreview] = useState<{ subject: string; body: string } | null>(null);
+  const [previews, setPreviews] = useState<ReminderPreviewItem[]>([]);
   const [qbConnecting, setQbConnecting] = useState(false);
   const [qbError, setQbError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [resendEmail, setResendEmail] = useState("");
+  const [approving, setApproving] = useState(false);
   const [importSummary, setImportSummary] = useState<ImportSummary>({
     count: 0,
     total: 0,
@@ -43,32 +46,34 @@ function OnboardingContent() {
 
   useEffect(() => {
     const qb = searchParams.get("qb");
+    const email = searchParams.get("email");
     const message = searchParams.get("message");
     if (qb === "connected") {
       setStep(2);
-      setImportSummary((s) => ({
-        ...s,
-        message: "Syncing invoices from QuickBooks…",
-        syncing: true,
-      }));
+      setImportSummary((s) => ({ ...s, message: "Syncing invoices from QuickBooks…", syncing: true }));
       router.replace("/onboarding");
     } else if (qb === "error") {
       setStep(1);
       setQbError(message ?? "QuickBooks connection failed");
+      router.replace("/onboarding");
+    } else if (email === "connected") {
+      setStep(4);
+      router.replace("/onboarding");
+    } else if (email === "error") {
+      setStep(3);
+      setEmailError(message ?? "Email connection failed");
       router.replace("/onboarding");
     }
   }, [searchParams, router]);
 
   const pollImportStatus = useCallback(async () => {
     const token = getToken();
-    if (!token) return;
-
+    if (!token) return false;
     try {
       const [sync, summary] = await Promise.all([
         api.qbSyncStatus(token),
         api.invoicesSummary(token),
       ]);
-
       const syncing = sync.status === "syncing";
       setImportSummary({
         count: summary.unpaid_count || sync.unpaid_count || 0,
@@ -76,39 +81,27 @@ function OnboardingContent() {
         message: sync.message,
         syncing,
       });
-
-      if (sync.status === "complete" || sync.status === "error") {
-        return false;
-      }
-      return syncing || sync.status === "idle";
+      return syncing;
     } catch {
-      setImportSummary((s) => ({
-        ...s,
-        message: "Could not load sync status",
-        syncing: false,
-      }));
+      setImportSummary((s) => ({ ...s, message: "Could not load sync status", syncing: false }));
       return false;
     }
   }, []);
 
   useEffect(() => {
     if (step !== 2) return;
-
     let active = true;
     let interval: ReturnType<typeof setInterval> | null = null;
-
-    async function start() {
-      const keepPolling = await pollImportStatus();
+    (async () => {
+      const syncing = await pollImportStatus();
       if (!active) return;
-      if (keepPolling) {
+      if (syncing) {
         interval = setInterval(async () => {
           const again = await pollImportStatus();
           if (!again && interval) clearInterval(interval);
         }, 2000);
       }
-    }
-
-    start();
+    })();
     return () => {
       active = false;
       if (interval) clearInterval(interval);
@@ -116,11 +109,10 @@ function OnboardingContent() {
   }, [step, pollImportStatus]);
 
   useEffect(() => {
-    if (step === 4) {
-      api.previewIntelligence().then((r) => {
-        if (r.message) setPreview(r.message);
-      });
-    }
+    if (step !== 4) return;
+    const token = getToken();
+    if (!token) return;
+    api.remindersPreview(token).then((r) => setPreviews(r.items)).catch(() => setPreviews([]));
   }, [step]);
 
   async function savePersona() {
@@ -145,8 +137,42 @@ function OnboardingContent() {
     }
   }
 
-  function finish() {
-    router.push("/dashboard");
+  async function connectGmail() {
+    const token = getToken();
+    if (!token) return;
+    setEmailError(null);
+    try {
+      const { authorization_url } = await api.googleConnectUrl(token);
+      window.location.href = authorization_url;
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : "Failed to start Gmail connection");
+    }
+  }
+
+  async function verifyResend() {
+    const token = getToken();
+    if (!token || !resendEmail) return;
+    setEmailError(null);
+    try {
+      await api.verifyResendSender(token, resendEmail);
+      setStep(4);
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : "Verification failed");
+    }
+  }
+
+  async function finish() {
+    const token = getToken();
+    if (!token) return;
+    setApproving(true);
+    try {
+      await api.approveAll(token);
+      await refresh();
+      router.push("/dashboard");
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : "Could not activate reminders");
+      setApproving(false);
+    }
   }
 
   if (loading || !user) {
@@ -184,12 +210,7 @@ function OnboardingContent() {
                   persona === p ? "border-accent bg-accent/5" : "border-border"
                 }`}
               >
-                <input
-                  type="radio"
-                  name="persona"
-                  checked={persona === p}
-                  onChange={() => setPersona(p)}
-                />
+                <input type="radio" name="persona" checked={persona === p} onChange={() => setPersona(p)} />
                 {p}
               </label>
             ))}
@@ -202,23 +223,13 @@ function OnboardingContent() {
         {step === 1 && (
           <div className="mt-6 space-y-4">
             <p className="text-sm text-muted">
-              Read-only access to unpaid invoices in your QuickBooks sandbox company. You&apos;ll
-              authorize on Intuit, then we import overdue balances automatically.
+              Read-only access to unpaid invoices. Authorize on Intuit, then we import balances automatically.
             </p>
             {qbError && (
-              <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {qbError}
-              </p>
+              <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{qbError}</p>
             )}
-            <button
-              className="btn-primary w-full"
-              onClick={connectQuickBooks}
-              disabled={qbConnecting}
-            >
+            <button className="btn-primary w-full" onClick={connectQuickBooks} disabled={qbConnecting}>
               {qbConnecting ? "Redirecting to QuickBooks…" : "Connect QuickBooks"}
-            </button>
-            <button className="btn-secondary w-full text-sm" onClick={() => setStep(2)}>
-              Skip for now
             </button>
           </div>
         )}
@@ -230,56 +241,85 @@ function OnboardingContent() {
                 <p className="text-sm text-muted animate-pulse">Syncing from QuickBooks…</p>
               ) : (
                 <>
-                  <p className="text-4xl font-bold text-accent">
-                    {importSummary.count || "—"}
-                  </p>
+                  <p className="text-4xl font-bold text-accent">{importSummary.count}</p>
                   <p className="text-sm text-muted">unpaid invoices</p>
                   <p className="mt-4 text-2xl font-semibold">
-                    {importSummary.total
-                      ? `$${importSummary.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      : "—"}
+                    ${importSummary.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                   <p className="text-sm text-muted">total outstanding</p>
                 </>
               )}
             </div>
             <p className="text-sm text-muted">{importSummary.message}</p>
-            <button
-              className="btn-primary w-full"
-              onClick={() => setStep(3)}
-              disabled={importSummary.syncing}
-            >
+            <button className="btn-primary w-full" onClick={() => setStep(3)} disabled={importSummary.syncing}>
               Continue
             </button>
           </div>
         )}
 
         {step === 3 && (
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <button className="card text-left hover:border-accent" onClick={() => setStep(4)}>
+          <div className="mt-6 space-y-4">
+            {emailError && (
+              <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{emailError}</p>
+            )}
+            <button className="card w-full text-left hover:border-accent" onClick={connectGmail}>
               <p className="font-semibold">Connect Gmail</p>
               <p className="mt-1 text-sm text-muted">One click · sends from your inbox</p>
             </button>
-            <button className="card text-left hover:border-accent" onClick={() => setStep(4)}>
-              <p className="font-semibold">Use another email</p>
-              <p className="mt-1 text-sm text-muted">Verify via inbox link</p>
-            </button>
+            <div className="card space-y-3">
+              <p className="font-semibold">Use your domain email (Resend)</p>
+              <input
+                type="email"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                placeholder="you@yourdomain.com"
+                value={resendEmail}
+                onChange={(e) => setResendEmail(e.target.value)}
+              />
+              <button className="btn-secondary w-full text-sm" onClick={verifyResend} disabled={!resendEmail}>
+                Send verification link
+              </button>
+            </div>
           </div>
         )}
 
-        {step === 4 && preview && (
+        {step === 4 && (
           <div className="mt-6 space-y-4">
             <p className="text-sm text-muted">
-              This is what Sarah would receive for invoice #1234 ($4,200).
+              Review AI-drafted reminders for your overdue invoices. GentleTap sends these on your behalf after you
+              approve.
             </p>
-            <div className="rounded-xl bg-background p-4 text-sm">
-              <p className="font-medium">{preview.subject}</p>
-              <pre className="mt-3 whitespace-pre-wrap font-sans leading-relaxed">
-                {preview.body.split("---")[0].trim()}
-              </pre>
-            </div>
-            <button className="btn-primary w-full" onClick={finish}>
-              Approve & go live
+            {previews.length === 0 ? (
+              <p className="text-sm text-muted">No overdue invoices to preview yet.</p>
+            ) : (
+              previews.slice(0, 3).map((p) => (
+                <div key={p.invoice_id} className="rounded-xl bg-background p-4 text-sm">
+                  <p className="text-xs text-muted">
+                    {p.client_name} · #{p.doc_number} · ${p.balance.toLocaleString()} · {p.days_overdue}d overdue
+                  </p>
+                  {p.error ? (
+                    <p className="mt-2 text-red-600">{p.error}</p>
+                  ) : (
+                    <>
+                      <p className="mt-2 text-xs uppercase tracking-wide text-muted">
+                        {p.channel === "whatsapp" ? "WhatsApp template preview" : "Email preview"}
+                      </p>
+                      {p.subject && <p className="mt-1 font-medium">{p.subject}</p>}
+                      <pre className="mt-2 whitespace-pre-wrap font-sans leading-relaxed">{p.body}</pre>
+                      {p.channel === "whatsapp" && (
+                        <p className="mt-2 text-xs text-muted">
+                          Sent via Meta-approved WhatsApp template — wording is fixed per policy.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              ))
+            )}
+            {emailError && (
+              <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{emailError}</p>
+            )}
+            <button className="btn-primary w-full" onClick={finish} disabled={approving}>
+              {approving ? "Activating…" : "Approve & go live"}
             </button>
           </div>
         )}

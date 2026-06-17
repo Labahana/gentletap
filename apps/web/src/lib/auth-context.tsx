@@ -8,7 +8,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { api, clearToken, getToken, setToken, type User } from "./api";
+import { api, clearToken, getToken, setTokens, type User } from "./api";
 
 type AuthContextValue = {
   user: User | null;
@@ -47,14 +47,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refresh]);
 
   const login = useCallback(async (email: string, password: string) => {
-    const { access_token } = await api.login({ email, password });
-    setToken(access_token);
+    const { access_token, refresh_token } = await api.login({ email, password });
+    setTokens(access_token, refresh_token);
     setUser(await api.me(access_token));
   }, []);
 
   const register = useCallback(async (email: string, password: string, fullName: string) => {
-    const { access_token } = await api.register({ email, password, full_name: fullName });
-    setToken(access_token);
+    const { access_token, refresh_token } = await api.register({ email, password, full_name: fullName });
+    setTokens(access_token, refresh_token);
     setUser(await api.me(access_token));
   }, []);
 

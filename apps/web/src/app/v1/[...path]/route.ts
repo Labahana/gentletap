@@ -1,11 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 
+const HOP_BY_HOP = new Set([
+  "host",
+  "connection",
+  "content-length",
+  "transfer-encoding",
+  "expect",
+]);
+
+const PROXY_TIMEOUT_MS = 30_000;
+
 function getApiProxyUrl(): string {
-  return (
-    process.env.API_PROXY_URL ??
-    process.env.NEXT_PUBLIC_API_URL ??
-    "http://localhost:8000"
-  );
+  const configured = process.env.API_PROXY_URL?.trim();
+  if (configured) return configured.replace(/\/$/, "");
+
+  if (process.env.NODE_ENV === "production") {
+    return "http://api:8000";
+  }
+
+  return "http://localhost:8000";
 }
 
 async function proxyRequest(
@@ -13,13 +26,13 @@ async function proxyRequest(
   context: { params: Promise<{ path: string[] }> },
 ): Promise<NextResponse> {
   const { path } = await context.params;
-  const target = new URL(`/v1/${path.join("/")}`, getApiProxyUrl());
+  const base = getApiProxyUrl();
+  const target = new URL(`/v1/${path.join("/")}`, `${base}/`);
   target.search = request.nextUrl.search;
 
   const headers = new Headers();
   request.headers.forEach((value, key) => {
-    const lower = key.toLowerCase();
-    if (lower === "host" || lower === "connection") return;
+    if (HOP_BY_HOP.has(key.toLowerCase())) return;
     headers.set(key, value);
   });
 
@@ -33,11 +46,14 @@ async function proxyRequest(
     init.body = await request.arrayBuffer();
   }
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), PROXY_TIMEOUT_MS);
+
   try {
-    const response = await fetch(target, init);
+    const response = await fetch(target, { ...init, signal: controller.signal });
     const responseHeaders = new Headers();
     response.headers.forEach((value, key) => {
-      if (key.toLowerCase() === "transfer-encoding") return;
+      if (HOP_BY_HOP.has(key.toLowerCase())) return;
       responseHeaders.set(key, value);
     });
 
@@ -47,8 +63,17 @@ async function proxyRequest(
       headers: responseHeaders,
     });
   } catch (error) {
-    console.error("API proxy error:", target.toString(), error);
-    return NextResponse.json({ detail: "API unavailable" }, { status: 502 });
+    console.error("API proxy error:", {
+      target: target.toString(),
+      proxyUrl: base,
+      error,
+    });
+    return NextResponse.json(
+      { detail: "API unavailable", proxy: base },
+      { status: 502 },
+    );
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

@@ -17,7 +17,12 @@ class LoginRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: str | None = None
     token_type: str = "bearer"
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
 
 
 class UserResponse(BaseModel):
@@ -35,7 +40,7 @@ class UserResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     environment: str
-    version: str = "0.1.0"
+    version: str = "1.0.0"
 
 
 class OnboardingPersonaRequest(BaseModel):

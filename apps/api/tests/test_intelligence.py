@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from gentletap.intelligence.engine import IntelligenceEngine
 from gentletap.intelligence.schemas import (
     Action,
+    Channel,
     ClientProfile,
     InvoiceContext,
     ReminderContext,
@@ -72,3 +73,27 @@ def test_engine_escalates_at_21_days():
     )
     result = IntelligenceEngine().decide(ctx)
     assert result.action == Action.ESCALATE
+
+
+def test_engine_selects_whatsapp_for_pro_step_one_plus():
+    ctx = ReminderContext(
+        client_id="c1",
+        client_name="Sarah",
+        client_email="sarah@example.com",
+        client_phone="+15551234567",
+        user_plan="pro_plus",
+        profile=ClientProfile(preferred_channel="whatsapp"),
+        invoice=InvoiceContext(
+            invoice_id="inv1",
+            doc_number="1234",
+            amount=4200,
+            balance=4200,
+            days_overdue=5,
+            due_date=datetime.now(UTC),
+            sequence_step=1,
+            approved=True,
+        ),
+    )
+    result = IntelligenceEngine().decide(ctx)
+    assert result.action == Action.SEND
+    assert result.channel == Channel.WHATSAPP

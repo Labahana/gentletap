@@ -1,8 +1,9 @@
 from datetime import UTC, datetime
 from urllib.parse import quote
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -10,26 +11,16 @@ from gentletap.config import get_settings
 from gentletap.database import Invoice, QuickBooksConnection, get_db
 from gentletap.dependencies import CurrentUser
 from gentletap.integrations.quickbooks import oauth as qb_oauth
-from gentletap.integrations.quickbooks.sync import sync_status_key, sync_unpaid_invoices
+from gentletap.integrations.quickbooks.sync import sync_status_key
+from gentletap.tasks.sync import sync_user_invoices
 from gentletap.utils.crypto import decrypt_token
 from gentletap.utils.redis_client import get_json
 
 router = APIRouter(prefix="/quickbooks", tags=["quickbooks"])
 
 
-def _run_sync(user_id) -> None:
-    from gentletap.database import SessionLocal
-
-    db = SessionLocal()
-    try:
-        sync_unpaid_invoices(db, user_id)
-    finally:
-        db.close()
-
-
 @router.get("/connect-url")
 def get_connect_url(user: CurrentUser) -> dict:
-    """Return Intuit authorization URL for the frontend to redirect to."""
     if not qb_oauth.is_configured():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -44,14 +35,12 @@ def get_connect_url(user: CurrentUser) -> dict:
 
 @router.get("/connect")
 def connect_quickbooks(user: CurrentUser) -> RedirectResponse:
-    """Redirect browser directly to Intuit OAuth (requires Bearer auth)."""
     payload = get_connect_url(user)
     return RedirectResponse(url=payload["authorization_url"], status_code=status.HTTP_302_FOUND)
 
 
 @router.get("/callback")
 def oauth_callback(
-    background_tasks: BackgroundTasks,
     code: str = Query(...),
     state: str = Query(...),
     realmId: str = Query(...),
@@ -66,7 +55,7 @@ def oauth_callback(
             status_code=status.HTTP_302_FOUND,
         )
 
-    background_tasks.add_task(_run_sync, user.id)
+    sync_user_invoices.delay(str(user.id))
     return RedirectResponse(
         url=f"{settings.web_url}/onboarding?qb=connected",
         status_code=status.HTTP_302_FOUND,
@@ -98,11 +87,7 @@ def disconnect_quickbooks(user: CurrentUser, db: Session = Depends(get_db)) -> d
 
 
 @router.post("/sync")
-def trigger_sync(
-    user: CurrentUser,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-) -> dict:
+def trigger_sync(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
     connection = (
         db.query(QuickBooksConnection)
         .filter(
@@ -114,7 +99,7 @@ def trigger_sync(
     if connection is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="QuickBooks not connected")
 
-    background_tasks.add_task(_run_sync, user.id)
+    sync_user_invoices.delay(str(user.id))
     return {"status": "syncing", "message": "Invoice sync started"}
 
 

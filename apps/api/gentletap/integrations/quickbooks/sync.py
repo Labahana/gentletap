@@ -1,10 +1,11 @@
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from time import perf_counter
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from gentletap.database import Client, Invoice, QuickBooksConnection
+from gentletap.database import Client, Invoice, QuickBooksConnection, SyncLog
 from gentletap.integrations.quickbooks import client as qb_client
 from gentletap.utils.redis_client import set_json
 
@@ -37,6 +38,7 @@ def _update_sync_status(user_id: UUID, **fields) -> None:
 
 
 def sync_unpaid_invoices(db: Session, user_id: UUID) -> dict:
+    started = perf_counter()
     connection = (
         db.query(QuickBooksConnection)
         .filter(
@@ -101,16 +103,25 @@ def sync_unpaid_invoices(db: Session, user_id: UUID) -> dict:
                     qb_customer = qb_client.get_customer(db, connection, qb_customer_id)
                     name = qb_customer.get("DisplayName", customer_ref.get("name", "Unknown")) if qb_customer else customer_ref.get("name", "Unknown")
                     email = None
+                    phone = None
                     if qb_customer:
                         email = qb_customer.get("PrimaryEmailAddr", {}).get("Address")
+                        phone = qb_customer.get("PrimaryPhone", {}).get("FreeFormNumber")
                     client_row = Client(
                         user_id=user_id,
                         qb_customer_id=qb_customer_id,
                         name=name,
                         email=email,
+                        phone=phone,
                     )
                     db.add(client_row)
                     db.flush()
+                else:
+                    qb_customer = qb_client.get_customer(db, connection, qb_customer_id)
+                    if qb_customer:
+                        client_row.email = qb_customer.get("PrimaryEmailAddr", {}).get("Address") or client_row.email
+                        client_row.phone = qb_customer.get("PrimaryPhone", {}).get("FreeFormNumber") or client_row.phone
+                        client_row.name = qb_customer.get("DisplayName", client_row.name)
                 customer_cache[qb_customer_id] = client_row
 
             balance = Decimal(str(qb_invoice.get("Balance", 0)))
@@ -172,6 +183,35 @@ def sync_unpaid_invoices(db: Session, user_id: UUID) -> dict:
         connection.last_sync_at = datetime.now(UTC)
         db.commit()
 
+        from gentletap.intelligence.profiler import reprofile_user_clients
+
+        reprofile_user_clients(db, user_id)
+
+        # Mark invoices paid if no longer returned by QB unpaid query
+        synced_qb_ids = {str(qb.get("Id")) for qb in qb_invoices}
+        if synced_qb_ids:
+            from decimal import Decimal as D
+
+            from gentletap.services.payments import apply_invoice_balance_update
+
+            stale = (
+                db.query(Invoice)
+                .filter(
+                    Invoice.user_id == user_id,
+                    Invoice.balance > 0,
+                    Invoice.qb_invoice_id.notin_(synced_qb_ids),
+                )
+                .all()
+            )
+            for inv in stale:
+                apply_invoice_balance_update(
+                    db,
+                    user_id=user_id,
+                    qb_invoice_id=inv.qb_invoice_id,
+                    balance=D("0"),
+                    notify=True,
+                )
+
         result = {
             "status": "complete",
             "progress": 100,
@@ -180,6 +220,7 @@ def sync_unpaid_invoices(db: Session, user_id: UUID) -> dict:
             "total_outstanding": float(total_outstanding),
         }
         _update_sync_status(user_id, **result)
+        _log_sync(db, user_id, "complete", result["message"], len(qb_invoices), started)
         return result
 
     except Exception as exc:
@@ -192,4 +233,27 @@ def sync_unpaid_invoices(db: Session, user_id: UUID) -> dict:
             "total_outstanding": 0.0,
         }
         _update_sync_status(user_id, **result)
+        _log_sync(db, user_id, "error", str(exc), 0, started)
         return result
+
+
+def _log_sync(
+    db: Session,
+    user_id: UUID,
+    status: str,
+    message: str | None,
+    invoices_synced: int,
+    started: float,
+) -> None:
+    duration_ms = int((perf_counter() - started) * 1000)
+    db.add(
+        SyncLog(
+            user_id=user_id,
+            source="quickbooks",
+            status=status,
+            message=message,
+            invoices_synced=invoices_synced,
+            duration_ms=duration_ms,
+        )
+    )
+    db.commit()
