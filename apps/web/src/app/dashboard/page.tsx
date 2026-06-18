@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { api, getToken, type InvoiceItem } from "@/lib/api";
 import { formatMoney, isOnboardingComplete } from "@/lib/onboarding";
@@ -116,7 +116,28 @@ function AgingBuckets({ aging, currency }: { aging: Summary["aging"]; currency: 
   );
 }
 
-function InsightBanner({ summary, invoices }: { summary: Summary; invoices: InvoiceItem[] }) {
+function formatLastSync(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const diffMs = Date.now() - d.getTime();
+  const diffMin = Math.floor(diffMs / 60_000);
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+function InsightBanner({
+  summary,
+  invoices,
+  onShowQueued,
+}: {
+  summary: Summary;
+  invoices: InvoiceItem[];
+  onShowQueued?: () => void;
+}) {
   const stuck90 = summary.aging?.days_90_plus;
   const cap = summary.monthly_collections;
 
@@ -155,15 +176,26 @@ function InsightBanner({ summary, invoices }: { summary: Summary; invoices: Invo
     );
   }
 
-  const inactive = invoices.filter((i) => i.balance > 0 && !i.sequence_active && i.days_overdue > 0);
+  const inactive = invoices.filter(
+    (i) => i.balance > 0 && !i.sequence_active && !i.sequence_paused && i.days_overdue > 0 && !i.dispute_flag,
+  );
   if (inactive.length > 0) {
     return (
-      <div className="rounded-xl border border-border bg-card px-5 py-4">
+      <div className="rounded-xl border border-accent/25 bg-accent/5 px-5 py-4">
         <p className="font-semibold">
-          {inactive.length} overdue invoice{inactive.length === 1 ? "" : "s"} not yet activated
+          {inactive.length} new overdue invoice{inactive.length === 1 ? "" : "s"} queued
         </p>
         <p className="mt-0.5 text-sm text-muted">
-          GentleTap isn&apos;t sending reminders for these yet.
+          GentleTap activates reminders automatically after each QuickBooks sync (every 30 minutes). No action
+          needed — or{" "}
+          {onShowQueued ? (
+            <button type="button" onClick={onShowQueued} className="font-medium text-accent hover:underline">
+              activate now
+            </button>
+          ) : (
+            "activate now from the table below"
+          )}
+          .
         </p>
       </div>
     );
@@ -197,6 +229,10 @@ export default function DashboardPage() {
   const [onboardingNote, setOnboardingNote] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "active" | "needs_action">("all");
+  const [qbSyncing, setQbSyncing] = useState(false);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const syncPollActive = useRef(false);
 
   useEffect(() => {
     const note = sessionStorage.getItem("onboarding_note");
@@ -207,22 +243,102 @@ export default function DashboardPage() {
     const token = getToken();
     if (!token) return;
     try {
-      const [s, inv, notes] = await Promise.all([
+      const [s, inv, notes, sync] = await Promise.all([
         api.invoicesSummary(token),
         api.invoices(token),
         api.notifications(token),
+        api.qbSyncStatus(token),
       ]);
       setSummary(s);
       setInvoices(inv.items);
       setNotifications(notes.items.slice(0, 5));
+      setLastSyncAt(sync.last_sync_at ?? null);
+      if (sync.status === "syncing") {
+        setQbSyncing(true);
+        setSyncMessage(sync.message);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load dashboard");
     }
   }, []);
 
+  const pollSyncUntilDone = useCallback(async () => {
+    if (syncPollActive.current) return;
+    syncPollActive.current = true;
+    const token = getToken();
+    if (!token) {
+      syncPollActive.current = false;
+      return;
+    }
+    try {
+      for (let i = 0; i < 60; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        const sync = await api.qbSyncStatus(token);
+        setLastSyncAt(sync.last_sync_at ?? null);
+        setSyncMessage(sync.message);
+        if (sync.status !== "syncing") {
+          setQbSyncing(false);
+          setSyncMessage(null);
+          await load();
+          return;
+        }
+      }
+    } catch {
+      setError("QuickBooks sync failed");
+    } finally {
+      setQbSyncing(false);
+      setSyncMessage(null);
+      syncPollActive.current = false;
+    }
+  }, [load]);
+
+  const startSyncPoll = useCallback(() => {
+    void pollSyncUntilDone();
+  }, [pollSyncUntilDone]);
+
+  async function triggerQbSync() {
+    const token = getToken();
+    if (!token || qbSyncing) return;
+    setQbSyncing(true);
+    setSyncMessage("Starting sync…");
+    setError(null);
+    try {
+      await api.qbSync(token);
+      setSyncMessage("Syncing QuickBooks…");
+      startSyncPoll();
+    } catch (err) {
+      setQbSyncing(false);
+      setSyncMessage(null);
+      setError(err instanceof Error ? err.message : "Sync failed");
+    }
+  }
+
   useEffect(() => { if (!loading && !user) router.replace("/login"); }, [loading, user, router]);
   useEffect(() => { if (user && !isOnboardingComplete(user)) router.replace("/onboarding"); }, [user, router]);
   useEffect(() => { if (user) load(); }, [user, load]);
+
+  // Refresh dashboard every 60s while tab is visible
+  useEffect(() => {
+    if (!user) return;
+    const tick = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    const interval = setInterval(tick, 60_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [user, load]);
+
+  // Resume polling if user lands on dashboard mid-sync
+  useEffect(() => {
+    if (!user || !qbSyncing) return;
+    startSyncPoll();
+  }, [user, qbSyncing, startSyncPoll]);
 
   if (loading || !user) {
     return (
@@ -256,7 +372,15 @@ export default function DashboardPage() {
 
   const filteredInvoices = invoices.filter((inv) => {
     if (filter === "active") return inv.sequence_active;
-    if (filter === "needs_action") return inv.balance > 0 && !inv.sequence_active && inv.days_overdue > 0;
+    if (filter === "needs_action") {
+      return (
+        inv.balance > 0 &&
+        !inv.sequence_active &&
+        !inv.sequence_paused &&
+        inv.days_overdue > 0 &&
+        !inv.dispute_flag
+      );
+    }
     return true;
   });
 
@@ -266,25 +390,28 @@ export default function DashboardPage() {
     <DashboardShell escalationCount={escalationCount}>
       <div className="px-8 py-8">
         {/* Page header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold">Dashboard</h1>
             <p className="mt-0.5 text-sm text-muted">
               {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+              {lastSyncAt && (
+                <span className="ml-2 text-xs">
+                  · QuickBooks synced {formatLastSync(lastSyncAt)}
+                </span>
+              )}
             </p>
+            {syncMessage && (
+              <p className="mt-1 text-xs text-accent">{syncMessage}</p>
+            )}
           </div>
           <button
-            className="btn-secondary py-2 text-sm"
-            onClick={async () => {
-              const token = getToken();
-              if (!token) return;
-              try {
-                await api.qbSync(token);
-                setTimeout(load, 3000);
-              } catch { /* no-op */ }
-            }}
+            type="button"
+            className="btn-secondary py-2 text-sm disabled:opacity-60"
+            disabled={qbSyncing}
+            onClick={() => void triggerQbSync()}
           >
-            ↻ Sync QuickBooks
+            {qbSyncing ? "Syncing…" : "↻ Sync QuickBooks"}
           </button>
         </div>
 
@@ -329,7 +456,11 @@ export default function DashboardPage() {
         {/* Insight banner */}
         {summary && (
           <div className="mt-5">
-            <InsightBanner summary={summary} invoices={invoices} />
+            <InsightBanner
+              summary={summary}
+              invoices={invoices}
+              onShowQueued={() => setFilter("needs_action")}
+            />
           </div>
         )}
 
@@ -395,7 +526,7 @@ export default function DashboardPage() {
                     filter === f ? "bg-accent text-white" : "text-muted hover:text-foreground"
                   }`}
                 >
-                  {f === "all" ? "All" : f === "active" ? "Active" : "Needs action"}
+                  {f === "all" ? "All" : f === "active" ? "Active" : "Queued"}
                 </button>
               ))}
             </div>
@@ -486,15 +617,21 @@ export default function DashboardPage() {
                               >
                                 Resume
                               </button>
-                            ) : inv.balance > 0 && inv.days_overdue > 0 ? (
+                            ) : inv.balance > 0 && inv.days_overdue > 0 && !inv.dispute_flag ? (
+                              <span className="text-xs text-muted">Queued</span>
+                            ) : null}
+                            {!inv.sequence_active &&
+                              inv.balance > 0 &&
+                              inv.days_overdue > 0 &&
+                              !inv.dispute_flag && (
                               <button
                                 disabled={!!busy}
                                 onClick={() => invoiceAction(inv.id, "activate")}
                                 className="rounded-lg border border-accent/40 px-2.5 py-1 text-xs text-accent hover:bg-accent/5 disabled:opacity-50"
                               >
-                                Activate
+                                Activate now
                               </button>
-                            ) : null}
+                            )}
                             <Link
                               href={`/dashboard/invoices/${inv.id}`}
                               className="text-xs text-muted hover:text-foreground"

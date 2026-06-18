@@ -170,6 +170,8 @@ export const api = {
       connected?: boolean;
       unpaid_count?: number;
       total_outstanding?: number;
+      last_sync_at?: string | null;
+      auto_activated?: number;
     }>("/quickbooks/sync/status", {}, token),
 
   googleConnectUrl: (token: string) =>
