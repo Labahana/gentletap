@@ -1,7 +1,23 @@
-# Production stack — Postgres via Supabase (set DATABASE_URL in .env).
-# Local dev with Docker Postgres: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+# Production stack — self-hosted Postgres (default) or Supabase (set DATABASE_URL in .env).
+# Local dev overlay (exposes Postgres on localhost:5433): docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gentletap-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gentletap}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gentletap}
+      POSTGRES_DB: ${POSTGRES_DB:-gentletap}
+    volumes:
+      - gentletap_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gentletap -d gentletap"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   redis:
     image: redis:7-alpine
     container_name: gentletap-redis
@@ -40,6 +56,8 @@ services:
       retries: 5
       start_period: 40s
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
 
@@ -57,6 +75,8 @@ services:
       CELERY_RESULT_BACKEND: "redis://redis:6379/1"
     entrypoint: ["celery", "-A", "gentletap.tasks.celery_app", "worker", "-l", "info", "--concurrency=2"]
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
       api:
@@ -76,6 +96,8 @@ services:
       CELERY_RESULT_BACKEND: "redis://redis:6379/1"
     entrypoint: ["celery", "-A", "gentletap.tasks.celery_app", "beat", "-l", "info"]
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
       api:
@@ -96,4 +118,5 @@ services:
         condition: service_healthy
 
 volumes:
+  gentletap_pgdata:
   gentletap_redis:
