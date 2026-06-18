@@ -55,7 +55,7 @@ function ConnectionsSettingsContent() {
         api.qbSyncStatus(token),
         api.whatsappStatus(token).catch(() => null),
         api.whatsappInbound(token).catch(() => ({ items: [] })),
-        api.googleStatus(token).catch(() => ({ connected: false })),
+        api.googleStatus(token).catch(() => ({ connected: false, email: undefined })),
       ]);
       setEmailReady(email.ready);
       setEmailProvider(email.provider);
