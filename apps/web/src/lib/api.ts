@@ -35,6 +35,127 @@ export type InvoiceItem = {
   sequence_step: number;
   dispute_flag?: boolean;
   due_date: string | null;
+  chase_label?: "chasing" | "final_notice" | "paid" | "paused" | "disputed" | "queued" | "upcoming";
+  status_text?: string;
+  meta_line?: string;
+  last_reminder_at?: string | null;
+  last_reminder_channel?: string | null;
+};
+
+export type DashboardActivity = {
+  kind: string;
+  channel?: string | null;
+  title: string;
+  subtitle?: string | null;
+  body?: string | null;
+  amount?: number | null;
+  at: string;
+  invoice_id?: string | null;
+};
+
+export type DashboardSummary = {
+  unpaid_count: number;
+  overdue_count: number;
+  total_outstanding: number;
+  currency: string;
+  green_count: number;
+  yellow_count: number;
+  red_count: number;
+  active_sequences: number;
+  collected_this_month?: number;
+  expected_this_week?: number;
+  expected_this_week_count?: number;
+  avg_days_to_pay?: number | null;
+  reminders_sent_this_month?: number;
+  collection_rate?: number;
+  response_rate?: number | null;
+  time_saved_hours?: number;
+  time_saved_value?: number;
+  featured_escalation?: {
+    invoice_id: string;
+    client_name: string;
+    balance: number;
+    currency: string;
+    reminders_sent: number;
+    days_overdue: number;
+    message: string;
+  } | null;
+  last_action?: {
+    channel: string;
+    client_name: string;
+    doc_number: string | null;
+    sent_at: string | null;
+  } | null;
+  activity?: DashboardActivity[];
+  monthly_collections: {
+    monthly_limit: number;
+    monthly_used: number;
+    monthly_remaining: number;
+    cap_reached: boolean;
+  } | null;
+  aging?: {
+    current: { count: number; total: number };
+    days_1_30: { count: number; total: number };
+    days_31_60: { count: number; total: number };
+    days_61_90: { count: number; total: number };
+    days_90_plus: { count: number; total: number };
+  };
+  collected_mom_pct?: number | null;
+  collected_last_month?: number;
+  avg_days_delta?: number | null;
+  avg_days_last_month?: number | null;
+};
+
+export type ClientListItem = {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  risk_level: string;
+  avg_days_to_pay: number | null;
+  late_payment_rate: number;
+  lifetime_value: number;
+  tenure_months: number;
+  preferred_channel: string;
+  email_suppressed: boolean;
+  outstanding: number;
+  unpaid_count: number;
+  active_chase_count: number;
+};
+
+export type ClientDetail = ClientListItem & {
+  communication_style: string;
+  invoices_paid_on_time: number;
+  invoices_paid_late: number;
+  invoices: Array<{
+    id: string;
+    doc_number: string | null;
+    amount: number;
+    balance: number;
+    currency: string;
+    days_overdue: number;
+    status: string;
+    sequence_active: boolean;
+    due_date: string | null;
+  }>;
+};
+
+export type AnalyticsData = {
+  currency: string;
+  total_clients: number;
+  active_sequences: number;
+  reminders_sent_this_month: number;
+  paid_this_month: number;
+  response_rate: number | null;
+  collection_trend: Array<{ month: string; year: number; collected: number }>;
+  reminders_by_channel: Record<string, number>;
+  clients_by_risk: { low: number; medium: number; high: number };
+  top_clients_outstanding: Array<{ id: string; name: string; outstanding: number }>;
+  avg_days_to_pay?: number | null;
+  collected_mom_pct: number | null;
+  collected_last_month: number;
+  avg_days_delta: number | null;
+  avg_days_last_month: number | null;
 };
 
 export type ReminderPreviewItem = {
@@ -199,22 +320,7 @@ export const api = {
     ),
 
   invoicesSummary: (token: string) =>
-    request<{
-      unpaid_count: number;
-      overdue_count: number;
-      total_outstanding: number;
-      currency: string;
-      green_count: number;
-      yellow_count: number;
-      red_count: number;
-      active_sequences: number;
-      monthly_collections: {
-        monthly_limit: number;
-        monthly_used: number;
-        monthly_remaining: number;
-        cap_reached: boolean;
-      } | null;
-    }>("/invoices/summary", {}, token),
+    request<DashboardSummary>("/invoices/summary", {}, token),
 
   invoices: (token: string, status?: string) =>
     request<{ items: InvoiceItem[]; total: number }>(
@@ -222,6 +328,14 @@ export const api = {
       {},
       token,
     ),
+
+  clients: (token: string) =>
+    request<{ items: ClientListItem[]; total: number }>("/clients", {}, token),
+
+  clientDetail: (token: string, id: string) =>
+    request<ClientDetail>(`/clients/${id}`, {}, token),
+
+  analytics: (token: string) => request<AnalyticsData>("/analytics", {}, token),
 
   remindersPreview: (token: string) =>
     request<{ items: ReminderPreviewItem[]; count: number }>("/reminders/preview", {}, token),
@@ -323,6 +437,7 @@ export const api = {
         body: string;
         invoice_id: string | null;
         read: boolean;
+        created_at?: string | null;
       }>;
     }>(
       "/notifications",

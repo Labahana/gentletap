@@ -2,70 +2,118 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
+import {
+  IconLayoutDashboard,
+  IconFileInvoice,
+  IconUsers,
+  IconMail,
+  IconChartLine,
+  IconPlug,
+  IconSettings,
+  IconHome,
+  IconBell,
+} from "@tabler/icons-react";
+import { DashIcon, type IconProps } from "@/components/dashboard-icons";
 import { useAuth } from "@/lib/auth-context";
 import { planLabel } from "@/lib/pricing";
 
 type NavItem = {
   href: string;
   label: string;
-  icon: string;
+  icon: ComponentType<IconProps>;
+  mobileLabel?: string;
   exact?: boolean;
-  badge?: number;
 };
 
-const NAV: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: "▤", exact: true },
-  { href: "/dashboard#invoices", label: "Invoices", icon: "◻" },
-  { href: "/dashboard/escalations", label: "Needs you", icon: "⚑" },
-  { href: "/settings/connections", label: "Connections", icon: "⇌" },
-  { href: "/settings/billing", label: "Billing", icon: "◇" },
+const DESKTOP: NavItem[] = [
+  { href: "/dashboard", label: "Overview", icon: IconLayoutDashboard, exact: true },
+  { href: "/dashboard/invoices", label: "Invoices", icon: IconFileInvoice },
+  { href: "/dashboard/clients", label: "Clients", icon: IconUsers },
+  { href: "/dashboard/alerts", label: "Reminders sent", icon: IconMail },
+  { href: "/dashboard/analytics", label: "Analytics", icon: IconChartLine },
+  { href: "/settings/connections", label: "Connections", icon: IconPlug },
+  { href: "/settings/profile", label: "Settings", icon: IconSettings },
 ];
 
-function NavLink({ item, badge }: { item: NavItem; badge?: number }) {
+const MOBILE: NavItem[] = [
+  { href: "/dashboard", label: "Home", icon: IconHome, exact: true },
+  { href: "/dashboard/invoices", label: "Invoices", icon: IconFileInvoice },
+  { href: "/dashboard/alerts", label: "Alerts", icon: IconBell },
+  { href: "/dashboard/analytics", label: "Analytics", icon: IconChartLine },
+  { href: "/settings/profile", label: "Settings", icon: IconSettings },
+];
+
+function isActive(pathname: string, item: NavItem): boolean {
+  if (item.exact) return pathname === item.href;
+  if (item.href === "/dashboard/invoices") {
+    return pathname === item.href || pathname.startsWith("/dashboard/invoices/");
+  }
+  if (item.href === "/dashboard/clients") {
+    return pathname === item.href || pathname.startsWith("/dashboard/clients/");
+  }
+  if (item.href === "/dashboard/alerts") {
+    return pathname === item.href || pathname === "/dashboard/escalations";
+  }
+  return pathname === item.href || pathname.startsWith(`${item.href}/`);
+}
+
+function NavLink({
+  item,
+  badge,
+  variant,
+}: {
+  item: NavItem;
+  badge?: number;
+  variant: "sidebar" | "bottom";
+}) {
   const pathname = usePathname();
-  const [hash, setHash] = useState("");
+  const active = isActive(pathname, item);
+  const label = variant === "bottom" ? (item.mobileLabel ?? item.label) : item.label;
+  const Icon = item.icon;
 
-  useEffect(() => {
-    const read = () => setHash(typeof window !== "undefined" ? window.location.hash : "");
-    read();
-    window.addEventListener("hashchange", read);
-    return () => window.removeEventListener("hashchange", read);
-  }, [pathname]);
-
-  const [path, itemHash] = item.href.split("#");
-  let active = false;
-  if (item.exact) {
-    active = pathname === path && (!itemHash ? hash !== "#invoices" : hash === `#${itemHash}`);
-  } else if (itemHash) {
-    active =
-      (pathname === path && hash === `#${itemHash}`) ||
-      pathname.startsWith(`${path}/invoices`);
-  } else {
-    active = pathname === path || pathname.startsWith(`${path}/`);
+  if (variant === "bottom") {
+    return (
+      <Link
+        href={item.href}
+        className={`relative flex flex-1 flex-col items-center gap-0.5 py-1 text-[9px] transition ${
+          active ? "font-medium text-foreground" : "text-muted"
+        }`}
+      >
+        <Icon size={20} stroke={1.75} className={active ? "text-accent" : ""} />
+        {label}
+        {badge != null && badge > 0 && (
+          <span className="absolute right-[18%] top-0 h-1.5 w-1.5 rounded-full bg-red" />
+        )}
+      </Link>
+    );
   }
 
   return (
     <Link
       href={item.href}
-      className={`group flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-all ${
+      className={`flex items-center gap-2 px-4 py-1.5 text-[13px] transition ${
         active
-          ? "bg-accent/10 font-semibold text-accent border-l-2 border-accent pl-[10px]"
-          : "text-muted hover:bg-border/50 hover:text-foreground"
+          ? "border-r-2 border-foreground bg-background font-medium text-foreground"
+          : "text-muted hover:bg-background/60 hover:text-foreground"
       }`}
     >
-      <span className={`text-base leading-none ${active ? "text-accent" : "text-muted group-hover:text-foreground"}`}>
-        {item.icon}
-      </span>
+      <Icon size={16} stroke={1.75} />
       <span className="flex-1">{item.label}</span>
       {badge != null && badge > 0 && (
-        <span className="rounded-full bg-red px-1.5 py-0.5 text-xs font-semibold text-white">{badge}</span>
+        <span className="rounded-full bg-red px-1.5 py-0.5 text-[10px] font-semibold text-white">{badge}</span>
       )}
     </Link>
   );
 }
 
-function ProfileDropdown() {
+function SidebarFooter({
+  monthlyUsed,
+  monthlyLimit,
+}: {
+  monthlyUsed?: number;
+  monthlyLimit?: number;
+}) {
   const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -89,50 +137,47 @@ function ProfileDropdown() {
         .slice(0, 2)
     : user.email.slice(0, 2).toUpperCase();
 
+  const usage =
+    monthlyLimit != null && monthlyUsed != null
+      ? `${planLabel(user.plan)} · ${monthlyUsed} of ${monthlyLimit} used`
+      : `${planLabel(user.plan)} plan`;
+
   return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-3 rounded-xl p-3 text-left hover:bg-border/50 transition-all"
-      >
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/20 text-xs font-bold text-accent">
+    <div ref={ref} className="relative border-t border-border px-4 py-3">
+      <button type="button" onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-2 text-left">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/15 text-[11px] font-semibold text-accent">
           {initials}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium">{user.full_name || user.email.split("@")[0]}</p>
-          <p className="truncate text-xs text-muted">{user.email}</p>
+          <p className="truncate text-xs font-medium">{user.full_name || user.email.split("@")[0]}</p>
+          <p className="truncate text-[11px] text-muted">{usage}</p>
         </div>
-        <span className="text-xs text-muted">{open ? "▲" : "▼"}</span>
       </button>
 
+      {user.plan === "free" && (
+        <Link
+          href="/settings/billing"
+          className="mt-2 block w-full rounded-lg border border-border py-1.5 text-center text-[11px] hover:bg-background"
+        >
+          Upgrade to Pro $19/mo
+        </Link>
+      )}
+
       {open && (
-        <div className="absolute bottom-full left-0 right-0 mb-1 rounded-xl border border-border bg-card shadow-lg overflow-hidden z-50">
-          <div className="border-b border-border px-4 py-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted">Account</p>
-            <p className="mt-0.5 text-sm font-medium">{planLabel(user.plan)} plan</p>
-          </div>
-          <Link
-            href="/settings/profile"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-background transition-colors"
-          >
-            <span className="text-muted">◎</span> Profile & settings
+        <div className="absolute bottom-full left-3 right-3 z-50 mb-1 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+          <Link href="/settings/profile" onClick={() => setOpen(false)} className="block px-4 py-2 text-sm hover:bg-background">
+            Profile & settings
           </Link>
-          <Link
-            href="/settings/billing"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-background transition-colors"
-          >
-            <span className="text-muted">◇</span> Billing & plan
+          <Link href="/settings/billing" onClick={() => setOpen(false)} className="block px-4 py-2 text-sm hover:bg-background">
+            Billing & plan
           </Link>
-          <div className="border-t border-border">
-            <button
-              onClick={() => { setOpen(false); logout(); }}
-              className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-muted hover:bg-background hover:text-foreground transition-colors"
-            >
-              <span>→</span> Log out
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => { setOpen(false); logout(); }}
+            className="block w-full border-t border-border px-4 py-2 text-left text-sm text-muted hover:bg-background"
+          >
+            Log out
+          </button>
         </div>
       )}
     </div>
@@ -141,61 +186,59 @@ function ProfileDropdown() {
 
 export function DashboardShell({
   children,
-  escalationCount = 0,
+  alertCount = 0,
+  autopilotOn = true,
+  monthlyUsed,
+  monthlyLimit,
 }: {
   children: React.ReactNode;
-  escalationCount?: number;
+  alertCount?: number;
+  autopilotOn?: boolean;
+  monthlyUsed?: number;
+  monthlyLimit?: number;
 }) {
-  const { user } = useAuth();
-
   return (
     <div className="flex min-h-screen bg-background">
-      {/* Sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 flex w-60 flex-col border-r border-border bg-card">
-        {/* Logo */}
-        <div className="flex h-16 items-center px-5 border-b border-border">
-          <Link href="/dashboard" className="text-xl font-bold">
-            Gentle<span className="text-accent">Tap</span>
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[196px] flex-col border-r border-border bg-card lg:flex">
+        <div className="border-b border-border px-4 pb-3.5 pt-4">
+          <Link href="/dashboard" className="text-[15px] font-medium">
+            GentleTap
           </Link>
+          {autopilotOn && (
+            <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-green/15 px-2 py-0.5 text-[10px] font-medium text-green">
+              <DashIcon name="robot" size={10} /> Autopilot on
+            </div>
+          )}
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-          <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted/70">
-            Workspace
-          </p>
-          {NAV.map((item) => (
+        <nav className="flex-1 space-y-0.5 overflow-y-auto py-2">
+          {DESKTOP.map((item) => (
             <NavLink
               key={item.href}
               item={item}
-              badge={item.href === "/dashboard/escalations" ? escalationCount : undefined}
+              variant="sidebar"
+              badge={item.href === "/dashboard/alerts" ? alertCount : undefined}
             />
           ))}
         </nav>
 
-        {/* Free plan upgrade strip */}
-        {user?.plan === "free" && (
-          <div className="border-t border-border px-3 py-3">
-            <Link
-              href="/settings/billing"
-              className="block rounded-xl bg-accent/8 border border-accent/20 px-3 py-2.5 text-xs hover:bg-accent/15 transition-colors"
-            >
-              <p className="font-semibold text-accent">Starter plan</p>
-              <p className="mt-0.5 text-muted">Upgrade for unlimited collections →</p>
-            </Link>
-          </div>
-        )}
-
-        {/* Profile */}
-        <div className="border-t border-border px-3 py-3">
-          <ProfileDropdown />
-        </div>
+        <SidebarFooter monthlyUsed={monthlyUsed} monthlyLimit={monthlyLimit} />
       </aside>
 
-      {/* Main content */}
-      <main className="ml-60 flex-1 min-w-0">
-        {children}
+      <main className="min-w-0 flex-1 lg:ml-[196px]">
+        <div className="pb-[72px] lg:pb-0">{children}</div>
       </main>
+
+      <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-card px-0.5 pb-[env(safe-area-inset-bottom)] pt-1.5 lg:hidden">
+        {MOBILE.map((item) => (
+          <NavLink
+            key={item.href}
+            item={item}
+            variant="bottom"
+            badge={item.href === "/dashboard/alerts" ? alertCount : undefined}
+          />
+        ))}
+      </nav>
     </div>
   );
 }

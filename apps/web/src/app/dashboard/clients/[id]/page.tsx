@@ -1,0 +1,159 @@
+"use client";
+
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { DashboardShell } from "@/components/dashboard-shell";
+import { api, getToken, type ClientDetail } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
+import { riskBadgeClass } from "@/lib/dashboard-ui";
+import { formatMoney, isOnboardingComplete } from "@/lib/onboarding";
+
+export default function ClientDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  const [client, setClient] = useState<ClientDetail | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const token = getToken();
+    if (!token || !id) return;
+    try {
+      setClient(await api.clientDetail(token, id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Client not found");
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (!loading && !user) router.replace("/login");
+  }, [loading, user, router]);
+  useEffect(() => {
+    if (user && !isOnboardingComplete(user)) router.replace("/onboarding");
+  }, [user, router]);
+  useEffect(() => {
+    if (user) load();
+  }, [user, load]);
+
+  if (loading || !user) {
+    return (
+      <DashboardShell>
+        <div className="flex items-center justify-center py-40">
+          <div className="h-6 w-32 animate-pulse rounded-xl bg-border" />
+        </div>
+      </DashboardShell>
+    );
+  }
+
+  if (error || !client) {
+    return (
+      <DashboardShell>
+        <div className="px-6 py-12 text-center">
+          <p className="text-red">{error ?? "Client not found"}</p>
+          <Link href="/dashboard/clients" className="mt-4 inline-block text-sm text-accent underline">
+            ← Back to clients
+          </Link>
+        </div>
+      </DashboardShell>
+    );
+  }
+
+  return (
+    <DashboardShell>
+      <div className="px-3.5 py-5 sm:px-5 lg:px-6 lg:py-5">
+        <Link href="/dashboard/clients" className="text-xs text-muted hover:text-foreground">
+          ← Clients
+        </Link>
+        <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-bold">{client.name}</h1>
+            <p className="mt-0.5 text-sm text-muted">{client.email ?? "No email on file"}</p>
+            {client.phone && <p className="text-sm text-muted">{client.phone}</p>}
+          </div>
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${riskBadgeClass(client.risk_level)}`}
+          >
+            {client.risk_level} risk
+          </span>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-border bg-card px-4 py-3">
+            <p className="text-[11px] text-muted">Outstanding</p>
+            <p className="mt-1 text-xl font-bold">{formatMoney(client.outstanding)}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card px-4 py-3">
+            <p className="text-[11px] text-muted">Lifetime value</p>
+            <p className="mt-1 text-xl font-bold">{formatMoney(client.lifetime_value)}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card px-4 py-3">
+            <p className="text-[11px] text-muted">Avg days to pay</p>
+            <p className="mt-1 text-xl font-bold">
+              {client.avg_days_to_pay != null ? `${client.avg_days_to_pay}d` : "—"}
+            </p>
+          </div>
+          <div className="rounded-xl border border-border bg-card px-4 py-3">
+            <p className="text-[11px] text-muted">Late payment rate</p>
+            <p className="mt-1 text-xl font-bold">{Math.round(client.late_payment_rate * 100)}%</p>
+          </div>
+        </div>
+
+        <div className="card mt-5">
+          <h2 className="text-sm font-semibold">Profile</h2>
+          <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-xs text-muted">Preferred channel</dt>
+              <dd className="capitalize">{client.preferred_channel}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted">Tenure</dt>
+              <dd>{client.tenure_months} months</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted">Paid on time</dt>
+              <dd>{client.invoices_paid_on_time} invoices</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted">Paid late</dt>
+              <dd>{client.invoices_paid_late} invoices</dd>
+            </div>
+            {client.email_suppressed && (
+              <div className="sm:col-span-2">
+                <p className="rounded-lg bg-yellow/10 px-3 py-2 text-xs text-yellow-900">
+                  Email suppressed — reminders will use WhatsApp or skip email.
+                </p>
+              </div>
+            )}
+          </dl>
+        </div>
+
+        <div className="card mt-5">
+          <h2 className="text-sm font-semibold">Invoices</h2>
+          {client.invoices.length === 0 ? (
+            <p className="mt-4 text-sm text-muted">No invoices for this client.</p>
+          ) : (
+            <div className="mt-3 divide-y divide-border/60">
+              {client.invoices.map((inv) => (
+                <Link
+                  key={inv.id}
+                  href={`/dashboard/invoices/${inv.id}`}
+                  className="flex items-center justify-between py-2.5 hover:text-accent"
+                >
+                  <div>
+                    <p className="text-sm font-medium">#{inv.doc_number ?? "—"}</p>
+                    <p className="text-[11px] text-muted">
+                      {inv.days_overdue > 0 ? `${inv.days_overdue}d overdue` : "Current"}
+                      {inv.sequence_active ? " · Autopilot running" : ""}
+                    </p>
+                  </div>
+                  <p className="text-sm font-medium tabular-nums">{formatMoney(inv.balance, inv.currency)}</p>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </DashboardShell>
+  );
+}

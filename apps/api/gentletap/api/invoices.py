@@ -6,6 +6,12 @@ from sqlalchemy.orm import Session
 
 from gentletap.database import Invoice, ReminderMessage, get_db
 from gentletap.dependencies import CurrentUser
+from gentletap.services.dashboard_data import (
+    build_activity_feed,
+    build_summary_extras,
+    enrich_invoice_row,
+    last_sent_reminders_by_invoice,
+)
 from gentletap.services.email_router import has_delivery_capability
 from gentletap.services.plan_limits import ensure_can_activate, free_plan_collection_usage, mark_collection_started
 from gentletap.services.sequences import (
@@ -30,24 +36,10 @@ def list_invoices(
         q = q.filter(Invoice.status == status_filter)
     total = q.count()
     rows = q.order_by(Invoice.days_overdue.desc(), Invoice.balance.desc()).offset(offset).limit(limit).all()
+    last_by_inv = last_sent_reminders_by_invoice(db, [inv.id for inv in rows])
     return {
         "items": [
-            {
-                "id": str(inv.id),
-                "doc_number": inv.doc_number,
-                "client_name": inv.client.name if inv.client else "",
-                "client_email": inv.client.email if inv.client else None,
-                "amount": float(inv.amount),
-                "balance": float(inv.balance),
-                "currency": inv.currency,
-                "days_overdue": inv.days_overdue,
-                "status": inv.status,
-                "sequence_active": inv.sequence_active,
-                "sequence_paused": inv.sequence_paused,
-                "sequence_step": inv.sequence_step,
-                "dispute_flag": inv.dispute_flag,
-                "due_date": inv.due_date.isoformat() if inv.due_date else None,
-            }
+            enrich_invoice_row(inv, last_by_inv.get(inv.id))
             for inv in rows
         ],
         "total": total,
@@ -117,6 +109,7 @@ def invoices_summary(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
         row = q.first()
         return {"count": row[0] or 0, "total": float(row[1] or 0)}
 
+    extras = build_summary_extras(db, user.id)
     return {
         "unpaid_count": unpaid_count,
         "overdue_count": overdue_count,
@@ -134,6 +127,8 @@ def invoices_summary(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
             "days_61_90": _bucket(61, 90),
             "days_90_plus": _bucket(91, None),
         },
+        **extras,
+        "activity": build_activity_feed(db, user.id, limit=10),
     }
 
 

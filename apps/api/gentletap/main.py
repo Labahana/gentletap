@@ -7,8 +7,10 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from gentletap.api import (
+    analytics,
     auth,
     billing,
+    clients,
     core,
     escalations,
     google,
@@ -65,6 +67,8 @@ def create_app() -> FastAPI:
     app.include_router(google.router, prefix=prefix)
     app.include_router(email_router, prefix=prefix)
     app.include_router(invoices.router, prefix=prefix)
+    app.include_router(clients.router, prefix=prefix)
+    app.include_router(analytics.router, prefix=prefix)
     app.include_router(reminders.router, prefix=prefix)
     app.include_router(escalations.router, prefix=prefix)
     app.include_router(notifications.router, prefix=prefix)

@@ -1,0 +1,322 @@
+
+<h2 class="sr-only">GentleTap mobile app screens showing home dashboard, invoice list, and notification views designed for one-handed use</h2>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.screens{display:flex;gap:20px;justify-content:center;padding:1.5rem 0;flex-wrap:wrap;align-items:flex-start}
+.phone{width:240px;border-radius:32px;border:1.5px solid var(--color-border-secondary);overflow:hidden;background:var(--color-background-primary);flex-shrink:0}
+.phone-label{text-align:center;font-size:11px;color:var(--color-text-tertiary);margin-bottom:8px;font-weight:500}
+.status-bar{display:flex;justify-content:space-between;align-items:center;padding:10px 16px 6px;font-size:10px;color:var(--color-text-secondary)}
+.sb-right{display:flex;align-items:center;gap:4px}
+.screen-content{padding:0 14px 20px}
+.greeting{font-size:17px;font-weight:500;color:var(--color-text-primary);margin-bottom:2px}
+.subgreeting{font-size:11px;color:var(--color-text-tertiary);margin-bottom:14px;display:flex;align-items:center;gap:3px}
+.subgreeting i{font-size:11px;color:var(--color-text-success)}
+.ap-pill{display:flex;align-items:center;gap:6px;padding:10px 12px;border-radius:12px;background:var(--color-background-success);border:0.5px solid var(--color-border-success);margin-bottom:14px}
+.ap-pill i{font-size:16px;color:var(--color-text-success);flex-shrink:0}
+.ap-pill-text{font-size:12px;color:var(--color-text-success);font-weight:500;line-height:1.3}
+.ap-pill-sub{font-size:10px;color:var(--color-text-success);opacity:0.8}
+.big-metric{background:var(--color-background-secondary);border-radius:16px;padding:14px;margin-bottom:10px;text-align:center}
+.big-metric-label{font-size:11px;color:var(--color-text-tertiary);margin-bottom:4px}
+.big-metric-value{font-size:32px;font-weight:500;color:var(--color-text-primary);line-height:1}
+.big-metric-sub{font-size:11px;color:var(--color-text-tertiary);margin-top:4px}
+.mini-metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.mini-m{background:var(--color-background-secondary);border-radius:12px;padding:10px 12px}
+.mini-m-label{font-size:10px;color:var(--color-text-tertiary);margin-bottom:3px}
+.mini-m-value{font-size:16px;font-weight:500;color:var(--color-text-primary)}
+.mini-m-sub{font-size:10px;margin-top:2px}
+.sub-up{color:var(--color-text-success)}
+.sub-warn{color:var(--color-text-warning)}
+.section-head{font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:8px}
+.act-feed{display:flex;flex-direction:column;gap:0}
+.act-row{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:0.5px solid var(--color-border-tertiary)}
+.act-row:last-child{border-bottom:none}
+.act-ic{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px}
+.ic-green{background:var(--color-background-success);color:var(--color-text-success)}
+.ic-blue{background:var(--color-background-info);color:var(--color-text-info)}
+.ic-amber{background:var(--color-background-warning);color:var(--color-text-warning)}
+.act-body{flex:1;min-width:0}
+.act-t{font-size:12px;color:var(--color-text-primary);line-height:1.3}
+.act-s{font-size:10px;color:var(--color-text-tertiary);margin-top:1px}
+.act-amt{font-size:12px;font-weight:500;color:var(--color-text-primary);flex-shrink:0}
+.bottom-nav{display:flex;border-top:0.5px solid var(--color-border-tertiary);padding:8px 0 10px}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;color:var(--color-text-tertiary);cursor:pointer}
+.bnav-item.active{color:var(--color-text-primary)}
+.bnav-item i{font-size:20px}
+.inv-list{display:flex;flex-direction:column;gap:0}
+.inv-card{padding:10px 0;border-bottom:0.5px solid var(--color-border-tertiary)}
+.inv-card:last-child{border-bottom:none}
+.inv-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}
+.inv-cname{font-size:13px;font-weight:500;color:var(--color-text-primary)}
+.inv-amount{font-size:13px;font-weight:500;color:var(--color-text-primary)}
+.inv-bottom{display:flex;justify-content:space-between;align-items:center}
+.inv-meta{font-size:10px;color:var(--color-text-tertiary)}
+.badge{display:inline-flex;align-items:center;gap:2px;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:500}
+.b-amber{background:var(--color-background-warning);color:var(--color-text-warning)}
+.b-red{background:var(--color-background-danger);color:var(--color-text-danger)}
+.b-green{background:var(--color-background-success);color:var(--color-text-success)}
+.b-gray{background:var(--color-background-secondary);color:var(--color-text-secondary)}
+.notif-list{display:flex;flex-direction:column;gap:8px}
+.notif-item{padding:10px 12px;border-radius:12px;border:0.5px solid var(--color-border-tertiary)}
+.notif-item.success{background:var(--color-background-success);border-color:var(--color-border-success)}
+.notif-item.info{background:var(--color-background-info);border-color:var(--color-border-info)}
+.notif-item.warn{background:var(--color-background-warning);border-color:var(--color-border-warning)}
+.notif-top{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+.notif-top i{font-size:14px}
+.notif-title{font-size:12px;font-weight:500}
+.notif-body{font-size:11px;line-height:1.4}
+.notif-time{font-size:10px;margin-top:3px;opacity:0.7}
+.nt-green{color:var(--color-text-success)}
+.nt-blue{color:var(--color-text-info)}
+.nt-amber{color:var(--color-text-warning)}
+.page-title{font-size:16px;font-weight:500;color:var(--color-text-primary);margin-bottom:14px}
+.filter-row{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px}
+.filter-chip{padding:4px 10px;border-radius:20px;font-size:10px;border:0.5px solid var(--color-border-tertiary);background:transparent;color:var(--color-text-secondary);white-space:nowrap;cursor:pointer;flex-shrink:0}
+.filter-chip.active{background:var(--color-text-primary);color:var(--color-background-primary);border-color:var(--color-text-primary)}
+</style>
+
+<div class="screens">
+
+  <div>
+    <div class="phone-label">Home</div>
+    <div class="phone">
+      <div class="status-bar">
+        <span>9:41</span>
+        <div class="sb-right">
+          <i class="ti ti-wifi" style="font-size:12px" aria-hidden="true"></i>
+          <i class="ti ti-battery-2" style="font-size:12px" aria-hidden="true"></i>
+        </div>
+      </div>
+      <div class="screen-content">
+        <div class="greeting">Good morning, Yusuf</div>
+        <div class="subgreeting"><i class="ti ti-circle-check" aria-hidden="true"></i> Synced 4 mins ago</div>
+
+        <div class="ap-pill">
+          <i class="ti ti-robot" aria-hidden="true"></i>
+          <div>
+            <div class="ap-pill-text">Autopilot is on</div>
+            <div class="ap-pill-sub">15 sequences running · last action 23 mins ago</div>
+          </div>
+        </div>
+
+        <div class="big-metric">
+          <div class="big-metric-label">Total outstanding</div>
+          <div class="big-metric-value">$47,200</div>
+          <div class="big-metric-sub">across 23 invoices</div>
+        </div>
+
+        <div class="mini-metrics">
+          <div class="mini-m">
+            <div class="mini-m-label">This week</div>
+            <div class="mini-m-value">$12,400</div>
+            <div class="mini-m-sub sub-up">expected</div>
+          </div>
+          <div class="mini-m">
+            <div class="mini-m-label">Collected</div>
+            <div class="mini-m-value">$28,400</div>
+            <div class="mini-m-sub sub-up">↑ 18% this month</div>
+          </div>
+          <div class="mini-m">
+            <div class="mini-m-label">Avg payment</div>
+            <div class="mini-m-value">12 days</div>
+            <div class="mini-m-sub sub-up">was 27 days</div>
+          </div>
+          <div class="mini-m">
+            <div class="mini-m-label">Time saved</div>
+            <div class="mini-m-value">18 hrs</div>
+            <div class="mini-m-sub sub-up">this month</div>
+          </div>
+        </div>
+
+        <div class="section-head">What GentleTap did today</div>
+        <div class="act-feed">
+          <div class="act-row">
+            <div class="act-ic ic-green"><i class="ti ti-check" aria-hidden="true"></i></div>
+            <div class="act-body">
+              <div class="act-t">Design Co paid</div>
+              <div class="act-s">Reminders stopped · 9:14am</div>
+            </div>
+            <div class="act-amt" style="color:var(--color-text-success)">+$3,100</div>
+          </div>
+          <div class="act-row">
+            <div class="act-ic ic-blue"><i class="ti ti-brand-whatsapp" aria-hidden="true"></i></div>
+            <div class="act-body">
+              <div class="act-t">WhatsApp → Sarah's Boutique</div>
+              <div class="act-s">INV #1234 · 9:00am</div>
+            </div>
+            <div class="act-amt">$4,200</div>
+          </div>
+          <div class="act-row">
+            <div class="act-ic ic-amber"><i class="ti ti-mail" aria-hidden="true"></i></div>
+            <div class="act-body">
+              <div class="act-t">Final notice → Mike's Agency</div>
+              <div class="act-s">INV #5678 · 8:45am</div>
+            </div>
+            <div class="act-amt">$8,500</div>
+          </div>
+          <div class="act-row">
+            <div class="act-ic ic-blue"><i class="ti ti-mail" aria-hidden="true"></i></div>
+            <div class="act-body">
+              <div class="act-t">Reminder → Jennifer Lee</div>
+              <div class="act-s">INV #9012 · 8:30am</div>
+            </div>
+            <div class="act-amt">$2,100</div>
+          </div>
+        </div>
+      </div>
+      <div class="bottom-nav">
+        <div class="bnav-item active"><i class="ti ti-home" aria-hidden="true"></i>Home</div>
+        <div class="bnav-item"><i class="ti ti-file-invoice" aria-hidden="true"></i>Invoices</div>
+        <div class="bnav-item"><i class="ti ti-bell" aria-hidden="true"></i>Alerts</div>
+        <div class="bnav-item"><i class="ti ti-chart-line" aria-hidden="true"></i>Analytics</div>
+        <div class="bnav-item"><i class="ti ti-settings" aria-hidden="true"></i>Settings</div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="phone-label">Invoices</div>
+    <div class="phone">
+      <div class="status-bar">
+        <span>9:41</span>
+        <div class="sb-right">
+          <i class="ti ti-wifi" style="font-size:12px" aria-hidden="true"></i>
+          <i class="ti ti-battery-2" style="font-size:12px" aria-hidden="true"></i>
+        </div>
+      </div>
+      <div class="screen-content">
+        <div class="page-title">Invoices</div>
+        <div class="filter-row">
+          <div class="filter-chip active">All (23)</div>
+          <div class="filter-chip">Chasing (15)</div>
+          <div class="filter-chip">Overdue (8)</div>
+          <div class="filter-chip">Paid (12)</div>
+        </div>
+        <div class="inv-list">
+          <div class="inv-card">
+            <div class="inv-top">
+              <div class="inv-cname">Sarah's Boutique</div>
+              <div class="inv-amount">$4,200</div>
+            </div>
+            <div class="inv-bottom">
+              <div class="inv-meta">INV #1234 · 12 days overdue</div>
+              <span class="badge b-amber">Chasing</span>
+            </div>
+          </div>
+          <div class="inv-card">
+            <div class="inv-top">
+              <div class="inv-cname">Mike's Agency</div>
+              <div class="inv-amount">$8,500</div>
+            </div>
+            <div class="inv-bottom">
+              <div class="inv-meta">INV #5678 · 21 days overdue</div>
+              <span class="badge b-red">Final notice</span>
+            </div>
+          </div>
+          <div class="inv-card">
+            <div class="inv-top">
+              <div class="inv-cname">Jennifer Lee</div>
+              <div class="inv-amount">$2,100</div>
+            </div>
+            <div class="inv-bottom">
+              <div class="inv-meta">INV #9012 · due today</div>
+              <span class="badge b-amber">Chasing</span>
+            </div>
+          </div>
+          <div class="inv-card">
+            <div class="inv-top">
+              <div class="inv-cname">Fashion Hub</div>
+              <div class="inv-amount">$6,800</div>
+            </div>
+            <div class="inv-bottom">
+              <div class="inv-meta">INV #3344 · due in 3 days</div>
+              <span class="badge b-gray">Upcoming</span>
+            </div>
+          </div>
+          <div class="inv-card">
+            <div class="inv-top">
+              <div class="inv-cname">Design Co</div>
+              <div class="inv-amount">$3,100</div>
+            </div>
+            <div class="inv-bottom">
+              <div class="inv-meta">INV #7890 · paid today</div>
+              <span class="badge b-green">Paid</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="bottom-nav">
+        <div class="bnav-item"><i class="ti ti-home" aria-hidden="true"></i>Home</div>
+        <div class="bnav-item active"><i class="ti ti-file-invoice" aria-hidden="true"></i>Invoices</div>
+        <div class="bnav-item"><i class="ti ti-bell" aria-hidden="true"></i>Alerts</div>
+        <div class="bnav-item"><i class="ti ti-chart-line" aria-hidden="true"></i>Analytics</div>
+        <div class="bnav-item"><i class="ti ti-settings" aria-hidden="true"></i>Settings</div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="phone-label">Alerts</div>
+    <div class="phone">
+      <div class="status-bar">
+        <span>9:41</span>
+        <div class="sb-right">
+          <i class="ti ti-wifi" style="font-size:12px" aria-hidden="true"></i>
+          <i class="ti ti-battery-2" style="font-size:12px" aria-hidden="true"></i>
+        </div>
+      </div>
+      <div class="screen-content">
+        <div class="page-title">Alerts</div>
+        <div class="notif-list">
+          <div class="notif-item success">
+            <div class="notif-top nt-green">
+              <i class="ti ti-circle-check" aria-hidden="true"></i>
+              <div class="notif-title">Design Co paid $3,100</div>
+            </div>
+            <div class="notif-body nt-green">All reminders stopped automatically. Thank you message sent.</div>
+            <div class="notif-time nt-green">Today · 9:14am</div>
+          </div>
+          <div class="notif-item warn">
+            <div class="notif-top nt-amber">
+              <i class="ti ti-info-circle" aria-hidden="true"></i>
+              <div class="notif-title">Mike's Agency — final notice sent</div>
+            </div>
+            <div class="notif-body nt-amber">5 reminders with no response. GentleTap sent a firm final notice today. If no payment in 5 days, we'll notify you.</div>
+            <div class="notif-time nt-amber">Today · 8:45am</div>
+          </div>
+          <div class="notif-item info">
+            <div class="notif-top nt-blue">
+              <i class="ti ti-brand-whatsapp" aria-hidden="true"></i>
+              <div class="notif-title">WhatsApp sent to Sarah's Boutique</div>
+            </div>
+            <div class="notif-body nt-blue">Friendly follow-up for INV #1234 ($4,200) sent from your number.</div>
+            <div class="notif-time nt-blue">Today · 9:00am</div>
+          </div>
+          <div class="notif-item info">
+            <div class="notif-top nt-blue">
+              <i class="ti ti-mail" aria-hidden="true"></i>
+              <div class="notif-title">Reminder sent to Jennifer Lee</div>
+            </div>
+            <div class="notif-body nt-blue">Gentle reminder for INV #9012 ($2,100) sent from your email.</div>
+            <div class="notif-time nt-blue">Today · 8:30am</div>
+          </div>
+          <div class="notif-item info">
+            <div class="notif-top nt-blue">
+              <i class="ti ti-refresh" aria-hidden="true"></i>
+              <div class="notif-title">2 new invoices added to autopilot</div>
+            </div>
+            <div class="notif-body nt-blue">QuickBooks synced. Fashion Hub ($6,800) and Creative Works ($1,200) are now being monitored.</div>
+            <div class="notif-time nt-blue">Today · 8:00am</div>
+          </div>
+        </div>
+      </div>
+      <div class="bottom-nav">
+        <div class="bnav-item"><i class="ti ti-home" aria-hidden="true"></i>Home</div>
+        <div class="bnav-item"><i class="ti ti-file-invoice" aria-hidden="true"></i>Invoices</div>
+        <div class="bnav-item active"><i class="ti ti-bell" aria-hidden="true"></i>Alerts</div>
+        <div class="bnav-item"><i class="ti ti-chart-line" aria-hidden="true"></i>Analytics</div>
+        <div class="bnav-item"><i class="ti ti-settings" aria-hidden="true"></i>Settings</div>
+      </div>
+    </div>
+  </div>
+
+</div>
