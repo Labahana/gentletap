@@ -115,24 +115,29 @@ export default function InvoiceDetailPage() {
               </p>
             )}
 
+            {!invoice.sequence_active && !invoice.dispute_flag && invoice.balance > 0 && invoice.days_overdue > 0 && (
+              <p className="mt-6 rounded-xl border border-accent/25 bg-accent/5 px-4 py-3 text-sm">
+                {!invoice.client.email ? (
+                  <>
+                    <span className="font-medium">Client email missing.</span> Add an email in QuickBooks — GentleTap
+                    will start reminders on the next sync.
+                  </>
+                ) : (
+                  <>
+                    <span className="font-medium">Reminders start automatically.</span> GentleTap picks this up on the
+                    next QuickBooks sync (every 30 minutes). No action needed.
+                  </>
+                )}
+              </p>
+            )}
+
+            {invoice.sequence_active && !invoice.sequence_paused && (
+              <p className="mt-6 rounded-xl border border-green/30 bg-green/5 px-4 py-3 text-sm text-green">
+                Reminder sequence is running automatically.
+              </p>
+            )}
+
             <div className="mt-6 flex flex-wrap gap-3">
-              {!invoice.sequence_active && !invoice.dispute_flag && (
-                <button
-                  className="btn-primary"
-                  onClick={async () => {
-                    const token = getToken();
-                    if (!token) return;
-                    try {
-                      await api.approveInvoice(token, invoice.id);
-                      load();
-                    } catch (err) {
-                      setError(err instanceof Error ? err.message : "Could not activate reminders");
-                    }
-                  }}
-                >
-                  Activate reminders
-                </button>
-              )}
               {invoice.sequence_active && !invoice.sequence_paused ? (
                 <button
                   className="btn-secondary"

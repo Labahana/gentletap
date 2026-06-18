@@ -16,7 +16,7 @@ type NavItem = {
 
 const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: "▤", exact: true },
-  { href: "/dashboard/invoices", label: "Invoices", icon: "◻" },
+  { href: "/dashboard#invoices", label: "Invoices", icon: "◻" },
   { href: "/dashboard/escalations", label: "Needs you", icon: "⚑" },
   { href: "/settings/connections", label: "Connections", icon: "⇌" },
   { href: "/settings/billing", label: "Billing", icon: "◇" },
@@ -24,7 +24,27 @@ const NAV: NavItem[] = [
 
 function NavLink({ item, badge }: { item: NavItem; badge?: number }) {
   const pathname = usePathname();
-  const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
+  const [hash, setHash] = useState("");
+
+  useEffect(() => {
+    const read = () => setHash(typeof window !== "undefined" ? window.location.hash : "");
+    read();
+    window.addEventListener("hashchange", read);
+    return () => window.removeEventListener("hashchange", read);
+  }, [pathname]);
+
+  const [path, itemHash] = item.href.split("#");
+  let active = false;
+  if (item.exact) {
+    active = pathname === path && (!itemHash ? hash !== "#invoices" : hash === `#${itemHash}`);
+  } else if (itemHash) {
+    active =
+      (pathname === path && hash === `#${itemHash}`) ||
+      pathname.startsWith(`${path}/invoices`);
+  } else {
+    active = pathname === path || pathname.startsWith(`${path}/`);
+  }
+
   return (
     <Link
       href={item.href}

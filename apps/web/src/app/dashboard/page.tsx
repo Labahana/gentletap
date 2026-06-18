@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { api, getToken, type InvoiceItem } from "@/lib/api";
-import { formatMoney, isOnboardingComplete } from "@/lib/onboarding";
+import { formatMoney, autoSyncStatusLine, isOnboardingComplete } from "@/lib/onboarding";
 import { useAuth } from "@/lib/auth-context";
 
 type Summary = {
@@ -31,26 +31,6 @@ type Summary = {
     days_90_plus: { count: number; total: number };
   };
 };
-
-function StatusPill({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    green: "bg-green/15 text-green",
-    yellow: "bg-yellow/25 text-yellow-800",
-    red: "bg-red/15 text-red",
-    paid: "bg-border text-muted",
-  };
-  const labels: Record<string, string> = {
-    green: "On track",
-    yellow: "Following up",
-    red: "Overdue",
-    paid: "Paid",
-  };
-  return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${map[status] ?? "bg-border text-muted"}`}>
-      {labels[status] ?? status}
-    </span>
-  );
-}
 
 function KpiCard({
   label,
@@ -116,28 +96,26 @@ function AgingBuckets({ aging, currency }: { aging: Summary["aging"]; currency: 
   );
 }
 
-function formatLastSync(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  const diffMs = Date.now() - d.getTime();
-  const diffMin = Math.floor(diffMs / 60_000);
-  if (diffMin < 1) return "just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+function SequenceCell({ inv }: { inv: InvoiceItem }) {
+  if (inv.dispute_flag) {
+    return <span className="text-xs text-muted">Disputed · paused</span>;
+  }
+  if (inv.sequence_active && !inv.sequence_paused) {
+    return <span className="text-xs font-medium text-green">Running</span>;
+  }
+  if (inv.sequence_paused) {
+    return <span className="text-xs text-muted">Paused by you</span>;
+  }
+  if (inv.balance > 0 && inv.days_overdue > 0) {
+    if (!inv.client_email) {
+      return <span className="text-xs text-amber-700">Needs client email in QB</span>;
+    }
+    return <span className="text-xs text-muted">Starts automatically</span>;
+  }
+  return <span className="text-xs text-muted">—</span>;
 }
 
-function InsightBanner({
-  summary,
-  invoices,
-  onShowQueued,
-}: {
-  summary: Summary;
-  invoices: InvoiceItem[];
-  onShowQueued?: () => void;
-}) {
+function InsightBanner({ summary, invoices }: { summary: Summary; invoices: InvoiceItem[] }) {
   const stuck90 = summary.aging?.days_90_plus;
   const cap = summary.monthly_collections;
 
@@ -180,22 +158,16 @@ function InsightBanner({
     (i) => i.balance > 0 && !i.sequence_active && !i.sequence_paused && i.days_overdue > 0 && !i.dispute_flag,
   );
   if (inactive.length > 0) {
+    const missingEmail = inactive.filter((i) => !i.client_email).length;
     return (
       <div className="rounded-xl border border-accent/25 bg-accent/5 px-5 py-4">
         <p className="font-semibold">
-          {inactive.length} new overdue invoice{inactive.length === 1 ? "" : "s"} queued
+          {inactive.length} new overdue invoice{inactive.length === 1 ? "" : "s"} — reminders start automatically
         </p>
         <p className="mt-0.5 text-sm text-muted">
-          GentleTap activates reminders automatically after each QuickBooks sync (every 30 minutes). No action
-          needed — or{" "}
-          {onShowQueued ? (
-            <button type="button" onClick={onShowQueued} className="font-medium text-accent hover:underline">
-              activate now
-            </button>
-          ) : (
-            "activate now from the table below"
-          )}
-          .
+          GentleTap picks these up on the next QuickBooks sync (every 30 minutes). You don&apos;t need to do anything.
+          {missingEmail > 0 &&
+            ` ${missingEmail} need${missingEmail === 1 ? "s" : ""} a client email in QuickBooks first.`}
         </p>
       </div>
     );
@@ -296,23 +268,6 @@ export default function DashboardPage() {
     void pollSyncUntilDone();
   }, [pollSyncUntilDone]);
 
-  async function triggerQbSync() {
-    const token = getToken();
-    if (!token || qbSyncing) return;
-    setQbSyncing(true);
-    setSyncMessage("Starting sync…");
-    setError(null);
-    try {
-      await api.qbSync(token);
-      setSyncMessage("Syncing QuickBooks…");
-      startSyncPoll();
-    } catch (err) {
-      setQbSyncing(false);
-      setSyncMessage(null);
-      setError(err instanceof Error ? err.message : "Sync failed");
-    }
-  }
-
   useEffect(() => { if (!loading && !user) router.replace("/login"); }, [loading, user, router]);
   useEffect(() => { if (user && !isOnboardingComplete(user)) router.replace("/onboarding"); }, [user, router]);
   useEffect(() => { if (user) load(); }, [user, load]);
@@ -353,13 +308,12 @@ export default function DashboardPage() {
     );
   }
 
-  async function invoiceAction(id: string, action: "activate" | "pause" | "resume" | "dispute") {
+  async function invoiceAction(id: string, action: "pause" | "resume" | "dispute") {
     const token = getToken();
     if (!token || actionBusy) return;
     setActionBusy(id + action);
     try {
-      if (action === "activate") await api.approveInvoice(token, id);
-      else if (action === "pause") await api.pauseInvoice(token, id);
+      if (action === "pause") await api.pauseInvoice(token, id);
       else if (action === "resume") await api.resumeInvoice(token, id);
       else if (action === "dispute") await api.markDispute(token, id);
       await load();
@@ -390,29 +344,21 @@ export default function DashboardPage() {
     <DashboardShell escalationCount={escalationCount}>
       <div className="px-8 py-8">
         {/* Page header */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold">Dashboard</h1>
             <p className="mt-0.5 text-sm text-muted">
               {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-              {lastSyncAt && (
-                <span className="ml-2 text-xs">
-                  · QuickBooks synced {formatLastSync(lastSyncAt)}
-                </span>
-              )}
             </p>
-            {syncMessage && (
-              <p className="mt-1 text-xs text-accent">{syncMessage}</p>
+            <p className="mt-1 text-xs text-muted">{autoSyncStatusLine(lastSyncAt)}</p>
+            {syncMessage && <p className="mt-0.5 text-xs text-accent">{syncMessage}</p>}
+            {summary && summary.active_sequences > 0 && (
+              <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-green/10 px-3 py-1 text-xs font-medium text-green">
+                <span className="h-1.5 w-1.5 rounded-full bg-green animate-pulse" />
+                {summary.active_sequences} reminder{summary.active_sequences === 1 ? "" : "s"} running automatically
+              </p>
             )}
           </div>
-          <button
-            type="button"
-            className="btn-secondary py-2 text-sm disabled:opacity-60"
-            disabled={qbSyncing}
-            onClick={() => void triggerQbSync()}
-          >
-            {qbSyncing ? "Syncing…" : "↻ Sync QuickBooks"}
-          </button>
         </div>
 
         {/* Onboarding note */}
@@ -456,11 +402,7 @@ export default function DashboardPage() {
         {/* Insight banner */}
         {summary && (
           <div className="mt-5">
-            <InsightBanner
-              summary={summary}
-              invoices={invoices}
-              onShowQueued={() => setFilter("needs_action")}
-            />
+            <InsightBanner summary={summary} invoices={invoices} />
           </div>
         )}
 
@@ -507,7 +449,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Invoice table */}
-        <div className="card mt-5">
+        <div className="card mt-5" id="invoices">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="font-semibold">Invoices</h2>
@@ -526,7 +468,7 @@ export default function DashboardPage() {
                     filter === f ? "bg-accent text-white" : "text-muted hover:text-foreground"
                   }`}
                 >
-                  {f === "all" ? "All" : f === "active" ? "Active" : "Queued"}
+                  {f === "all" ? "All" : f === "active" ? "Running" : "Starting soon"}
                 </button>
               ))}
             </div>
@@ -556,8 +498,8 @@ export default function DashboardPage() {
                     <th className="px-2 pb-3 text-xs font-semibold uppercase tracking-wide text-muted">Client</th>
                     <th className="px-2 pb-3 text-xs font-semibold uppercase tracking-wide text-muted">Balance</th>
                     <th className="px-2 pb-3 text-xs font-semibold uppercase tracking-wide text-muted">Overdue</th>
-                    <th className="px-2 pb-3 text-xs font-semibold uppercase tracking-wide text-muted">Status</th>
-                    <th className="px-2 pb-3 text-xs font-semibold uppercase tracking-wide text-muted">Actions</th>
+                    <th className="px-2 pb-3 text-xs font-semibold uppercase tracking-wide text-muted">Sequence</th>
+                    <th className="px-2 pb-3 text-xs font-semibold uppercase tracking-wide text-muted">Control</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
@@ -597,7 +539,7 @@ export default function DashboardPage() {
                           )}
                         </td>
                         <td className="px-2 py-3">
-                          <StatusPill status={inv.status} />
+                          <SequenceCell inv={inv} />
                         </td>
                         <td className="px-2 py-3">
                           <div className="flex items-center gap-2">
@@ -617,21 +559,7 @@ export default function DashboardPage() {
                               >
                                 Resume
                               </button>
-                            ) : inv.balance > 0 && inv.days_overdue > 0 && !inv.dispute_flag ? (
-                              <span className="text-xs text-muted">Queued</span>
                             ) : null}
-                            {!inv.sequence_active &&
-                              inv.balance > 0 &&
-                              inv.days_overdue > 0 &&
-                              !inv.dispute_flag && (
-                              <button
-                                disabled={!!busy}
-                                onClick={() => invoiceAction(inv.id, "activate")}
-                                className="rounded-lg border border-accent/40 px-2.5 py-1 text-xs text-accent hover:bg-accent/5 disabled:opacity-50"
-                              >
-                                Activate now
-                              </button>
-                            )}
                             <Link
                               href={`/dashboard/invoices/${inv.id}`}
                               className="text-xs text-muted hover:text-foreground"

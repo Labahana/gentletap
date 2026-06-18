@@ -7,6 +7,7 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import { api, getToken } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { planLabel } from "@/lib/pricing";
+import { autoSyncStatusLine } from "@/lib/onboarding";
 import { WhatsappEmbeddedSignup } from "@/components/whatsapp-embedded-signup";
 
 type WhatsappStatus = Awaited<ReturnType<typeof api.whatsappStatus>>;
@@ -26,6 +27,7 @@ function ConnectionsSettingsContent() {
   const [purchaseNote, setPurchaseNote] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [qbSyncing, setQbSyncing] = useState(false);
+  const [qbLastSyncAt, setQbLastSyncAt] = useState<string | null>(null);
   const [resendEmail, setResendEmail] = useState("");
   const [inbound, setInbound] = useState<
     Array<{ id: string; from_phone: string; body: string; invoice_id: string | null }>
@@ -55,6 +57,8 @@ function ConnectionsSettingsContent() {
       setEmailReady(email.ready);
       setEmailProvider(email.provider);
       setQbConnected(!!qb.connected);
+      setQbLastSyncAt(qb.last_sync_at ?? null);
+      setQbSyncing(qb.status === "syncing");
       if (whatsapp) setWa(whatsapp);
       setInbound(replies.items);
     } catch (e) {
@@ -66,6 +70,12 @@ function ConnectionsSettingsContent() {
     loadStatus();
   }, [user]);
 
+  useEffect(() => {
+    if (!user || !qbConnected) return;
+    const interval = setInterval(() => void loadStatus(), 60_000);
+    return () => clearInterval(interval);
+  }, [user, qbConnected]);
+
   async function connectQb() {
     const token = getToken();
     if (!token) return;
@@ -75,20 +85,6 @@ function ConnectionsSettingsContent() {
       window.location.href = authorization_url;
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Could not start QuickBooks connection");
-    }
-  }
-
-  async function syncQb() {
-    const token = getToken();
-    if (!token) return;
-    setQbSyncing(true);
-    setLoadError(null);
-    try {
-      await api.qbSync(token);
-    } catch (e) {
-      setLoadError(e instanceof Error ? e.message : "Sync failed");
-    } finally {
-      setQbSyncing(false);
     }
   }
 
@@ -215,8 +211,7 @@ function ConnectionsSettingsContent() {
     <div className="mx-auto max-w-xl px-8 py-8">
       <h1 className="text-2xl font-bold">Connections</h1>
       <p className="mt-2 text-sm text-muted">
-        Connect QuickBooks, email, and WhatsApp. Reminders send email first; WhatsApp follows a few
-        hours later on steps 1–3.
+        Connect once — GentleTap syncs QuickBooks every 30 minutes and sends reminders automatically.
       </p>
 
       {purchaseNote && (
@@ -235,22 +230,22 @@ function ConnectionsSettingsContent() {
         <div className="card flex items-center justify-between gap-4">
           <div>
             <p className="font-semibold">QuickBooks</p>
-            <p className="text-sm text-muted">{qbConnected ? "Connected" : "Not connected"}</p>
+            {qbConnected ? (
+              <>
+                <p className="text-sm text-green font-medium">Connected · running automatically</p>
+                <p className="mt-1 text-xs text-muted">
+                  {qbSyncing ? "Syncing now…" : autoSyncStatusLine(qbLastSyncAt)}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-muted">Not connected — connect once to import invoices</p>
+            )}
           </div>
           <div className="flex shrink-0 gap-2">
             {qbConnected ? (
-              <>
-                <button
-                  className="btn-secondary text-sm"
-                  onClick={syncQb}
-                  disabled={qbSyncing}
-                >
-                  {qbSyncing ? "Syncing…" : "Sync now"}
-                </button>
-                <button className="btn-secondary text-sm" onClick={disconnectQb}>
-                  Disconnect
-                </button>
-              </>
+              <button className="btn-secondary text-sm" onClick={disconnectQb}>
+                Disconnect
+              </button>
             ) : (
               <button className="btn-secondary text-sm" onClick={connectQb}>
                 Connect
