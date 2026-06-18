@@ -88,9 +88,9 @@ def generate_message(
 
     for _ in range(2):
         model = (
-            settings.openai_model_priority
+            settings.kimi_model_priority
             if has_priority_ai(ctx.user_plan)
-            else settings.openai_model
+            else settings.kimi_model
         )
         response = client.chat.completions.create(
             model=model,

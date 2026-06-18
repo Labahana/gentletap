@@ -49,8 +49,8 @@ class Settings(BaseSettings):
     resend_webhook_secret: str = ""
     auth_email_from: str = "GentleTap <noreply@gentletap.co>"
 
-    openai_api_key: str = ""
-    openai_model: str = "gpt-4o-mini"
+    kimi_api_key: str = ""
+    kimi_model: str = "kimi-k2.6"
 
     paddle_api_key: str = ""
     paddle_webhook_secret: str = ""
@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     paddle_price_id_whatsapp_250: str = ""
     paddle_price_id_whatsapp_500: str = ""
 
-    openai_model_priority: str = "gpt-4o"
+    kimi_model_priority: str = "kimi-k2.6"
 
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
