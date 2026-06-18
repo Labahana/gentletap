@@ -159,6 +159,10 @@ def approve_all_overdue(db: Session, user: Profile) -> dict:
             detail="Connect Gmail, verify an email sender, or connect WhatsApp before going live",
         )
 
+    from gentletap.plans import has_unlimited_sequences
+    from gentletap.config import get_settings
+    from gentletap.services.plan_limits import count_monthly_collections, uses_new_monthly_slot
+
     overdue = (
         db.query(Invoice)
         .filter(
@@ -166,10 +170,32 @@ def approve_all_overdue(db: Session, user: Profile) -> dict:
             Invoice.balance > 0,
             Invoice.days_overdue > 0,
         )
+        .order_by(Invoice.days_overdue.desc(), Invoice.balance.desc())
         .all()
     )
     to_activate = [inv for inv in overdue if not inv.sequence_active and float(inv.balance) > 0]
-    ensure_can_activate(db, user, to_activate)
+
+    # For free plan: cap activation at the monthly limit instead of hard-blocking.
+    plan_cap_total = 0
+    plan_cap_remaining = 0
+    if not has_unlimited_sequences(user.plan) and to_activate:
+        limit = get_settings().free_plan_monthly_collection_limit
+        used = count_monthly_collections(db, user.id)
+        available = max(0, limit - used)
+        plan_cap_total = limit
+        plan_cap_remaining = available
+        new_slot_invoices = [inv for inv in to_activate if uses_new_monthly_slot(inv)]
+        if len(new_slot_invoices) > available:
+            # Trim to_activate: keep invoices that fit within available slots.
+            allowed_ids: set = set()
+            slots_taken = 0
+            for inv in to_activate:
+                if not uses_new_monthly_slot(inv):
+                    allowed_ids.add(inv.id)
+                elif slots_taken < available:
+                    allowed_ids.add(inv.id)
+                    slots_taken += 1
+            to_activate = [inv for inv in to_activate if inv.id in allowed_ids]
 
     activated = 0
     skipped_escalation: list[dict] = []
@@ -223,6 +249,8 @@ def approve_all_overdue(db: Session, user: Profile) -> dict:
         "skipped_escalation": skipped_escalation,
         "skipped_other": skipped_other,
         "message": f"Activated {activated} invoice sequences",
+        "plan_cap_total": plan_cap_total,
+        "plan_cap_remaining": plan_cap_remaining,
     }
 
 

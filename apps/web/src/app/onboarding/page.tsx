@@ -207,9 +207,17 @@ function OnboardingContent() {
     try {
       const result = await api.approveAll(token);
       await refresh();
+      const parts: string[] = [];
+
+      // Free plan cap: some invoices were not activated due to monthly limit.
+      if (result.plan_cap_total && result.plan_cap_remaining === 0) {
+        parts.push(
+          `Starter plan: ${result.plan_cap_total} collections/month used. Upgrade to Pro to activate the rest.`,
+        );
+      }
+
       const skipped = result.skipped_escalation.length + result.skipped_other.length;
       if (skipped > 0) {
-        const parts: string[] = [];
         if (result.skipped_escalation.length > 0) {
           parts.push(
             `${result.skipped_escalation.length} invoice(s) need you personally (see Needs you)`,
@@ -218,18 +226,15 @@ function OnboardingContent() {
         if (result.skipped_other.length > 0) {
           parts.push(`${result.skipped_other.length} skipped (missing contact or other issue)`);
         }
-        setApproveNote(`Activated ${result.activated}. ${parts.join(". ")}.`);
+      }
+
+      if (parts.length > 0) {
+        setApproveNote(`Activated ${result.activated}. ${parts.join(" ")}`);
       }
       router.push("/dashboard");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Could not activate reminders";
-      if (msg.includes("collections per month") || msg.includes("Upgrade")) {
-        setEmailError(
-          `${msg} Visit billing to upgrade.`,
-        );
-      } else {
-        setEmailError(msg);
-      }
+      setEmailError(msg);
       setApproving(false);
     }
   }

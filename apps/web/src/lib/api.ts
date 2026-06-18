@@ -227,6 +227,8 @@ export const api = {
       message: string;
       skipped_escalation: Array<{ invoice_id: string; doc_number: string | null; reason: string }>;
       skipped_other: Array<{ invoice_id: string; doc_number: string | null; reason: string }>;
+      plan_cap_total: number;
+      plan_cap_remaining: number;
     }>("/reminders/approve-all", { method: "POST" }, token),
 
   approveInvoice: (token: string, id: string) =>
