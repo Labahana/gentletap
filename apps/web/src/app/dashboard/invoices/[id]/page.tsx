@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { DashboardShell } from "@/components/dashboard-shell";
 import { api, getToken } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 
@@ -32,21 +33,21 @@ export default function InvoiceDetailPage() {
   }, [user, load]);
 
   if (loading || !user) {
-    return <div className="flex min-h-full items-center justify-center text-muted">Loading…</div>;
+    return (
+      <DashboardShell>
+        <div className="flex items-center justify-center py-40">
+          <div className="h-6 w-32 animate-pulse rounded-xl bg-border" />
+        </div>
+      </DashboardShell>
+    );
   }
 
   return (
-    <div className="min-h-full bg-background">
-      <header className="border-b border-border bg-card">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <Link href="/dashboard" className="text-sm text-accent hover:underline">
-            ← Dashboard
-          </Link>
-          <span className="text-sm text-muted">{user.email}</span>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-4xl px-6 py-10">
+    <DashboardShell>
+      <div className="mx-auto max-w-4xl px-8 py-8">
+        <Link href="/dashboard" className="text-sm text-muted hover:text-foreground">
+          ← Dashboard
+        </Link>
         {error && (
           <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
@@ -223,7 +224,7 @@ export default function InvoiceDetailPage() {
             </div>
           </>
         )}
-      </main>
-    </div>
+      </div>
+    </DashboardShell>
   );
 }

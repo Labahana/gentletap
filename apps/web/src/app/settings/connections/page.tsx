@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { DashboardShell } from "@/components/dashboard-shell";
 import { api, getToken } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { planLabel } from "@/lib/pricing";
@@ -197,18 +198,22 @@ function ConnectionsSettingsContent() {
   }
 
   if (loading || !user) {
-    return <div className="flex min-h-full items-center justify-center text-muted">Loading…</div>;
+    return (
+      <DashboardShell>
+        <div className="flex items-center justify-center py-40">
+          <div className="h-6 w-32 animate-pulse rounded-xl bg-border" />
+        </div>
+      </DashboardShell>
+    );
   }
 
   const waEligible = wa?.plan_eligible ?? false;
   const waConnected = wa?.connected ?? false;
 
   return (
-    <div className="mx-auto max-w-xl px-6 py-12">
-      <Link href="/dashboard" className="text-sm text-muted hover:text-foreground">
-        ← Dashboard
-      </Link>
-      <h1 className="mt-4 text-2xl font-bold">Connections</h1>
+    <DashboardShell>
+    <div className="mx-auto max-w-xl px-8 py-8">
+      <h1 className="text-2xl font-bold">Connections</h1>
       <p className="mt-2 text-sm text-muted">
         Connect QuickBooks, email, and WhatsApp. Reminders send email first; WhatsApp follows a few
         hours later on steps 1–3.
@@ -481,12 +486,19 @@ function ConnectionsSettingsContent() {
         )}
       </div>
     </div>
+    </DashboardShell>
   );
 }
 
 export default function ConnectionsSettingsPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-full items-center justify-center text-muted">Loading…</div>}>
+    <Suspense fallback={
+      <DashboardShell>
+        <div className="flex items-center justify-center py-40">
+          <div className="h-6 w-32 animate-pulse rounded-xl bg-border" />
+        </div>
+      </DashboardShell>
+    }>
       <ConnectionsSettingsContent />
     </Suspense>
   );

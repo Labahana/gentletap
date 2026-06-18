@@ -59,3 +59,12 @@ class ResetPasswordRequest(BaseModel):
 
 class GoogleExchangeRequest(BaseModel):
     code: str = Field(min_length=16, max_length=128)
+
+
+class UpdateProfileRequest(BaseModel):
+    full_name: str | None = Field(default=None, max_length=255)
+    persona: str | None = Field(default=None, pattern="^(freelancer|consultant|agency)$")
+
+
+class ChangePasswordRequest(BaseModel):
+    password: str = Field(min_length=8, max_length=128)

@@ -106,6 +106,17 @@ def invoices_summary(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
         .first()
     )
 
+    # Aging buckets by days_overdue
+    def _bucket(min_days: int, max_days: int | None) -> dict:
+        q = db.query(
+            func.count(Invoice.id),
+            func.coalesce(func.sum(Invoice.balance), 0),
+        ).filter(Invoice.user_id == user.id, Invoice.balance > 0, Invoice.days_overdue >= min_days)
+        if max_days is not None:
+            q = q.filter(Invoice.days_overdue <= max_days)
+        row = q.first()
+        return {"count": row[0] or 0, "total": float(row[1] or 0)}
+
     return {
         "unpaid_count": unpaid_count,
         "overdue_count": overdue_count,
@@ -116,6 +127,13 @@ def invoices_summary(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
         "red_count": red_count,
         "active_sequences": active_sequences,
         "monthly_collections": free_plan_collection_usage(db, user),
+        "aging": {
+            "current": _bucket(0, 0),
+            "days_1_30": _bucket(1, 30),
+            "days_31_60": _bucket(31, 60),
+            "days_61_90": _bucket(61, 90),
+            "days_90_plus": _bucket(91, None),
+        },
     }
 
 

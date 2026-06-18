@@ -437,6 +437,24 @@ export const api = {
         created_at: string | null;
       }>;
     }>("/whatsapp/inbound", {}, token),
+
+  updateProfile: (token: string, body: { full_name?: string; persona?: string }) =>
+    request<{
+      id: string;
+      email: string;
+      full_name: string | null;
+      persona: string | null;
+      plan: string;
+      onboarding_step: string;
+      onboarding_completed_at: string | null;
+    }>("/auth/me", { method: "PATCH", body: JSON.stringify(body) }, token),
+
+  changePassword: (token: string, password: string) =>
+    request<{ message: string }>(
+      "/auth/change-password",
+      { method: "POST", body: JSON.stringify({ password }) },
+      token,
+    ),
 };
 
 export const TOKEN_KEY = "gentletap_token";

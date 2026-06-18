@@ -10,6 +10,7 @@ from gentletap.integrations.google import auth_signin
 from gentletap.integrations.google.oauth import is_configured as google_oauth_configured
 from gentletap.rate_limit import limiter
 from gentletap.schemas.auth import (
+    ChangePasswordRequest,
     ForgotPasswordRequest,
     GoogleExchangeRequest,
     LoginRequest,
@@ -17,6 +18,7 @@ from gentletap.schemas.auth import (
     RegisterRequest,
     ResetPasswordRequest,
     TokenResponse,
+    UpdateProfileRequest,
     UserResponse,
 )
 from gentletap.services.auth import (
@@ -155,3 +157,29 @@ def reset_password_endpoint(
 @router.get("/me", response_model=UserResponse)
 def me(user: CurrentUser) -> UserResponse:
     return UserResponse.model_validate(user)
+
+
+@router.patch("/me", response_model=UserResponse)
+def update_profile(
+    body: UpdateProfileRequest,
+    user: CurrentUser,
+    db: Session = Depends(get_db),
+) -> UserResponse:
+    if body.full_name is not None:
+        user.full_name = body.full_name.strip() or None
+    if body.persona is not None:
+        user.persona = body.persona
+    db.commit()
+    db.refresh(user)
+    return UserResponse.model_validate(user)
+
+
+@router.post("/change-password")
+def change_password(
+    body: ChangePasswordRequest,
+    user: CurrentUser,
+    db: Session = Depends(get_db),
+) -> dict:
+    user.password_hash = hash_password(body.password)
+    db.commit()
+    return {"message": "Password updated."}
