@@ -205,12 +205,22 @@ def sync_unpaid_invoices(db: Session, user_id: UUID) -> dict:
                 notify=True,
             )
 
+        # Auto-activate new overdue invoices for users who have completed onboarding.
+        from gentletap.database import Profile
+        from gentletap.services.reminders import auto_activate_new_invoices
+
+        user = db.query(Profile).filter(Profile.id == user_id).one_or_none()
+        auto_activated = 0
+        if user:
+            auto_activated = auto_activate_new_invoices(db, user)
+
         result = {
             "status": "complete",
             "progress": 100,
             "message": f"Imported {len(qb_invoices)} unpaid invoices",
             "unpaid_count": len(qb_invoices),
             "total_outstanding": float(total_outstanding),
+            "auto_activated": auto_activated,
         }
         _update_sync_status(user_id, **result)
         _log_sync(db, user_id, "complete", result["message"], len(qb_invoices), started)

@@ -254,6 +254,96 @@ def approve_all_overdue(db: Session, user: Profile) -> dict:
     }
 
 
+def auto_activate_new_invoices(db: Session, user: Profile) -> int:
+    """Auto-activate genuinely new overdue invoices for users who have completed onboarding.
+
+    Only touches invoices that have never been activated or manually paused
+    (sequence_approved=False, sequence_paused=False, sequence_active=False).
+    Respects plan limits silently — stops when the cap is reached rather than erroring.
+    Returns the number of newly activated invoices.
+    """
+    if user.onboarding_step != "live":
+        return 0
+
+    if not has_delivery_capability(db, user.id, plan=user.plan):
+        return 0
+
+    from gentletap.plans import has_unlimited_sequences
+    from gentletap.config import get_settings
+    from gentletap.services.plan_limits import count_monthly_collections, uses_new_monthly_slot
+
+    candidates = (
+        db.query(Invoice)
+        .filter(
+            Invoice.user_id == user.id,
+            Invoice.balance > 0,
+            Invoice.days_overdue > 0,
+            Invoice.sequence_active.is_(False),
+            Invoice.sequence_paused.is_(False),
+            Invoice.sequence_approved.is_(False),
+            Invoice.dispute_flag.is_(False),
+        )
+        .order_by(Invoice.days_overdue.desc(), Invoice.balance.desc())
+        .all()
+    )
+
+    if not candidates:
+        return 0
+
+    # Respect plan limits — trim list if on free plan
+    to_activate = candidates
+    if not has_unlimited_sequences(user.plan):
+        limit = get_settings().free_plan_monthly_collection_limit
+        used = count_monthly_collections(db, user.id)
+        available = max(0, limit - used)
+        if available <= 0:
+            return 0
+        slots_taken = 0
+        allowed: list[Invoice] = []
+        for inv in candidates:
+            if not uses_new_monthly_slot(inv):
+                allowed.append(inv)
+            elif slots_taken < available:
+                allowed.append(inv)
+                slots_taken += 1
+        to_activate = allowed
+
+    activated = 0
+    activated_snippets: list[str] = []
+    for inv in to_activate:
+        if not inv.client or (not inv.client.email and not (has_whatsapp(user.plan) and inv.client.phone)):
+            continue
+        inv.sequence_approved = True
+        try:
+            generate_draft(db, inv)
+        except ValueError:
+            inv.sequence_approved = False
+            continue
+        mark_collection_started(inv)
+        inv.sequence_active = True
+        schedule_next_job(db, inv, scheduled_for=scheduled_for_current_step(db, inv))
+        activated += 1
+        client_name = inv.client.name if inv.client else "a client"
+        activated_snippets.append(f"#{inv.doc_number or '—'} ({client_name})")
+
+    if activated > 0:
+        summary = ", ".join(activated_snippets[:3])
+        if len(activated_snippets) > 3:
+            summary += f" and {len(activated_snippets) - 3} more"
+        db.add(
+            UserNotification(
+                user_id=user.id,
+                kind="auto_activated",
+                title=f"{activated} new invoice{'s' if activated > 1 else ''} activated automatically",
+                body=f"GentleTap detected new overdue invoices and started reminders: {summary}.",
+                invoice_id=to_activate[0].id if to_activate else None,
+            )
+        )
+        db.commit()
+
+    return activated
+
+
 def process_due_job(db: Session, job_id: UUID) -> None:
     job = db.query(ReminderJob).filter(ReminderJob.id == job_id).one_or_none()
     if job is None or job.status not in ("pending", "processing"):
