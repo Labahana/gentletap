@@ -9,6 +9,7 @@ IntervalChoice = Literal["month", "year"]
 class CheckoutRequest(BaseModel):
     plan: PlanChoice = "pro"
     interval: IntervalChoice = "month"
+    return_to: Literal["billing", "onboarding"] = "billing"
 
 
 class PlanFeature(BaseModel):

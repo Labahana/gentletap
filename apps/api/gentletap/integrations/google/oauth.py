@@ -102,7 +102,8 @@ def handle_oauth_callback(db: Session, *, code: str, state: str) -> Profile:
     connection.connected_at = datetime.now(UTC)
     connection.disconnected_at = None
 
-    user.onboarding_step = "preview"
+    if user.onboarding_step == "email":
+        user.onboarding_step = "quickbooks"
 
     delete_key(_state_key(state))
 

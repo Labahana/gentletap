@@ -29,27 +29,44 @@ def health(db: Session = Depends(get_db)) -> HealthResponse:
     return HealthResponse(status=status, environment=settings.environment, checks=checks)
 
 
+ONBOARDING_STEPS = ["account", "email", "quickbooks", "preview", "pricing", "live"]
+
+
+def _onboarding_step_index(step: str) -> int:
+    legacy = {
+        "persona": "account",
+        "import": "preview",
+    }
+    normalized = legacy.get(step, step)
+    try:
+        return ONBOARDING_STEPS.index(normalized)
+    except ValueError:
+        return 0
+
+
 @router.get("/onboarding/status")
 def onboarding_status(user: CurrentUser) -> dict:
-    steps = ["account", "quickbooks", "import", "email", "preview", "live"]
-    try:
-        idx = steps.index(user.onboarding_step)
-    except ValueError:
-        idx = 0
     return {
         "current_step": user.onboarding_step,
-        "step_index": idx,
-        "total_steps": len(steps),
+        "step_index": _onboarding_step_index(user.onboarding_step),
+        "total_steps": len(ONBOARDING_STEPS) - 1,
         "completed": user.onboarding_completed_at is not None,
     }
 
 
-@router.post("/onboarding/advance-email")
-def advance_to_email(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
-    if user.onboarding_step in ("import", "quickbooks"):
-        user.onboarding_step = "email"
+@router.post("/onboarding/advance-pricing")
+def advance_to_pricing(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
+    if user.onboarding_step in ("preview", "import"):
+        user.onboarding_step = "pricing"
         db.commit()
     return {"current_step": user.onboarding_step}
+
+
+@router.post("/onboarding/activate")
+def activate_reminders(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
+    from gentletap.services.reminders import approve_all_overdue
+
+    return approve_all_overdue(db, user)
 
 
 @router.post("/onboarding/persona", response_model=UserResponse)
@@ -59,7 +76,7 @@ def set_persona(
     db: Session = Depends(get_db),
 ) -> UserResponse:
     user.persona = body.persona
-    user.onboarding_step = "quickbooks"
+    user.onboarding_step = "email"
     db.commit()
     db.refresh(user)
     return UserResponse.model_validate(user)

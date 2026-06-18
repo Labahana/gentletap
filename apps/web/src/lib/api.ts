@@ -146,8 +146,18 @@ export const api = {
       body: JSON.stringify({ persona }),
     }, token),
 
-  advanceOnboardingEmail: (token: string) =>
-    request<{ current_step: string }>("/onboarding/advance-email", { method: "POST" }, token),
+  advanceOnboardingPricing: (token: string) =>
+    request<{ current_step: string }>("/onboarding/advance-pricing", { method: "POST" }, token),
+
+  onboardingActivate: (token: string) =>
+    request<{
+      activated: number;
+      message: string;
+      skipped_escalation: Array<{ invoice_id: string; doc_number: string | null; reason: string }>;
+      skipped_other: Array<{ invoice_id: string; doc_number: string | null; reason: string }>;
+      plan_cap_total: number;
+      plan_cap_remaining: number;
+    }>("/onboarding/activate", { method: "POST" }, token),
 
   qbConnectUrl: (token: string) =>
     request<{ authorization_url: string }>("/quickbooks/connect-url", {}, token),
@@ -330,10 +340,11 @@ export const api = {
     token: string,
     plan: "pro" | "pro_plus" | "team",
     interval: "month" | "year" = "month",
+    returnTo: "billing" | "onboarding" = "billing",
   ) =>
     request<{ checkout_url: string }>(
       "/billing/checkout",
-      { method: "POST", body: JSON.stringify({ plan, interval }) },
+      { method: "POST", body: JSON.stringify({ plan, interval, return_to: returnTo }) },
       token,
     ),
 

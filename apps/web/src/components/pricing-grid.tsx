@@ -9,7 +9,11 @@ type Props = {
   annual?: boolean;
   onToggleAnnual?: () => void;
   onSelectPlan?: (planId: "pro" | "pro_plus" | "team") => void;
+  onSelectFree?: () => void;
+  freeCta?: string;
   compact?: boolean;
+  highlightPlan?: string;
+  invoiceCount?: number;
 };
 
 export function PricingGrid({
@@ -18,7 +22,11 @@ export function PricingGrid({
   annual = false,
   onToggleAnnual,
   onSelectPlan,
+  onSelectFree,
+  freeCta,
   compact = false,
+  highlightPlan,
+  invoiceCount,
 }: Props) {
   const items = plans ?? [];
 
@@ -77,11 +85,23 @@ export function PricingGrid({
             !isCurrent &&
             isUpgrade(currentPlan, plan.id as "pro" | "pro_plus" | "team");
 
+          const isHighlighted = highlightPlan === plan.id || (highlightPlan === undefined && plan.id === "pro_plus");
+          const proInvoiceNote =
+            plan.id === "pro" && invoiceCount != null && invoiceCount > 0
+              ? `Activate all ${invoiceCount} invoices`
+              : null;
+          const freeNote =
+            plan.id === "free" && invoiceCount != null && invoiceCount > 5
+              ? `Up to 5 of ${invoiceCount} invoices`
+              : plan.id === "free" && invoiceCount != null && invoiceCount > 0
+                ? `Up to ${Math.min(5, invoiceCount)} invoices`
+                : null;
+
           return (
             <div
               key={plan.id}
               className={`card flex flex-col ${isCurrent ? "ring-2 ring-accent" : ""} ${
-                plan.id === "pro_plus" ? "border-accent/40 bg-accent/5" : ""
+                isHighlighted ? "border-accent/40 bg-accent/5" : ""
               }`}
             >
               <div className="flex items-center justify-between gap-2">
@@ -91,12 +111,22 @@ export function PricingGrid({
                     Current
                   </span>
                 )}
-                {plan.id === "pro_plus" && !isCurrent && (
+                {plan.id === "pro_plus" && !isCurrent && !highlightPlan && (
                   <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent">
                     Popular
                   </span>
                 )}
+                {plan.id === "pro" && highlightPlan === "pro" && !isCurrent && (
+                  <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent">
+                    Best fit
+                  </span>
+                )}
               </div>
+
+              {proInvoiceNote && (
+                <p className="mt-2 text-sm font-medium text-accent">{proInvoiceNote}</p>
+              )}
+              {freeNote && <p className="mt-2 text-sm text-muted">{freeNote}</p>}
 
               <p className="mt-3 text-3xl font-bold">
                 {plan.id === "free" ? (
@@ -123,7 +153,11 @@ export function PricingGrid({
 
               <div className="mt-6">
                 {plan.id === "free" ? (
-                  onSelectPlan ? null : (
+                  onSelectFree ? (
+                    <button type="button" className="btn-secondary w-full" onClick={onSelectFree}>
+                      {freeCta ?? "Start free"}
+                    </button>
+                  ) : onSelectPlan ? null : (
                     <Link href="/signup" className="btn-secondary block w-full text-center">
                       Start free
                     </Link>
@@ -131,10 +165,12 @@ export function PricingGrid({
                 ) : showUpgrade ? (
                   <button
                     type="button"
-                    className={plan.id === "pro_plus" ? "btn-primary w-full" : "btn-secondary w-full"}
+                    className={isHighlighted ? "btn-primary w-full" : "btn-secondary w-full"}
                     onClick={() => onSelectPlan!(plan.id as "pro" | "pro_plus" | "team")}
                   >
-                    Upgrade to {plan.name}
+                    {plan.id === "pro" && invoiceCount
+                      ? `Activate all ${invoiceCount} — ${plan.name}`
+                      : `Upgrade to ${plan.name}`}
                   </button>
                 ) : onSelectPlan && isCurrent ? (
                   <p className="text-center text-sm text-muted">Your plan</p>

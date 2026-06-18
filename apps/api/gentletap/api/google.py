@@ -97,7 +97,7 @@ def sender_status(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
         return {"verified": False}
     sender = resend_sender.refresh_sender_status(db, sender)
     if sender.verification_status == "verified" and user.onboarding_step == "email":
-        user.onboarding_step = "preview"
+        user.onboarding_step = "quickbooks"
         db.commit()
     return {
         "email": sender.email_address,

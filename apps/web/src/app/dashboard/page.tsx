@@ -30,6 +30,15 @@ export default function DashboardPage() {
     Array<{ id: string; title: string; body: string; read: boolean }>
   >([]);
   const [error, setError] = useState<string | null>(null);
+  const [onboardingNote, setOnboardingNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    const note = sessionStorage.getItem("onboarding_note");
+    if (note) {
+      setOnboardingNote(note);
+      sessionStorage.removeItem("onboarding_note");
+    }
+  }, []);
 
   const load = useCallback(async () => {
     const token = getToken();
@@ -104,6 +113,12 @@ export default function DashboardPage() {
             </p>
           )}
         </div>
+
+        {onboardingNote && (
+          <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {onboardingNote}
+          </p>
+        )}
 
         {error && (
           <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

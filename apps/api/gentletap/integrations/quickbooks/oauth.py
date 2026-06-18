@@ -153,7 +153,7 @@ def _upsert_connection(
         connection.connected_at = now
         connection.disconnected_at = None
 
-    user.onboarding_step = "import"
+    user.onboarding_step = "preview"
     db.commit()
     db.refresh(user)
     db.refresh(connection)

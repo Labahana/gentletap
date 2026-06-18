@@ -43,13 +43,19 @@ def checkout(
 ) -> dict:
     settings = get_settings()
     try:
+        if body.return_to == "onboarding":
+            success_url = f"{settings.web_url}/onboarding?paid=1"
+            cancel_url = f"{settings.web_url}/onboarding?checkout=cancelled"
+        else:
+            success_url = f"{settings.web_url}/settings/billing?success=1"
+            cancel_url = f"{settings.web_url}/settings/billing?cancelled=1"
         url = paddle_billing.create_checkout_session(
             db,
             user,
             plan=body.plan,
             interval=body.interval,
-            success_url=f"{settings.web_url}/settings/billing?success=1",
-            cancel_url=f"{settings.web_url}/settings/billing?cancelled=1",
+            success_url=success_url,
+            cancel_url=cancel_url,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
