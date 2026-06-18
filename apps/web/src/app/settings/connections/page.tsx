@@ -18,6 +18,8 @@ function ConnectionsSettingsContent() {
   const searchParams = useSearchParams();
   const [emailReady, setEmailReady] = useState(false);
   const [emailProvider, setEmailProvider] = useState<string | null>(null);
+  const [googleEmail, setGoogleEmail] = useState<string | null>(null);
+  const [googleConnected, setGoogleConnected] = useState(false);
   const [qbConnected, setQbConnected] = useState(false);
   const [wa, setWa] = useState<WhatsappStatus | null>(null);
   const [ownPhone, setOwnPhone] = useState("");
@@ -48,14 +50,17 @@ function ConnectionsSettingsContent() {
     if (!token) return;
     setLoadError(null);
     try {
-      const [email, qb, whatsapp, replies] = await Promise.all([
+      const [email, qb, whatsapp, replies, google] = await Promise.all([
         api.emailStatus(token),
         api.qbSyncStatus(token),
         api.whatsappStatus(token).catch(() => null),
         api.whatsappInbound(token).catch(() => ({ items: [] })),
+        api.googleStatus(token).catch(() => ({ connected: false })),
       ]);
       setEmailReady(email.ready);
       setEmailProvider(email.provider);
+      setGoogleConnected(google.connected);
+      setGoogleEmail(google.email ?? null);
       setQbConnected(!!qb.connected);
       setQbLastSyncAt(qb.last_sync_at ?? null);
       setQbSyncing(qb.status === "syncing");
@@ -134,6 +139,19 @@ function ConnectionsSettingsContent() {
       await loadStatus();
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Resend verification failed");
+    }
+  }
+
+  async function disconnectGmail() {
+    const token = getToken();
+    if (!token) return;
+    if (!window.confirm("Disconnect Gmail? Reminders will stop sending via Gmail until you reconnect or switch to Resend.")) return;
+    setLoadError(null);
+    try {
+      await api.googleDisconnect(token);
+      await loadStatus();
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Could not disconnect Gmail");
     }
   }
 
@@ -259,14 +277,25 @@ function ConnectionsSettingsContent() {
             <div>
               <p className="font-semibold">Email</p>
               <p className="text-sm text-muted">
-                {emailReady ? `Ready via ${emailProvider}` : "Not connected"}
+                {emailReady
+                  ? emailProvider === "google" && googleEmail
+                    ? `Gmail connected (${googleEmail})`
+                    : `Ready via ${emailProvider}`
+                  : "Not connected"}
               </p>
             </div>
-            {!emailReady && (
-              <button className="btn-secondary text-sm shrink-0" onClick={connectGmail}>
-                Connect Gmail
-              </button>
-            )}
+            <div className="flex shrink-0 gap-2">
+              {googleConnected && (
+                <button className="btn-secondary text-sm" onClick={disconnectGmail}>
+                  Disconnect Gmail
+                </button>
+              )}
+              {!emailReady && (
+                <button className="btn-secondary text-sm shrink-0" onClick={connectGmail}>
+                  Connect Gmail
+                </button>
+              )}
+            </div>
           </div>
           {emailReady && emailProvider && (
             <div className="border-t border-border pt-3">

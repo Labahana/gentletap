@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
 import { PreviewDemo } from "@/components/preview-demo";
 import { PricingGrid } from "@/components/pricing-grid";
 import { PRICING_PLANS } from "@/lib/pricing";
@@ -161,18 +162,7 @@ export default function HomePage() {
           </div>
         </section>
       </main>
-      <footer className="border-t border-border py-8 text-center text-sm text-muted">
-        <p>
-          © {new Date().getFullYear()} GentleTap ·{" "}
-          <Link href="/privacy" className="hover:text-foreground">
-            Privacy Policy
-          </Link>
-          {" · "}
-          <Link href="/terms" className="hover:text-foreground">
-            Terms of Service
-          </Link>
-        </p>
-      </footer>
+      <SiteFooter />
     </>
   );
 }

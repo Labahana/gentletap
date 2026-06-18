@@ -48,3 +48,31 @@ body {
 .input {
   @apply w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm;
 }
+
+.legal-prose h2 {
+  @apply mt-10 text-xl font-semibold text-foreground;
+}
+
+.legal-prose h3 {
+  @apply mt-6 text-lg font-semibold text-foreground;
+}
+
+.legal-prose p {
+  @apply mt-3 leading-relaxed text-muted;
+}
+
+.legal-prose ul {
+  @apply mt-3 list-disc space-y-2 pl-6 text-muted;
+}
+
+.legal-prose li {
+  @apply leading-relaxed;
+}
+
+.legal-prose a {
+  @apply text-accent hover:underline;
+}
+
+.legal-prose strong {
+  @apply font-semibold text-foreground;
+}

@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr
@@ -9,6 +11,7 @@ from gentletap.dependencies import CurrentUser
 from gentletap.integrations.google import oauth as google_oauth
 from gentletap.integrations.resend import sender as resend_sender
 from gentletap.services.email_router import get_send_provider
+from gentletap.utils.crypto import decrypt_token
 from urllib.parse import quote
 
 router = APIRouter(prefix="/google", tags=["google"])
@@ -54,6 +57,36 @@ def google_status(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
     if conn is None:
         return {"connected": False}
     return {"connected": True, "email": conn.google_email}
+
+
+@router.post("/disconnect")
+def google_disconnect(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
+    connection = (
+        db.query(GoogleConnection)
+        .filter(
+            GoogleConnection.user_id == user.id,
+            GoogleConnection.disconnected_at.is_(None),
+        )
+        .one_or_none()
+    )
+    if connection is None:
+        return {"status": "not_connected"}
+
+    try:
+        refresh = decrypt_token(connection.refresh_token_enc)
+        if refresh:
+            google_oauth.revoke_token(refresh)
+        else:
+            google_oauth.revoke_token(decrypt_token(connection.access_token_enc))
+    except Exception:
+        pass
+
+    connection.disconnected_at = datetime.now(UTC)
+    pref = db.query(EmailPreference).filter(EmailPreference.user_id == user.id).one_or_none()
+    if pref and pref.send_provider == "google":
+        pref.send_provider = "resend"
+    db.commit()
+    return {"status": "disconnected"}
 
 
 email_router = APIRouter(prefix="/email", tags=["email"])

@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from urllib.parse import quote
 
 from gentletap.config import get_settings
 from gentletap.database import Profile, get_db
 from gentletap.dependencies import CurrentUser
+from gentletap.services.account_lifecycle import delete_user_account, export_user_data
 from gentletap.integrations.google import auth_signin
 from gentletap.integrations.google.oauth import is_configured as google_oauth_configured
 from gentletap.rate_limit import limiter
@@ -183,3 +185,33 @@ def change_password(
     user.password_hash = hash_password(body.password)
     db.commit()
     return {"message": "Password updated."}
+
+
+class DeleteAccountRequest(BaseModel):
+    confirmation: str = Field(..., min_length=1)
+
+
+@router.get("/me/export")
+def export_account_data(user: CurrentUser, db: Session = Depends(get_db)) -> JSONResponse:
+    payload = export_user_data(db, user.id)
+    return JSONResponse(
+        content=payload,
+        headers={"Content-Disposition": 'attachment; filename="gentletap-data-export.json"'},
+    )
+
+
+@router.post("/delete-account")
+@limiter.limit("3/hour")
+def delete_account(
+    request: Request,
+    body: DeleteAccountRequest,
+    user: CurrentUser,
+    db: Session = Depends(get_db),
+) -> dict:
+    if body.confirmation.strip().upper() != "DELETE":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='Type DELETE in the confirmation field to permanently delete your account.',
+        )
+    delete_user_account(db, user.id)
+    return {"message": "Your account and associated data have been permanently deleted."}

@@ -127,6 +127,15 @@ export default function LoginPage() {
             Create account
           </Link>
         </p>
+        <p className="mt-3 text-center text-xs text-muted">
+          <Link href="/privacy" className="hover:text-foreground">
+            Privacy
+          </Link>
+          {" · "}
+          <Link href="/terms" className="hover:text-foreground">
+            Terms
+          </Link>
+        </p>
       </div>
     </div>
   );

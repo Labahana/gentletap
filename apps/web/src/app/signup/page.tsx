@@ -90,6 +90,18 @@ export default function SignupPage() {
         </form>
 
         <p className="mt-4 text-center text-xs leading-relaxed text-muted">
+          By creating an account, you agree to our{" "}
+          <Link href="/terms" className="text-accent hover:underline">
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="text-accent hover:underline">
+            Privacy Policy
+          </Link>
+          .
+        </p>
+
+        <p className="mt-4 text-center text-xs leading-relaxed text-muted">
           No credit card. Cancel anytime. Your clients never know it&apos;s automated.
         </p>
 

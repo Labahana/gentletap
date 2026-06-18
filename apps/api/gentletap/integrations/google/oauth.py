@@ -19,6 +19,7 @@ OAUTH_STATE_TTL = 600
 SCOPE = "https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email"
 AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
+REVOKE_URL = "https://oauth2.googleapis.com/revoke"
 
 GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send"
 
@@ -70,6 +71,15 @@ def _exchange_token(*, grant_type: str, code: str | None = None, refresh_token: 
         return response.json()
 
 
+def revoke_token(token: str) -> None:
+    if not token:
+        return
+    with httpx.Client(timeout=30.0) as client:
+        response = client.post(REVOKE_URL, data={"token": token})
+        if response.status_code not in (200, 400):
+            response.raise_for_status()
+
+
 def handle_oauth_callback(db: Session, *, code: str, state: str) -> Profile:
     stored = get_json(_state_key(state))
     if not stored:
@@ -116,6 +126,7 @@ def handle_oauth_callback(db: Session, *, code: str, state: str) -> Profile:
     db.commit()
     db.refresh(user)
     return user
+
 
 def refresh_connection_tokens(db: Session, connection: GoogleConnection) -> None:
     refresh = decrypt_token(connection.refresh_token_enc)

@@ -298,6 +298,12 @@ export const api = {
   googleConnectUrl: (token: string) =>
     request<{ authorization_url: string }>("/google/connect-url", {}, token),
 
+  googleStatus: (token: string) =>
+    request<{ connected: boolean; email?: string }>("/google/status", {}, token),
+
+  googleDisconnect: (token: string) =>
+    request<{ status: string }>("/google/disconnect", { method: "POST" }, token),
+
   emailStatus: (token: string) =>
     request<{ provider: string | null; ready: boolean; require_approval: boolean }>(
       "/email/status",
@@ -570,6 +576,28 @@ export const api = {
     request<{ message: string }>(
       "/auth/change-password",
       { method: "POST", body: JSON.stringify({ password }) },
+      token,
+    ),
+
+  exportAccountData: async (token: string) => {
+    const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+    const res = await fetch(`${API_URL}/v1/auth/me/export`, { headers });
+    if (!res.ok) throw await parseError(res);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "gentletap-data-export.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
+
+  deleteAccount: (token: string, confirmation: string) =>
+    request<{ message: string }>(
+      "/auth/delete-account",
+      { method: "POST", body: JSON.stringify({ confirmation }) },
       token,
     ),
 };
