@@ -122,6 +122,8 @@ class Settings(BaseSettings):
 
 def validate_production_settings(settings: Settings) -> None:
     """Fail fast when production runs with dev defaults."""
+    from gentletap.integrations.google import auth_signin
+
     if not settings.is_production:
         return
     missing: list[str] = []
@@ -141,6 +143,18 @@ def validate_production_settings(settings: Settings) -> None:
     if missing:
         raise RuntimeError(
             "Production environment requires secure values for: " + ", ".join(missing)
+        )
+
+    gmail_redirect = settings.google_redirect_uri.strip().rstrip("/")
+    auth_redirect = auth_signin.auth_redirect_uri(settings).strip().rstrip("/")
+    if gmail_redirect == auth_redirect:
+        raise RuntimeError(
+            "GOOGLE_REDIRECT_URI must differ from GOOGLE_AUTH_REDIRECT_URI — "
+            "Gmail connect and Google sign-in use separate callback paths."
+        )
+    if "/auth/google/callback" in gmail_redirect:
+        raise RuntimeError(
+            "GOOGLE_REDIRECT_URI must be /v1/google/callback (Gmail send), not the sign-in callback."
         )
 
 

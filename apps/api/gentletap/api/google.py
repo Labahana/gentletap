@@ -18,13 +18,22 @@ router = APIRouter(prefix="/google", tags=["google"])
 
 
 @router.get("/connect-url")
-def google_connect_url(user: CurrentUser) -> dict:
+def google_connect_url(
+    user: CurrentUser,
+    return_to: str = Query("onboarding", pattern="^(onboarding|settings)$"),
+) -> dict:
     if not google_oauth.is_configured():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Google OAuth is not configured",
         )
-    return {"authorization_url": google_oauth.create_authorization_url(user.id)}
+    return {
+        "authorization_url": google_oauth.create_authorization_url(
+            user.id,
+            return_to=return_to,
+            login_hint=user.email,
+        ),
+    }
 
 
 @router.get("/callback")
@@ -34,17 +43,22 @@ def google_callback(
     db: Session = Depends(get_db),
 ) -> RedirectResponse:
     settings = get_settings()
+    stored = google_oauth.get_oauth_state(state)
+    return_to = (stored or {}).get("return_to", "onboarding")
     try:
         google_oauth.handle_oauth_callback(db, code=code, state=state)
     except ValueError as exc:
-        return RedirectResponse(
-            url=f"{settings.web_url}/onboarding?email=error&message={quote(str(exc))}",
-            status_code=status.HTTP_302_FOUND,
-        )
-    return RedirectResponse(
-        url=f"{settings.web_url}/onboarding?email=connected",
-        status_code=status.HTTP_302_FOUND,
-    )
+        if return_to == "settings":
+            dest = f"{settings.web_url}/settings/connections?email=error&message={quote(str(exc))}"
+        else:
+            dest = f"{settings.web_url}/onboarding?email=error&message={quote(str(exc))}"
+        return RedirectResponse(url=dest, status_code=status.HTTP_302_FOUND)
+
+    if return_to == "settings":
+        dest = f"{settings.web_url}/settings/connections?email=connected"
+    else:
+        dest = f"{settings.web_url}/onboarding?email=connected"
+    return RedirectResponse(url=dest, status_code=status.HTTP_302_FOUND)
 
 
 @router.get("/status")

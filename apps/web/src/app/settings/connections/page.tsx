@@ -43,7 +43,17 @@ function ConnectionsSettingsContent() {
     if (searchParams.get("whatsapp_purchased") === "1") {
       setPurchaseNote("WhatsApp message pack purchased — credits added to your account.");
     }
-  }, [searchParams]);
+    const email = searchParams.get("email");
+    const message = searchParams.get("message");
+    if (email === "connected") {
+      setPurchaseNote("Gmail connected — reminders will send from your inbox.");
+      void loadStatus();
+      router.replace("/settings/connections");
+    } else if (email === "error") {
+      setLoadError(message ?? "Gmail connection failed");
+      router.replace("/settings/connections");
+    }
+  }, [searchParams, router]);
 
   async function loadStatus() {
     const token = getToken();
@@ -123,7 +133,7 @@ function ConnectionsSettingsContent() {
     if (!token) return;
     setLoadError(null);
     try {
-      const { authorization_url } = await api.googleConnectUrl(token);
+      const { authorization_url } = await api.googleConnectUrl(token, "settings");
       window.location.href = authorization_url;
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Could not start Gmail connection");
@@ -281,7 +291,7 @@ function ConnectionsSettingsContent() {
                   ? emailProvider === "google" && googleEmail
                     ? `Gmail connected (${googleEmail})`
                     : `Ready via ${emailProvider}`
-                  : "Not connected"}
+                  : "Not connected — connect Gmail to grant send permission (separate from sign-in)"}
               </p>
             </div>
             <div className="flex shrink-0 gap-2">

@@ -28,19 +28,33 @@ def _state_key(state: str) -> str:
     return f"google_oauth_state:{state}"
 
 
+def get_oauth_state(state: str) -> dict | None:
+    return get_json(_state_key(state))
+
+
 def is_configured(settings: Settings | None = None) -> bool:
     cfg = settings or get_settings()
     return bool(cfg.google_client_id and cfg.google_client_secret)
 
 
-def create_authorization_url(user_id: UUID, settings: Settings | None = None) -> str:
+def create_authorization_url(
+    user_id: UUID,
+    *,
+    return_to: str = "onboarding",
+    login_hint: str | None = None,
+    settings: Settings | None = None,
+) -> str:
     cfg = settings or get_settings()
     if not is_configured(cfg):
         raise ValueError("Google OAuth is not configured")
 
     state = secrets.token_urlsafe(32)
-    set_json(_state_key(state), {"user_id": str(user_id)}, ttl_seconds=OAUTH_STATE_TTL)
-    params = {
+    set_json(
+        _state_key(state),
+        {"user_id": str(user_id), "return_to": return_to},
+        ttl_seconds=OAUTH_STATE_TTL,
+    )
+    params: dict[str, str] = {
         "client_id": cfg.google_client_id,
         "response_type": "code",
         "scope": SCOPE,
@@ -48,7 +62,10 @@ def create_authorization_url(user_id: UUID, settings: Settings | None = None) ->
         "state": state,
         "access_type": "offline",
         "prompt": "consent",
+        "include_granted_scopes": "false",
     }
+    if login_hint:
+        params["login_hint"] = login_hint
     return f"{AUTH_URL}?{urlencode(params)}"
 
 

@@ -92,6 +92,11 @@ function OnboardingContent() {
       setQbError(message ?? "QuickBooks connection failed");
       router.replace("/onboarding");
     } else if (email === "connected") {
+      const token = getToken();
+      if (token) {
+        api.emailStatus(token).then((s) => setEmailReady(s.ready)).catch(() => setEmailReady(false));
+        void refresh();
+      }
       setStep(2);
       router.replace("/onboarding");
     } else if (email === "error") {
@@ -248,7 +253,7 @@ function OnboardingContent() {
     if (!token) return;
     setEmailError(null);
     try {
-      const { authorization_url } = await api.googleConnectUrl(token);
+      const { authorization_url } = await api.googleConnectUrl(token, "onboarding");
       window.location.href = authorization_url;
     } catch (err) {
       setEmailError(err instanceof Error ? err.message : "Failed to start Gmail connection");
@@ -393,7 +398,9 @@ function OnboardingContent() {
             )}
             <button className="card w-full text-left hover:border-accent" onClick={connectGmail}>
               <p className="font-semibold">Connect Gmail</p>
-              <p className="mt-1 text-sm text-muted">One click · sends from your inbox</p>
+              <p className="mt-1 text-sm text-muted">
+                Grant send access — separate from sign-in. Reminders go out from your inbox.
+              </p>
             </button>
             <div className="card space-y-3">
               <p className="font-semibold">Use your domain email (Resend)</p>

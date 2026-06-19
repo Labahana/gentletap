@@ -295,8 +295,12 @@ export const api = {
       auto_activated?: number;
     }>("/quickbooks/sync/status", {}, token),
 
-  googleConnectUrl: (token: string) =>
-    request<{ authorization_url: string }>("/google/connect-url", {}, token),
+  googleConnectUrl: (token: string, returnTo: "onboarding" | "settings" = "onboarding") =>
+    request<{ authorization_url: string }>(
+      `/google/connect-url?return_to=${returnTo}`,
+      {},
+      token,
+    ),
 
   googleStatus: (token: string) =>
     request<{ connected: boolean; email?: string }>("/google/status", {}, token),
