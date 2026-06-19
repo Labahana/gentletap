@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { ConnectQuickBooksButton } from "@/components/connect-quickbooks-button";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { api, getToken } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -106,7 +107,7 @@ function ConnectionsSettingsContent() {
   async function disconnectQb() {
     const token = getToken();
     if (!token) return;
-    if (!window.confirm("Disconnect QuickBooks? Invoice sync will stop.")) return;
+    if (!window.confirm("Disconnect from QuickBooks? Invoice sync and payment detection will stop.")) return;
     setLoadError(null);
     try {
       await api.qbDisconnect(token);
@@ -257,27 +258,27 @@ function ConnectionsSettingsContent() {
       <div className="mt-8 space-y-4">
         <div className="card flex items-center justify-between gap-4">
           <div>
-            <p className="font-semibold">QuickBooks</p>
+            <p className="font-semibold">QuickBooks Online</p>
             {qbConnected ? (
               <>
                 <p className="text-sm text-green font-medium">Connected · running automatically</p>
                 <p className="mt-1 text-xs text-muted">
-                  {qbSyncing ? "Syncing now…" : autoSyncStatusLine(qbLastSyncAt)}
+                  Read-only access · {qbSyncing ? "Syncing now…" : autoSyncStatusLine(qbLastSyncAt)}
                 </p>
               </>
             ) : (
-              <p className="text-sm text-muted">Not connected — connect once to import invoices</p>
+              <p className="text-sm text-muted">
+                Not connected — connect to import invoices from QuickBooks Online
+              </p>
             )}
           </div>
           <div className="flex shrink-0 gap-2">
             {qbConnected ? (
               <button className="btn-secondary text-sm" onClick={disconnectQb}>
-                Disconnect
+                Disconnect from QuickBooks
               </button>
             ) : (
-              <button className="btn-secondary text-sm" onClick={connectQb}>
-                Connect
-              </button>
+              <ConnectQuickBooksButton onClick={connectQb} busy={qbConnecting} size="sm" />
             )}
           </div>
         </div>

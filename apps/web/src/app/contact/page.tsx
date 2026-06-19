@@ -58,6 +58,10 @@ export default function ContactPage() {
         <li>
           <strong>Manage subscription</strong> — Settings → Billing → Manage billing
         </li>
+        <li>
+          <strong>QuickBooks integration</strong> —{" "}
+          <a href="/integrations/quickbooks">How GentleTap uses QuickBooks Online</a>
+        </li>
       </ul>
     </LegalLayout>
   );

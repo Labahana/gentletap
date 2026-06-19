@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
+import { ConnectQuickBooksButton } from "@/components/connect-quickbooks-button";
 import { PricingGrid } from "@/components/pricing-grid";
 import { Logo } from "@/components/logo";
 import { api, getToken, type ReminderPreviewItem } from "@/lib/api";
@@ -433,9 +434,12 @@ function OnboardingContent() {
             {qbError && (
               <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{qbError}</p>
             )}
-            <button className="btn-primary w-full" onClick={connectQuickBooks} disabled={qbConnecting}>
-              {qbConnecting ? "Redirecting to QuickBooks…" : "Connect QuickBooks"}
-            </button>
+            <div className="flex justify-center">
+              <ConnectQuickBooksButton onClick={connectQuickBooks} busy={qbConnecting} />
+            </div>
+            <p className="text-center text-xs text-muted">
+              Read-only access · nothing is changed in QuickBooks Online
+            </p>
           </div>
         )}
 

@@ -21,9 +21,33 @@ export default function PrivacyPage() {
       </p>
       <h3>QuickBooks data</h3>
       <p>
-        If you connect QuickBooks, we import invoice and customer data needed to send payment
+        If you connect QuickBooks Online, we import invoice and customer data needed to send payment
         reminders: client names, email addresses, phone numbers, invoice amounts, balances, due dates,
         and payment status. We sync this data periodically while your connection is active.
+      </p>
+      <p>
+        We use the Intuit QuickBooks Online Accounting API scope (
+        <code>com.intuit.quickbooks.accounting</code>) for <strong>read-only</strong> access. GentleTap
+        reads invoices and customer records to power reminders and payment detection. We do not create,
+        modify, or delete accounting records in your QuickBooks company.
+      </p>
+      <p>
+        QuickBooks data is used only for your account. We do not aggregate QuickBooks data across
+        customers or share one user&apos;s QuickBooks data with another user. If you disconnect
+        QuickBooks or delete your account, OAuth tokens are revoked and sync stops.
+      </p>
+      <p>
+        Learn more on our{" "}
+        <a href="/integrations/quickbooks">QuickBooks integration page</a>. Intuit&apos;s handling of
+        your Intuit account is governed by{" "}
+        <a
+          href="https://www.intuit.com/legal/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Intuit&apos;s policies
+        </a>
+        .
       </p>
       <h3>Email and messaging</h3>
       <p>

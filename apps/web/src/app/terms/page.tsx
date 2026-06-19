@@ -14,8 +14,33 @@ export default function TermsPage() {
       <h2>Service description</h2>
       <p>
         GentleTap helps freelancers and small businesses send AI-assisted payment reminders. The
-        service connects to QuickBooks, drafts follow-up messages, and sends them via your connected
-        email or WhatsApp channel. You remain the sender of record to your clients.
+        service connects to QuickBooks Online, drafts follow-up messages, and sends them via your
+        connected email or WhatsApp channel. You remain the sender of record to your clients.
+      </p>
+
+      <h2>QuickBooks Online integration</h2>
+      <p>
+        If you connect QuickBooks Online, you authorize GentleTap to access accounting data via
+        Intuit&apos;s OAuth 2.0 API. GentleTap reads invoices and customer contact information to
+        sync unpaid balances and detect payments. We do not write data back to your QuickBooks
+        company.
+      </p>
+      <p>
+        You may disconnect QuickBooks at any time from Settings → Connections or from the QuickBooks
+        Apps menu. Disconnecting revokes OAuth access and stops sync. See our{" "}
+        <a href="/integrations/quickbooks">integration overview</a> and{" "}
+        <a href="/integrations/quickbooks/disconnected">disconnect information</a>.
+      </p>
+      <p>
+        Your use of QuickBooks through GentleTap is also subject to{" "}
+        <a
+          href="https://developer.intuit.com/app/developer/qbo/docs/legal-agreements/intuit-terms-of-service-for-intuit-developer-services"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Intuit Developer Terms
+        </a>{" "}
+        and Intuit&apos;s applicable end-user terms for QuickBooks Online.
       </p>
 
       <h2>Accounts</h2>
