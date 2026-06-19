@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { AuthLogo } from "@/components/auth-logo";
 import { api, setTokens } from "@/lib/api";
 import { postAuthPath } from "@/lib/onboarding";
 
@@ -57,9 +58,7 @@ function GoogleComplete() {
 export default function GoogleAuthCompletePage() {
   return (
     <div className="flex min-h-full flex-col items-center justify-center px-6 py-12">
-      <Link href="/" className="mb-8 text-2xl font-bold">
-        Gentle<span className="text-accent">Tap</span>
-      </Link>
+      <AuthLogo />
       <Suspense
         fallback={
           <div className="card w-full max-w-md text-center text-sm text-muted">Loading…</div>

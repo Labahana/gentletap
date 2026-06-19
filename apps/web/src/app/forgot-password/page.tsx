@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
+import { AuthLogo } from "@/components/auth-logo";
 import { api } from "@/lib/api";
 
 export default function ForgotPasswordPage() {
@@ -26,9 +27,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="flex min-h-full flex-col items-center justify-center px-6 py-12">
-      <Link href="/" className="mb-8 text-2xl font-bold">
-        Gentle<span className="text-accent">Tap</span>
-      </Link>
+      <AuthLogo />
       <div className="card w-full max-w-md">
         <h1 className="text-xl font-bold">Reset your password</h1>
         <p className="mt-1 text-sm text-muted">

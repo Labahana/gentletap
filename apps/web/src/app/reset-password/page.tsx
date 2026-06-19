@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useState } from "react";
+import { AuthLogo } from "@/components/auth-logo";
 import { PasswordRequirements } from "@/components/password-requirements";
 import { api } from "@/lib/api";
 
@@ -87,9 +88,7 @@ function ResetPasswordForm() {
 export default function ResetPasswordPage() {
   return (
     <div className="flex min-h-full flex-col items-center justify-center px-6 py-12">
-      <Link href="/" className="mb-8 text-2xl font-bold">
-        Gentle<span className="text-accent">Tap</span>
-      </Link>
+      <AuthLogo />
       <div className="card w-full max-w-md">
         <h1 className="text-xl font-bold">Choose a new password</h1>
         <Suspense fallback={<p className="mt-6 text-sm text-muted">Loading…</p>}>

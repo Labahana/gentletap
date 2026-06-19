@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { PricingGrid } from "@/components/pricing-grid";
+import { Logo } from "@/components/logo";
 import { api, getToken, type ReminderPreviewItem } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { formatMoney } from "@/lib/onboarding";
@@ -343,9 +343,7 @@ function OnboardingContent() {
   return (
     <div className="mx-auto max-w-3xl px-6 py-12">
       <div className="mb-8 flex items-center justify-between">
-        <Link href="/" className="text-xl font-bold">
-          Gentle<span className="text-accent">Tap</span>
-        </Link>
+        <Logo height={28} />
         <span className="text-sm text-muted">
           Step {step + 1} of {STEPS.length}
         </span>

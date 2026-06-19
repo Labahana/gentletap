@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Logo } from "@/components/logo";
 
 const LEGAL_LINKS = [
   { href: "/privacy", label: "Privacy Policy" },
@@ -11,6 +12,9 @@ const LEGAL_LINKS = [
 export function SiteFooter({ className = "" }: { className?: string }) {
   return (
     <footer className={`border-t border-border py-8 text-center text-sm text-muted ${className}`}>
+      <div className="mb-6 flex justify-center">
+        <Logo height={28} href="/" />
+      </div>
       <nav className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
         {LEGAL_LINKS.map((link, i) => (
           <span key={link.href} className="inline-flex items-center gap-3">

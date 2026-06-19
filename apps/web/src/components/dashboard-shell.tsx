@@ -15,6 +15,7 @@ import {
   IconBell,
 } from "@tabler/icons-react";
 import { DashIcon, type IconProps } from "@/components/dashboard-icons";
+import { Logo } from "@/components/logo";
 import { useAuth } from "@/lib/auth-context";
 import { planLabel } from "@/lib/pricing";
 
@@ -201,9 +202,7 @@ export function DashboardShell({
     <div className="flex min-h-screen bg-background">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[196px] flex-col border-r border-border bg-card lg:flex">
         <div className="border-b border-border px-4 pb-3.5 pt-4">
-          <Link href="/dashboard" className="text-[15px] font-medium">
-            GentleTap
-          </Link>
+          <Logo height={24} href="/dashboard" compact />
           {autopilotOn && (
             <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-green/15 px-2 py-0.5 text-[10px] font-medium text-green">
               <DashIcon name="robot" size={10} /> Autopilot on

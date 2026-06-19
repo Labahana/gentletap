@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Logo } from "@/components/logo";
 import { SiteFooter } from "@/components/site-footer";
 
 export function LegalLayout({
@@ -14,9 +15,7 @@ export function LegalLayout({
     <div className="min-h-full flex flex-col bg-background">
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
-          <Link href="/" className="text-xl font-bold">
-            Gentle<span className="text-accent">Tap</span>
-          </Link>
+          <Logo height={26} />
           <Link href="/" className="text-sm text-muted hover:text-foreground">
             Home
           </Link>
