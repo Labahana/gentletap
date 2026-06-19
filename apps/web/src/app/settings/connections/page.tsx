@@ -30,6 +30,7 @@ function ConnectionsSettingsContent() {
   const [purchaseNote, setPurchaseNote] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [qbSyncing, setQbSyncing] = useState(false);
+  const [qbConnecting, setQbConnecting] = useState(false);
   const [qbLastSyncAt, setQbLastSyncAt] = useState<string | null>(null);
   const [resendEmail, setResendEmail] = useState("");
   const [inbound, setInbound] = useState<
@@ -95,12 +96,14 @@ function ConnectionsSettingsContent() {
   async function connectQb() {
     const token = getToken();
     if (!token) return;
+    setQbConnecting(true);
     setLoadError(null);
     try {
       const { authorization_url } = await api.qbConnectUrl(token);
       window.location.href = authorization_url;
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Could not start QuickBooks connection");
+      setQbConnecting(false);
     }
   }
 
