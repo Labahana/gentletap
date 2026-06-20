@@ -38,30 +38,3 @@ def evaluate_whatsapp_followups() -> dict:
         return {"processed": processed}
     finally:
         db.close()
-
-
-@celery_app.task(name="gentletap.tasks.whatsapp.poll_registering_senders")
-def poll_registering_senders() -> dict:
-    from gentletap.database import WhatsappConnection
-    from gentletap.integrations.twilio.embedded_signup import activate_connection_if_online
-
-    db = SessionLocal()
-    try:
-        rows = (
-            db.query(WhatsappConnection)
-            .filter(
-                WhatsappConnection.status == "registering",
-                WhatsappConnection.sender_sid.isnot(None),
-                WhatsappConnection.disconnected_at.is_(None),
-            )
-            .limit(50)
-            .all()
-        )
-        activated = 0
-        for conn in rows:
-            if activate_connection_if_online(db, conn.id):
-                activated += 1
-        db.commit()
-        return {"checked": len(rows), "activated": activated}
-    finally:
-        db.close()

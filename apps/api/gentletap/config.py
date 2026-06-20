@@ -74,14 +74,6 @@ class Settings(BaseSettings):
     twilio_whatsapp_content_sid_follow_up: str = ""
     twilio_whatsapp_content_sid_final: str = ""
 
-    whatsapp_own_auto_activate: bool = False
-
-    meta_app_id: str = ""
-    meta_app_secret: str = ""
-    meta_embedded_signup_config_id: str = ""
-    meta_partner_solution_id: str = ""
-    twilio_use_subaccounts: bool = True
-
     sentry_dsn: str = ""
 
     skip_db_migrations: bool = False
@@ -133,13 +125,6 @@ def validate_production_settings(settings: Settings) -> None:
         missing.append("JWT_SECRET_KEY")
     if not settings.token_encryption_key.strip():
         missing.append("TOKEN_ENCRYPTION_KEY")
-    own_number_enabled = bool(
-        settings.meta_app_id
-        and settings.meta_embedded_signup_config_id
-        and settings.twilio_account_sid
-    )
-    if own_number_enabled and not settings.meta_app_secret.strip():
-        missing.append("META_APP_SECRET")
     if missing:
         raise RuntimeError(
             "Production environment requires secure values for: " + ", ".join(missing)

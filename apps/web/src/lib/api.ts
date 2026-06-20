@@ -162,6 +162,7 @@ export type ReminderPreviewItem = {
   invoice_id: string;
   doc_number: string | null;
   client_name: string;
+  client_email?: string | null;
   balance: number;
   days_overdue: number;
   status: string;
@@ -172,6 +173,13 @@ export type ReminderPreviewItem = {
   channel?: string;
   whatsapp_followup?: boolean;
   error?: string;
+};
+
+export type ReminderPreviewSummary = {
+  overdue_count: number;
+  total_outstanding: number;
+  oldest_days_overdue: number;
+  avg_days_overdue: number;
 };
 
 async function request<T>(
@@ -267,6 +275,9 @@ export const api = {
       body: JSON.stringify({ persona }),
     }, token),
 
+  advanceOnboardingEmail: (token: string) =>
+    request<{ current_step: string }>("/onboarding/advance-email", { method: "POST" }, token),
+
   advanceOnboardingPricing: (token: string) =>
     request<{ current_step: string }>("/onboarding/advance-pricing", { method: "POST" }, token),
 
@@ -348,7 +359,11 @@ export const api = {
   analytics: (token: string) => request<AnalyticsData>("/analytics", {}, token),
 
   remindersPreview: (token: string) =>
-    request<{ items: ReminderPreviewItem[]; count: number }>("/reminders/preview", {}, token),
+    request<{ items: ReminderPreviewItem[]; count: number; summary: ReminderPreviewSummary }>(
+      "/reminders/preview",
+      {},
+      token,
+    ),
 
   updateReminder: (token: string, id: string, body: { subject?: string; body?: string }) =>
     request<{ id: string; subject: string; body: string }>(
@@ -483,52 +498,22 @@ export const api = {
       plan_eligible: boolean;
       connected: boolean;
       mode: string | null;
-      phone: string | null;
       status: string | null;
       platform_configured: boolean;
       shared_available: boolean;
+      shared_sender: string | null;
       monthly_limit: number;
       monthly_used: number;
       monthly_remaining: number;
       extra_credits: number;
       total_remaining: number;
       cap_reached: boolean;
-      embedded_signup?: {
-        configured: boolean;
-        app_id: string | null;
-        config_id: string | null;
-        solution_id: string | null;
-        sdk_version: string;
-        feature_type: string;
-        requires_meta_validation?: boolean;
-      };
     }>("/whatsapp/status", {}, token),
 
   whatsappConnectShared: (token: string) =>
     request<{ connected: boolean; mode: string; message: string }>(
       "/whatsapp/connect/shared",
       { method: "POST" },
-      token,
-    ),
-
-  whatsappConnectOwn: (
-    token: string,
-    phone_e164: string,
-    waba_id?: string,
-    meta_code?: string,
-    meta_phone_number_id?: string,
-  ) =>
-    request<{ connected: boolean; mode: string; phone: string; status: string; message: string }>(
-      "/whatsapp/connect/own",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          phone_e164,
-          waba_id: waba_id || null,
-          meta_code: meta_code || null,
-          meta_phone_number_id: meta_phone_number_id || null,
-        }),
-      },
       token,
     ),
 
@@ -541,18 +526,6 @@ export const api = {
       { method: "POST", body: JSON.stringify({ pack }) },
       token,
     ),
-
-  whatsappEmbeddedSignupComplete: (
-    token: string,
-    body: { waba_id: string; phone_e164: string; meta_phone_number_id?: string; meta_code?: string },
-  ) =>
-    request<{
-      connected: boolean;
-      mode: string;
-      phone: string;
-      status: string;
-      message: string;
-    }>("/whatsapp/embedded-signup/complete", { method: "POST", body: JSON.stringify(body) }, token),
 
   whatsappInbound: (token: string) =>
     request<{

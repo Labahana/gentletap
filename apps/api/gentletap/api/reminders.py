@@ -18,8 +18,31 @@ class ReminderUpdate(BaseModel):
 
 @router.get("/preview")
 def get_preview(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
+    from sqlalchemy import func
+
+    overdue_q = db.query(Invoice).filter(
+        Invoice.user_id == user.id,
+        Invoice.balance > 0,
+        Invoice.days_overdue > 0,
+    )
+    stats_row = overdue_q.with_entities(
+        func.count(Invoice.id),
+        func.coalesce(func.sum(Invoice.balance), 0),
+        func.coalesce(func.max(Invoice.days_overdue), 0),
+        func.coalesce(func.avg(Invoice.days_overdue), 0),
+    ).one()
+    count, total, oldest, avg_days = stats_row
     items = preview_overdue_invoices(db, user.id)
-    return {"items": items, "count": len(items)}
+    return {
+        "items": items,
+        "count": len(items),
+        "summary": {
+            "overdue_count": int(count or 0),
+            "total_outstanding": float(total or 0),
+            "oldest_days_overdue": int(oldest or 0),
+            "avg_days_overdue": int(round(float(avg_days or 0))),
+        },
+    }
 
 
 @router.put("/{reminder_id}")

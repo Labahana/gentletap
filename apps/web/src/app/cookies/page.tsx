@@ -40,9 +40,6 @@ export default function CookiesPage() {
         <li>
           <strong>Paddle</strong> — during subscription checkout
         </li>
-        <li>
-          <strong>Meta</strong> — during WhatsApp embedded signup (Pro+ / Team plans)
-        </li>
       </ul>
       <p>Refer to each provider&apos;s cookie policy for details.</p>
 

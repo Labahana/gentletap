@@ -8,14 +8,9 @@ from gentletap.config import get_settings
 from gentletap.database import WhatsappInboundMessage, get_db
 from gentletap.dependencies import CurrentUser
 from gentletap.integrations.paddle import billing as paddle_billing
-from gentletap.integrations.twilio.embedded_signup import (
-    complete_embedded_signup,
-    embedded_signup_public_config,
-    is_embedded_signup_configured,
-)
+from gentletap.integrations.twilio.shared_sender import platform_webhook_config
 from gentletap.plans import has_whatsapp
 from gentletap.services.whatsapp_connection import (
-    connect_own,
     connect_shared,
     connection_status,
     disconnect,
@@ -23,20 +18,6 @@ from gentletap.services.whatsapp_connection import (
 from gentletap.services.whatsapp_usage import whatsapp_usage_summary
 
 router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
-
-
-class ConnectOwnRequest(BaseModel):
-    phone_e164: str = Field(..., min_length=8, max_length=20, examples=["+15551234567"])
-    waba_id: str | None = Field(default=None, min_length=5, max_length=64)
-    meta_code: str | None = Field(default=None, max_length=512)
-    meta_phone_number_id: str | None = Field(default=None, max_length=64)
-
-
-class EmbeddedSignupCompleteRequest(BaseModel):
-    waba_id: str = Field(..., min_length=5, max_length=64)
-    phone_e164: str = Field(..., min_length=8, max_length=20)
-    meta_phone_number_id: str | None = Field(default=None, max_length=64)
-    meta_code: str | None = Field(default=None, max_length=512)
 
 
 class MessagePackCheckoutRequest(BaseModel):
@@ -54,51 +35,15 @@ def whatsapp_status(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
     }
 
 
-@router.get("/embedded-signup/config")
-def embedded_signup_config() -> dict:
-    return embedded_signup_public_config()
-
-
-@router.post("/embedded-signup/complete")
-def embedded_signup_complete(
-    body: EmbeddedSignupCompleteRequest,
-    user: CurrentUser,
-    db: Session = Depends(get_db),
-) -> dict:
+@router.get("/platform-config")
+def whatsapp_platform_config(user: CurrentUser) -> dict:
+    """Webhook URLs for Twilio Console setup (admin reference)."""
     if not has_whatsapp(user.plan):
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail="WhatsApp requires Pro+ or Team",
         )
-    if not is_embedded_signup_configured():
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Meta Embedded Signup is not configured",
-        )
-    try:
-        conn = complete_embedded_signup(
-            db,
-            user,
-            waba_id=body.waba_id,
-            phone_e164=body.phone_e164,
-            meta_phone_number_id=body.meta_phone_number_id,
-            meta_code=body.meta_code,
-        )
-        db.commit()
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    return {
-        "connected": conn.status == "active",
-        "mode": "own",
-        "phone": conn.phone_e164,
-        "status": conn.status,
-        "sender_sid": conn.sender_sid,
-        "message": (
-            "Your business number is connected"
-            if conn.status == "active"
-            else "Registration in progress — we will activate when Twilio reports ONLINE"
-        ),
-    }
+    return platform_webhook_config(get_settings())
 
 
 @router.get("/inbound")
@@ -136,51 +81,7 @@ def whatsapp_connect_shared(user: CurrentUser, db: Session = Depends(get_db)) ->
         db.commit()
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
-    return {"connected": True, "mode": "shared", "message": "Using GentleTap business number"}
-
-
-@router.post("/connect/own")
-def whatsapp_connect_own(
-    body: ConnectOwnRequest,
-    user: CurrentUser,
-    db: Session = Depends(get_db),
-) -> dict:
-    if not has_whatsapp(user.plan):
-        raise HTTPException(
-            status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail="WhatsApp requires Pro+ or Team",
-        )
-    try:
-        conn = connect_own(
-            db,
-            user,
-            phone_e164=body.phone_e164,
-            waba_id=body.waba_id,
-            meta_code=body.meta_code,
-            meta_phone_number_id=body.meta_phone_number_id,
-        )
-        settings = get_settings()
-        if settings.whatsapp_own_auto_activate and not body.waba_id:
-            conn.status = "active"
-        db.commit()
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    registering = conn.status == "registering"
-    return {
-        "connected": conn.status == "active",
-        "mode": "own",
-        "phone": conn.phone_e164,
-        "status": conn.status,
-        "message": (
-            "Your business number is connected"
-            if conn.status == "active"
-            else (
-                "Registration in progress — we will activate when Twilio reports ONLINE"
-                if registering
-                else "Number saved — add your WABA ID or use Login with Facebook to complete registration"
-            )
-        ),
-    }
+    return {"connected": True, "mode": "shared", "message": "Using GentleTap WhatsApp number"}
 
 
 @router.post("/disconnect")

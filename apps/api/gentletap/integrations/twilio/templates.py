@@ -1,10 +1,13 @@
 """WhatsApp Business templates (Meta-approved via Twilio Content API).
 
-Business-initiated WhatsApp messages must use pre-approved templates — free-form
-Body text is rejected outside the 24-hour customer care window.
+All Pro+ / Team users send from the single platform number (TWILIO_WHATSAPP_FROM).
+Business-initiated messages must use pre-approved Content Templates.
 
-Submit these exact template bodies in Twilio Content Template Builder / Meta Business
-Manager, then paste each Content SID (HX...) into .env.
+Setup:
+1. Twilio Console → Messaging → Senders → register WhatsApp number (ONLINE).
+2. Content Template Builder → submit the three bodies below (category: Utility).
+3. Paste each approved Content SID (HX...) into .env.
+4. Set sender webhooks — see integrations/twilio/shared_sender.py.
 """
 
 from __future__ import annotations

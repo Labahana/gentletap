@@ -54,9 +54,17 @@ def onboarding_status(user: CurrentUser) -> dict:
     }
 
 
+@router.post("/onboarding/advance-email")
+def advance_to_email(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
+    if user.onboarding_step in ("preview", "import", "account", "quickbooks"):
+        user.onboarding_step = "email"
+        db.commit()
+    return {"current_step": user.onboarding_step}
+
+
 @router.post("/onboarding/advance-pricing")
 def advance_to_pricing(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
-    if user.onboarding_step in ("preview", "import"):
+    if user.onboarding_step in ("preview", "import", "email"):
         user.onboarding_step = "pricing"
         db.commit()
     return {"current_step": user.onboarding_step}

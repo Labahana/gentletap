@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 from gentletap.database import Client, Invoice, ReminderMessage, UserNotification, WhatsappInboundMessage
 from gentletap.integrations.twilio.phone import normalize_phone_e164, phones_match
 from gentletap.services.payment_claims import is_payment_claim
-from gentletap.services.whatsapp_routing import resolve_user_id_for_to_phone
 
 logger = logging.getLogger(__name__)
 
@@ -126,12 +125,11 @@ def handle_inbound_whatsapp(
         )
 
     normalized_from = normalize_phone_e164(from_phone) or from_phone
-    owner_user_id = resolve_user_id_for_to_phone(db, to_phone)
 
-    if owner_user_id is None:
+    if routed_via != "shared_number":
         raise ValueError("Could not route inbound WhatsApp message to a user")
 
-    match = _find_recent_outbound(db, client_phone=normalized_from, user_id=owner_user_id)
+    match = _find_recent_outbound(db, client_phone=normalized_from, user_id=None)
 
     user_id: UUID | None = None
     invoice_id = None
@@ -146,7 +144,7 @@ def handle_inbound_whatsapp(
         reminder_message_id = message.id
         _apply_invoice_reply(db, invoice=invoice, client=client, body=body)
     else:
-        fallback = _fallback_client_match(db, normalized_from, user_id=owner_user_id)
+        fallback = _fallback_client_match(db, normalized_from, user_id=None)
         if fallback:
             client, invoice = fallback
             user_id = client.user_id

@@ -9,7 +9,6 @@ import { api, getToken } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { planLabel } from "@/lib/pricing";
 import { autoSyncStatusLine } from "@/lib/onboarding";
-import { WhatsappEmbeddedSignup } from "@/components/whatsapp-embedded-signup";
 
 type WhatsappStatus = Awaited<ReturnType<typeof api.whatsappStatus>>;
 
@@ -23,8 +22,6 @@ function ConnectionsSettingsContent() {
   const [googleConnected, setGoogleConnected] = useState(false);
   const [qbConnected, setQbConnected] = useState(false);
   const [wa, setWa] = useState<WhatsappStatus | null>(null);
-  const [ownPhone, setOwnPhone] = useState("");
-  const [ownWaba, setOwnWaba] = useState("");
   const [waBusy, setWaBusy] = useState(false);
   const [waError, setWaError] = useState<string | null>(null);
   const [purchaseNote, setPurchaseNote] = useState<string | null>(null);
@@ -176,21 +173,6 @@ function ConnectionsSettingsContent() {
     setWaError(null);
     try {
       await api.whatsappConnectShared(token);
-      await loadStatus();
-    } catch (e) {
-      setWaError(e instanceof Error ? e.message : "Could not connect");
-    } finally {
-      setWaBusy(false);
-    }
-  }
-
-  async function connectOwn() {
-    const token = getToken();
-    if (!token || !ownPhone.trim()) return;
-    setWaBusy(true);
-    setWaError(null);
-    try {
-      await api.whatsappConnectOwn(token, ownPhone.trim(), ownWaba.trim() || undefined);
       await loadStatus();
     } catch (e) {
       setWaError(e instanceof Error ? e.message : "Could not connect");
@@ -358,16 +340,8 @@ function ConnectionsSettingsContent() {
                 {!waEligible
                   ? `Requires Pro+ or Team (current: ${planLabel(user.plan)})`
                   : waConnected
-                    ? wa?.mode === "own"
-                      ? `Your number ${wa.phone ?? ""}${
-                          wa.status === "pending"
-                            ? " (enter phone + Login with Facebook)"
-                            : wa.status === "registering"
-                              ? " (registration in progress)"
-                              : ""
-                        }`
-                      : "GentleTap business number"
-                    : "Not connected"}
+                    ? "GentleTap WhatsApp number — your name appears in each message"
+                    : "Not connected — enable WhatsApp payment reminders"}
               </p>
             </div>
             {waConnected && (
@@ -400,88 +374,31 @@ function ConnectionsSettingsContent() {
 
           {waEligible && !waConnected && (
             <div className="space-y-3 border-t border-border pt-4">
-              {wa?.shared_available && (
+              {wa?.shared_available ? (
                 <div className="rounded-lg border border-border p-4">
-                  <p className="text-sm font-medium">Use GentleTap business number</p>
+                  <p className="text-sm font-medium">Enable WhatsApp reminders</p>
                   <p className="mt-1 text-xs text-muted">
-                    Start in 2 minutes. Your name appears in the message. Clients reply to our verified
-                    number.
+                    Reminders are sent from GentleTap&apos;s verified WhatsApp Business number. Your
+                    business name appears in the message. Clients reply to our number and we route
+                    replies to your account.
                   </p>
                   <button
-                    className="btn-secondary mt-3 text-sm"
+                    className="btn-primary mt-3 text-sm"
                     onClick={connectShared}
                     disabled={waBusy}
                   >
-                    Use shared number
+                    Enable WhatsApp
                   </button>
                 </div>
+              ) : (
+                <p className="text-sm text-muted">
+                  WhatsApp is not configured on the platform yet. Contact{" "}
+                  <a href="mailto:support@gentletap.co" className="text-accent hover:underline">
+                    support@gentletap.co
+                  </a>
+                  .
+                </p>
               )}
-
-              <div className="rounded-lg border border-primary/40 p-4">
-                <p className="text-sm font-medium">
-                  Connect your business number <span className="text-primary">(recommended)</span>
-                </p>
-                <p className="mt-1 text-xs text-muted">
-                  Clients see your WhatsApp Business number. Requires Meta/Twilio sender registration.
-                </p>
-                <div className="mt-3 space-y-2">
-                  <input
-                    className="input w-full text-sm"
-                    placeholder="+15551234567"
-                    value={ownPhone}
-                    onChange={(e) => setOwnPhone(e.target.value)}
-                  />
-                  {!wa?.embedded_signup?.configured && (
-                    <>
-                      {wa?.embedded_signup?.requires_meta_validation ? (
-                        <>
-                          <p className="text-xs text-muted">
-                            WABA registration requires Login with Facebook. You can save your number as
-                            pending until embedded signup is configured.
-                          </p>
-                          <button
-                            className="btn-primary text-sm w-full"
-                            onClick={connectOwn}
-                            disabled={waBusy || !ownPhone.trim()}
-                          >
-                            Save number (pending)
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <input
-                            className="input w-full text-sm"
-                            placeholder="WABA ID (from Meta Business Manager)"
-                            value={ownWaba}
-                            onChange={(e) => setOwnWaba(e.target.value)}
-                          />
-                          <button
-                            className="btn-primary text-sm w-full"
-                            onClick={connectOwn}
-                            disabled={waBusy || !ownPhone.trim()}
-                          >
-                            {ownWaba.trim() ? "Register number with Twilio" : "Save number (pending)"}
-                          </button>
-                        </>
-                      )}
-                    </>
-                  )}
-                </div>
-                {wa?.embedded_signup?.configured && (
-                  <div className="mt-3">
-                    <WhatsappEmbeddedSignup
-                      config={wa.embedded_signup}
-                      phoneE164={ownPhone}
-                      disabled={waBusy}
-                      onComplete={() => {
-                        setWaError(null);
-                        void loadStatus();
-                      }}
-                      onError={(msg) => setWaError(msg)}
-                    />
-                  </div>
-                )}
-              </div>
             </div>
           )}
 

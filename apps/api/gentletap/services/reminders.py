@@ -125,6 +125,7 @@ def preview_overdue_invoices(db: Session, user_id: UUID, limit: int = 10) -> lis
                     "invoice_id": str(inv.id),
                     "doc_number": inv.doc_number,
                     "client_name": inv.client.name if inv.client else "",
+                    "client_email": ctx.client_email if ctx else (inv.client.email if inv.client else None),
                     "balance": float(inv.balance),
                     "days_overdue": inv.days_overdue,
                     "status": inv.status,

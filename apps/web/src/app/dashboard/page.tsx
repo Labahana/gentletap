@@ -37,6 +37,10 @@ export default function DashboardPage() {
   const [unreadAlerts, setUnreadAlerts] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [onboardingNote, setOnboardingNote] = useState<string | null>(null);
+  const [onboardingWelcome, setOnboardingWelcome] = useState<{
+    activated: number;
+    skipped: number;
+  } | null>(null);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [escDismissed, setEscDismissed] = useState(false);
 
@@ -45,6 +49,18 @@ export default function DashboardPage() {
     if (note) {
       setOnboardingNote(note);
       sessionStorage.removeItem("onboarding_note");
+    }
+    const welcomeRaw = sessionStorage.getItem("onboarding_welcome");
+    if (welcomeRaw) {
+      try {
+        const parsed = JSON.parse(welcomeRaw) as { activated: number; skipped?: number };
+        if (parsed.activated > 0) {
+          setOnboardingWelcome({ activated: parsed.activated, skipped: parsed.skipped ?? 0 });
+        }
+      } catch {
+        /* ignore */
+      }
+      sessionStorage.removeItem("onboarding_welcome");
     }
     if (sessionStorage.getItem(ESC_DISMISS_KEY) === "1") setEscDismissed(true);
   }, []);
@@ -138,6 +154,20 @@ export default function DashboardPage() {
           <NotifBell href="/dashboard/alerts" unread={unreadAlerts} />
         </div>
 
+        {onboardingWelcome && (
+          <div className="mb-4 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-4">
+            <p className="font-semibold text-green-800">
+              Autopilot is on — {onboardingWelcome.activated} reminder sequence
+              {onboardingWelcome.activated === 1 ? "" : "s"} active
+            </p>
+            <p className="mt-1 text-sm text-green-800/90">
+              GentleTap will follow up automatically and stop when QuickBooks shows payment received.
+            </p>
+            <Link href="/dashboard/invoices" className="mt-2 inline-block text-sm font-medium text-accent hover:underline">
+              View active sequences →
+            </Link>
+          </div>
+        )}
         {onboardingNote && (
           <div className="mb-4 rounded-xl border border-yellow/40 bg-yellow/10 px-3 py-2 text-sm">{onboardingNote}</div>
         )}

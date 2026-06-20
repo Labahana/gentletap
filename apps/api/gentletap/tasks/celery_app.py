@@ -48,9 +48,5 @@ celery_app.conf.update(
             "task": "gentletap.tasks.whatsapp.evaluate_followups",
             "schedule": crontab(minute="*/15"),
         },
-        "poll-registering-whatsapp-senders": {
-            "task": "gentletap.tasks.whatsapp.poll_registering_senders",
-            "schedule": crontab(minute="*/5"),
-        },
     },
 )
