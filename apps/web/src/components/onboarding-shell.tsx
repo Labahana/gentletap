@@ -188,7 +188,7 @@ export function OnboardingShell({
                 Step {currentStep + 1} of {steps.length}
               </p>
 
-              <div className="mt-5 grid grid-cols-3 gap-3">
+              <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {steps.map((step, index) => {
                   const active = index === currentStep;
                   const unlocked = index <= maxUnlockedStep;

@@ -6,7 +6,7 @@ import { OnboardingEmailStep } from "@/components/onboarding-email-step";
 import { OnboardingImportStep } from "@/components/onboarding-import-step";
 import { OnboardingInfoBox, OnboardingLoadingOverlay, OnboardingShell } from "@/components/onboarding-shell";
 import { PricingGrid } from "@/components/pricing-grid";
-import { api, getToken, type ReminderPreviewItem, type ReminderPreviewSummary } from "@/lib/api";
+import { api, getToken, type ReminderPreviewItem } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { formatMoney } from "@/lib/onboarding";
 import type { PlanFeature } from "@/lib/pricing";
@@ -15,28 +15,25 @@ const STEPS = [
   { id: "profile", label: "Your Profile", subtitle: "Name, company & logo" },
   { id: "import", label: "Import Invoices", subtitle: "QuickBooks or spreadsheet" },
   { id: "email", label: "Email Setup", subtitle: "Send from your inbox" },
-  { id: "invoice", label: "First Invoice", subtitle: "Preview & go live" },
+  { id: "invoice", label: "Go Live", subtitle: "Pick a plan & turn on autopilot" },
 ];
 
-type InvoicePhase = "preview" | "pricing";
-
-function backendToView(onboardingStep: string): { macro: number; invoicePhase: InvoicePhase } {
+function backendToView(onboardingStep: string): { macro: number } {
   switch (onboardingStep) {
     case "account":
     case "persona":
-      return { macro: 0, invoicePhase: "preview" };
+      return { macro: 0 };
     case "invoice_import":
     case "quickbooks":
-      return { macro: 1, invoicePhase: "preview" };
+      return { macro: 1 };
     case "email":
-      return { macro: 2, invoicePhase: "preview" };
+      return { macro: 2 };
     case "preview":
     case "import":
-      return { macro: 3, invoicePhase: "preview" };
     case "pricing":
-      return { macro: 3, invoicePhase: "pricing" };
+      return { macro: 3 };
     default:
-      return { macro: 0, invoicePhase: "preview" };
+      return { macro: 0 };
   }
 }
 
@@ -44,12 +41,12 @@ function furthestMacroStep(onboardingStep: string): number {
   return backendToView(onboardingStep).macro;
 }
 
-function stepHeading(macro: number, invoicePhase: InvoicePhase): { title: string; description: string } {
+function stepHeading(macro: number): { title: string; description: string } {
   if (macro === 0) return { title: "Your Profile", description: "Name, company & logo" };
   if (macro === 1) {
     return {
       title: "Import Invoices",
-      description: "Connect QuickBooks or upload a spreadsheet of unpaid invoices.",
+      description: "Connect QuickBooks or upload a spreadsheet — see what GentleTap will send.",
     };
   }
   if (macro === 2) {
@@ -58,32 +55,13 @@ function stepHeading(macro: number, invoicePhase: InvoicePhase): { title: string
       description: "Configure sending",
     };
   }
-  if (invoicePhase === "preview") {
-    return {
-      title: "First Invoice",
-      description: "See what GentleTap will send before anything goes live.",
-    };
-  }
   return {
-    title: "First Invoice",
+    title: "Go Live",
     description: "Pick a plan and turn on autopilot — sequences stop when invoices are marked paid.",
   };
 }
 
 const FREE_MONTHLY_LIMIT = 5;
-
-const EXAMPLE_PREVIEW: ReminderPreviewItem = {
-  invoice_id: "example",
-  doc_number: "1042",
-  client_name: "Sarah Chen",
-  client_email: "sarah@client.com",
-  balance: 4200,
-  days_overdue: 18,
-  status: "yellow",
-  subject: "Friendly reminder — Invoice #1042",
-  body:
-    "Hi Sarah,\n\nJust a quick note that invoice #1042 for $4,200.00 is still outstanding (18 days overdue). Please let me know if you have any questions or if payment is on the way.\n\nThanks!",
-};
 
 type ImportSummary = {
   count: number;
@@ -145,83 +123,12 @@ function OnboardingNavFooter({
   );
 }
 
-function SequenceTimeline() {
-  const rows = [
-    { when: "Day 0", channel: "Email", detail: "Gentle reminder from your inbox" },
-    { when: "+3 days", channel: "Email", detail: "Professional follow-up" },
-    { when: "+3 hours later", channel: "WhatsApp", detail: "Short nudge (Pro+ plans)" },
-    { when: "Up to 5 touches", channel: "Email", detail: "Escalates only when needed" },
-    { when: "When marked paid", channel: "Stops", detail: "Autopilot ends — no manual cleanup" },
-  ];
-  return (
-    <div className="rounded-xl border border-border bg-background p-4">
-      <p className="text-sm font-medium">What happens over time</p>
-      <ol className="mt-3 space-y-2">
-        {rows.map((row) => (
-          <li key={row.when} className="flex gap-3 text-sm">
-            <span className="w-28 shrink-0 text-xs font-medium text-muted">{row.when}</span>
-            <span className="w-16 shrink-0 text-xs font-semibold">{row.channel}</span>
-            <span className={`text-muted ${row.channel === "Stops" ? "font-medium text-green" : ""}`}>
-              {row.detail}
-            </span>
-          </li>
-        ))}
-      </ol>
-    </div>
-  );
-}
-
-function EmailPreviewCard({
-  preview,
-  senderLabel,
-  example,
-}: {
-  preview: ReminderPreviewItem;
-  senderLabel: string;
-  example?: boolean;
-}) {
-  return (
-    <div className="rounded-xl border border-border bg-background p-4 text-sm">
-      {example && (
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">Example preview</p>
-      )}
-      <div className="space-y-1 border-b border-border pb-3 text-xs text-muted">
-        <p>
-          <span className="font-medium text-foreground">From:</span> {senderLabel}
-        </p>
-        <p>
-          <span className="font-medium text-foreground">To:</span>{" "}
-          {preview.client_email || `${preview.client_name.toLowerCase().replace(/\s+/g, ".")}@client.com`}
-        </p>
-        {preview.subject && (
-          <p>
-            <span className="font-medium text-foreground">Subject:</span> {preview.subject}
-          </p>
-        )}
-      </div>
-      <p className="mt-1 text-xs text-muted">
-        {preview.client_name} · #{preview.doc_number} · {formatMoney(preview.balance)} · {preview.days_overdue}d
-        overdue
-      </p>
-      {preview.error ? (
-        <p className="mt-2 text-red-600">{preview.error}</p>
-      ) : (
-        <>
-          <pre className="mt-3 whitespace-pre-wrap font-sans leading-relaxed text-foreground">{preview.body}</pre>
-          <p className="mt-2 text-xs text-green">Written in your voice — not a template blast</p>
-        </>
-      )}
-    </div>
-  );
-}
-
 function OnboardingContent() {
   const { user, loading, refresh } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const stepSynced = useRef(false);
   const [macroStep, setMacroStep] = useState(0);
-  const [invoicePhase, setInvoicePhase] = useState<InvoicePhase>("preview");
   const [companyName, setCompanyName] = useState("");
   const [emailDisplayName, setEmailDisplayName] = useState("");
   const [phone, setPhone] = useState("");
@@ -230,12 +137,12 @@ function OnboardingContent() {
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [previews, setPreviews] = useState<ReminderPreviewItem[]>([]);
-  const [previewSummary, setPreviewSummary] = useState<ReminderPreviewSummary | null>(null);
   const [qbConnecting, setQbConnecting] = useState(false);
   const [qbError, setQbError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [senderEmail, setSenderEmail] = useState<string | null>(null);
   const [activating, setActivating] = useState(false);
+  const [previewsLoading, setPreviewsLoading] = useState(false);
   const [importSummary, setImportSummary] = useState<ImportSummary>({
     count: 0,
     total: 0,
@@ -262,7 +169,6 @@ function OnboardingContent() {
     if (stepSynced.current) return;
     const view = backendToView(user.onboarding_step);
     setMacroStep(view.macro);
-    setInvoicePhase(view.invoicePhase);
     stepSynced.current = true;
   }, [user, router]);
 
@@ -295,14 +201,11 @@ function OnboardingContent() {
       if (token) {
         api.googleStatus(token).then((g) => setSenderEmail(g.email ?? null)).catch(() => {});
         api.me(token).then((me) => {
-          const view = backendToView(me.onboarding_step);
-          setMacroStep(view.macro);
-          setInvoicePhase(view.invoicePhase);
+          setMacroStep(backendToView(me.onboarding_step).macro);
         }).catch(() => setMacroStep(3));
         void refresh();
       } else {
         setMacroStep(3);
-        setInvoicePhase("preview");
       }
       router.replace("/onboarding");
     } else if (email === "error") {
@@ -313,7 +216,6 @@ function OnboardingContent() {
       router.replace("/onboarding");
     } else if (checkout === "cancelled") {
       setMacroStep(3);
-      setInvoicePhase("pricing");
       setEmailError("Checkout cancelled — pick a plan or start free.");
       router.replace("/onboarding");
     }
@@ -332,7 +234,6 @@ function OnboardingContent() {
       }
       await refresh();
       setMacroStep(3);
-      setInvoicePhase("pricing");
       try {
         const result = await api.onboardingActivate(token);
         await refresh();
@@ -348,25 +249,37 @@ function OnboardingContent() {
     const token = getToken();
     if (!token) return false;
     try {
-      const [sync, summary, preview] = await Promise.all([
+      const [sync, summary] = await Promise.all([
         api.qbSyncStatus(token),
         api.invoicesSummary(token),
-        api.remindersPreview(token).catch(() => null),
       ]);
       const syncing = sync.status === "syncing";
-      setPreviewSummary(preview?.summary ?? null);
-      if (preview?.items) setPreviews(preview.items);
-      setImportSummary({
-        count: preview?.summary?.overdue_count ?? summary.unpaid_count ?? sync.unpaid_count ?? 0,
-        total: preview?.summary?.total_outstanding ?? summary.total_outstanding ?? sync.total_outstanding ?? 0,
-        oldestDays: preview?.summary?.oldest_days_overdue ?? 0,
-        avgDays: preview?.summary?.avg_days_overdue ?? 0,
+      setImportSummary((s) => ({
+        ...s,
+        count: summary.overdue_count ?? summary.unpaid_count ?? sync.unpaid_count ?? s.count,
+        total: summary.total_outstanding ?? sync.total_outstanding ?? s.total,
         message: sync.message,
         syncing,
-      });
+      }));
+
+      if (!syncing) {
+        setPreviewsLoading(true);
+        const preview = await api.remindersPreview(token).catch(() => null);
+        if (preview?.items) setPreviews(preview.items);
+        setImportSummary((s) => ({
+          ...s,
+          count: preview?.summary?.overdue_count ?? summary.overdue_count ?? summary.unpaid_count ?? 0,
+          total: preview?.summary?.total_outstanding ?? summary.total_outstanding ?? 0,
+          oldestDays: preview?.summary?.oldest_days_overdue ?? 0,
+          avgDays: preview?.summary?.avg_days_overdue ?? 0,
+          syncing: false,
+        }));
+        setPreviewsLoading(false);
+      }
       return syncing;
     } catch {
       setImportSummary((s) => ({ ...s, message: "Could not load sync status", syncing: false }));
+      setPreviewsLoading(false);
       return false;
     }
   }, []);
@@ -377,9 +290,7 @@ function OnboardingContent() {
   }, [macroStep, pollImportStatus]);
 
   useEffect(() => {
-    const shouldPoll =
-      (macroStep === 1 && importSummary.syncing) || (macroStep === 3 && invoicePhase === "preview");
-    if (!shouldPoll) return;
+    if (macroStep !== 1 || !importSummary.syncing) return;
     let active = true;
     let interval: ReturnType<typeof setInterval> | null = null;
     (async () => {
@@ -396,7 +307,7 @@ function OnboardingContent() {
       active = false;
       if (interval) clearInterval(interval);
     };
-  }, [macroStep, invoicePhase, importSummary.syncing, pollImportStatus]);
+  }, [macroStep, importSummary.syncing, pollImportStatus]);
 
   useEffect(() => {
     if (macroStep !== 2) return;
@@ -408,7 +319,7 @@ function OnboardingContent() {
   }, [macroStep]);
 
   useEffect(() => {
-    if (macroStep !== 3 || invoicePhase !== "pricing") return;
+    if (macroStep !== 3) return;
     const token = getToken();
     if (!token) return;
     api.billingStatus(token).then((s) => {
@@ -416,7 +327,7 @@ function OnboardingContent() {
       setCheckoutAvailable(s.checkout_available);
     });
     pollImportStatus();
-  }, [macroStep, invoicePhase, pollImportStatus]);
+  }, [macroStep, pollImportStatus]);
 
   function storeWelcome(result: {
     activated: number;
@@ -479,24 +390,14 @@ function OnboardingContent() {
     setMacroStep(2);
   }
 
-  async function continueToPreview() {
+  async function continueToGoLive() {
     const token = getToken();
     if (token) {
       await api.advanceOnboardingQuickbooks(token);
-      await refresh();
-    }
-    setMacroStep(3);
-    setInvoicePhase("preview");
-  }
-
-  async function continueToPricing() {
-    const token = getToken();
-    if (token) {
       await api.advanceOnboardingPricing(token);
       await refresh();
     }
     setMacroStep(3);
-    setInvoicePhase("pricing");
   }
 
   async function saveProfile(e: React.FormEvent) {
@@ -594,15 +495,11 @@ function OnboardingContent() {
   function goToStep(index: number) {
     if (index > furthestStep) return;
     setMacroStep(index);
-    if (index === 3) {
-      setInvoicePhase(backendToView(onboardingStep).invoicePhase);
-    }
   }
 
   function goBack() {
     if (macroStep === 3) {
-      if (invoicePhase === "pricing") setInvoicePhase("preview");
-      else setMacroStep(2);
+      setMacroStep(2);
       return;
     }
     setMacroStep((current) => Math.max(0, current - 1));
@@ -622,7 +519,7 @@ function OnboardingContent() {
     return `${name} <${from}>`;
   })();
 
-  const content = stepHeading(macroStep, invoicePhase);
+  const content = stepHeading(macroStep);
 
   return (
     <OnboardingShell
@@ -632,7 +529,7 @@ function OnboardingContent() {
       onStepSelect={goToStep}
       title={content.title}
       description={content.description}
-      wide={macroStep === 3 && invoicePhase === "pricing"}
+      wide={macroStep === 1 || macroStep === 3}
     >
         {macroStep === 0 && (
           <form className="space-y-5" onSubmit={saveProfile}>
@@ -722,8 +619,13 @@ function OnboardingContent() {
             qbError={qbError}
             importMessage={importSummary.message}
             importSyncing={importSummary.syncing}
+            previewsLoading={previewsLoading}
             invoiceCount={importSummary.count}
             totalOutstanding={importSummary.total}
+            oldestDays={importSummary.oldestDays}
+            avgDays={importSummary.avgDays}
+            previews={previews}
+            senderLabel={senderLabel}
             onInvoicesChanged={() => void pollImportStatus()}
           />
         )}
@@ -732,81 +634,13 @@ function OnboardingContent() {
           <OnboardingEmailStep
             userEmail={user.email}
             onBack={goBack}
-            onContinue={continueToPreview}
+            onContinue={continueToGoLive}
             onConnectGmail={connectGmail}
             externalError={emailError}
           />
         )}
 
-        {macroStep === 3 && invoicePhase === "preview" && (
-          <div className="space-y-6">
-            {importSummary.syncing ? (
-              <div className="rounded-xl bg-background p-10 text-center">
-                <p className="text-sm text-muted animate-pulse">Loading your invoices…</p>
-              </div>
-            ) : invoiceCount > 0 ? (
-              <>
-                <div className="rounded-xl border border-accent/30 bg-accent/5 p-8 text-center">
-                  <p className="text-sm font-medium uppercase tracking-wide text-accent">We found</p>
-                  <p className="mt-2 text-5xl font-bold text-foreground">{invoiceCount}</p>
-                  <p className="text-lg text-muted">
-                    unpaid invoice{invoiceCount === 1 ? "" : "s"}
-                  </p>
-                  <p className="mt-4 text-3xl font-semibold">{formatMoney(importSummary.total)}</p>
-                  <p className="text-sm text-muted">total outstanding</p>
-                  {(importSummary.oldestDays > 0 || importSummary.avgDays > 0) && (
-                    <p className="mt-3 text-sm text-muted">
-                      Oldest: {importSummary.oldestDays} days · Average: {importSummary.avgDays} days overdue
-                    </p>
-                  )}
-                </div>
-
-                {previews.length > 0 && (
-                  <div className="space-y-3">
-                    <p className="text-sm font-medium">
-                      Here&apos;s what GentleTap will send — AI-drafted, in your voice:
-                    </p>
-                    {previews.slice(0, 3).map((p) => (
-                      <EmailPreviewCard key={p.invoice_id} preview={p} senderLabel={senderLabel} />
-                    ))}
-                    {invoiceCount > 3 && (
-                      <p className="text-center text-sm text-muted">
-                        + {invoiceCount - 3} more invoice{invoiceCount - 3 === 1 ? "" : "s"} ready to go
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                <SequenceTimeline />
-
-                <p className="text-center text-sm text-muted">
-                  First reminders can go out within a few hours after you connect email and turn on autopilot.
-                </p>
-
-                <OnboardingNavFooter onBack={goBack}>
-                  <button type="button" className="btn-primary w-full sm:w-auto" onClick={continueToPricing}>
-                    Continue
-                  </button>
-                </OnboardingNavFooter>
-              </>
-            ) : (
-              <>
-                <p className="text-sm text-muted">
-                  No overdue invoices yet. When you add more, GentleTap syncs and drafts reminders automatically.
-                </p>
-                <EmailPreviewCard preview={EXAMPLE_PREVIEW} senderLabel={senderLabel} example />
-                <SequenceTimeline />
-                <OnboardingNavFooter onBack={goBack}>
-                  <button type="button" className="btn-primary w-full sm:w-auto" onClick={continueToPricing}>
-                    Continue
-                  </button>
-                </OnboardingNavFooter>
-              </>
-            )}
-          </div>
-        )}
-
-        {macroStep === 3 && invoicePhase === "pricing" && (
+        {macroStep === 3 && (
           <div className="space-y-6">
             {invoiceCount > 0 && (
               <div className="rounded-xl border border-border bg-background p-6 text-center">

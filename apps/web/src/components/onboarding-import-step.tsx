@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ConnectQuickBooksButton } from "@/components/connect-quickbooks-button";
 import { OnboardingInfoBox } from "@/components/onboarding-shell";
-import { api, getToken } from "@/lib/api";
-import { formatMoney } from "@/lib/onboarding";
+import { OnboardingValueReveal } from "@/components/onboarding-value-reveal";
+import { api, getToken, type ReminderPreviewItem } from "@/lib/api";
 
 type ImportChoice = "quickbooks" | "csv";
+type ImportPhase = "choose" | "results";
 
 type Props = {
   onBack: () => void;
@@ -16,8 +17,13 @@ type Props = {
   qbError?: string | null;
   importMessage?: string;
   importSyncing?: boolean;
+  previewsLoading?: boolean;
   invoiceCount?: number;
   totalOutstanding?: number;
+  oldestDays?: number;
+  avgDays?: number;
+  previews?: ReminderPreviewItem[];
+  senderLabel: string;
   onInvoicesChanged?: () => void;
 };
 
@@ -75,10 +81,16 @@ export function OnboardingImportStep({
   qbError,
   importMessage,
   importSyncing,
+  previewsLoading,
   invoiceCount = 0,
   totalOutstanding = 0,
+  oldestDays = 0,
+  avgDays = 0,
+  previews = [],
+  senderLabel,
   onInvoicesChanged,
 }: Props) {
+  const [phase, setPhase] = useState<ImportPhase>("choose");
   const [choice, setChoice] = useState<ImportChoice | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -109,6 +121,21 @@ export function OnboardingImportStep({
     if (uploadResult) setChoice("csv");
   }, [uploadResult]);
 
+  const importComplete =
+    (choice === "quickbooks" && qbConnected && !importSyncing) ||
+    (choice === "csv" && uploadResult !== null && !uploading);
+
+  useEffect(() => {
+    if (importComplete) setPhase("results");
+  }, [importComplete]);
+
+  useEffect(() => {
+    if ((qbConnected || invoiceCount > 0) && !importSyncing) {
+      setPhase("results");
+      if (qbConnected) setChoice("quickbooks");
+    }
+  }, [qbConnected, invoiceCount, importSyncing]);
+
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -122,6 +149,7 @@ export function OnboardingImportStep({
       const result = await api.importInvoicesCsv(token, file);
       setUploadResult({ imported: result.imported, skipped: result.skipped });
       setChoice("csv");
+      setPhase("results");
       onInvoicesChanged?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
@@ -131,19 +159,21 @@ export function OnboardingImportStep({
     }
   }
 
-  const hasInvoices = invoiceCount > 0 || (uploadResult?.imported ?? 0) > 0;
   const qbReady = qbConnected && !importSyncing;
   const csvReady = uploadResult !== null && !uploading;
 
   let primaryLabel = "Choose an option above";
   let primaryDisabled = !choice;
 
-  if (choice === "quickbooks") {
+  if (phase === "results") {
+    primaryLabel = importSyncing || previewsLoading ? "Loading…" : "Continue to email setup";
+    primaryDisabled = Boolean(importSyncing || previewsLoading);
+  } else if (choice === "quickbooks") {
     if (importSyncing) {
       primaryLabel = "Syncing from QuickBooks…";
       primaryDisabled = true;
     } else if (qbReady) {
-      primaryLabel = hasInvoices ? "Continue" : "Continue without invoices";
+      primaryLabel = "See your invoices";
       primaryDisabled = false;
     } else {
       primaryLabel = qbConnecting ? "Connecting…" : "Connect QuickBooks";
@@ -153,9 +183,6 @@ export function OnboardingImportStep({
     if (uploading) {
       primaryLabel = "Uploading…";
       primaryDisabled = true;
-    } else if (csvReady) {
-      primaryLabel = uploadResult!.imported > 0 ? "Continue" : "Continue without invoices";
-      primaryDisabled = false;
     } else {
       primaryLabel = "Choose a file to upload";
       primaryDisabled = true;
@@ -163,25 +190,33 @@ export function OnboardingImportStep({
   }
 
   function handlePrimary() {
+    if (phase === "results") {
+      if (!importSyncing && !previewsLoading) onContinue();
+      return;
+    }
     if (choice === "quickbooks") {
       if (qbReady) {
-        onContinue();
+        setPhase("results");
+        onInvoicesChanged?.();
         return;
       }
       onConnectQuickBooks();
-      return;
     }
-    if (choice === "csv" && csvReady) {
-      onContinue();
-    }
+  }
+
+  function changeImportMethod() {
+    setPhase("choose");
+    setError(null);
   }
 
   return (
     <div className="space-y-5">
-      <p className="text-sm leading-relaxed text-muted">
-        Bring in your unpaid invoices so GentleTap can draft reminders. Connect QuickBooks for automatic sync, or
-        upload a spreadsheet.
-      </p>
+      {phase === "choose" && (
+        <p className="text-sm leading-relaxed text-muted">
+          Bring in your unpaid invoices so GentleTap can draft reminders. Connect QuickBooks for automatic sync, or
+          upload a spreadsheet.
+        </p>
+      )}
 
       {(qbError || error) && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -189,84 +224,90 @@ export function OnboardingImportStep({
         </p>
       )}
 
-      {importSyncing && (
-        <div className="rounded-lg border border-accent/30 bg-accent/5 px-4 py-3 text-sm text-muted animate-pulse">
-          {importMessage ?? "Syncing invoices from QuickBooks…"}
-        </div>
+      {phase === "results" && (
+        <>
+          <OnboardingValueReveal
+            invoiceCount={invoiceCount}
+            totalOutstanding={totalOutstanding}
+            oldestDays={oldestDays}
+            avgDays={avgDays}
+            previews={previews}
+            senderLabel={senderLabel}
+            syncing={importSyncing}
+            previewsLoading={previewsLoading}
+            senderNote="Sending address configured in the next step."
+          />
+          <button type="button" className="text-sm text-muted hover:text-foreground" onClick={changeImportMethod}>
+            Change import method
+          </button>
+        </>
       )}
 
-      {hasInvoices && !importSyncing && (
-        <div className="rounded-xl border border-accent/30 bg-accent/5 p-6 text-center">
-          <p className="text-sm font-medium text-accent">Ready to continue</p>
-          <p className="mt-1 text-2xl font-bold">{invoiceCount || uploadResult?.imported}</p>
-          <p className="text-sm text-muted">unpaid invoice{(invoiceCount || uploadResult?.imported) === 1 ? "" : "s"}</p>
-          {totalOutstanding > 0 && (
-            <p className="mt-2 text-lg font-semibold">{formatMoney(totalOutstanding)} outstanding</p>
-          )}
+      {phase === "choose" && (
+        <div className="space-y-3">
+          <OptionCard
+            selected={choice === "quickbooks"}
+            onSelect={() => setChoice("quickbooks")}
+            badge="Recommended"
+            title="Connect QuickBooks"
+            description="Import unpaid invoices automatically. Read-only — nothing is changed in QuickBooks."
+            icon={
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            }
+          >
+            {choice === "quickbooks" && !qbConnected && (
+              <div className="mt-4 flex justify-center">
+                <ConnectQuickBooksButton onClick={onConnectQuickBooks} busy={qbConnecting} />
+              </div>
+            )}
+            {qbConnected && <p className="mt-2 text-xs text-green">QuickBooks connected</p>}
+            {choice === "quickbooks" && importSyncing && (
+              <p className="mt-2 text-xs text-muted animate-pulse">{importMessage ?? "Syncing…"}</p>
+            )}
+          </OptionCard>
+
+          <OptionCard
+            selected={choice === "csv"}
+            onSelect={() => setChoice("csv")}
+            title="Upload invoice spreadsheet"
+            description="CSV or Excel (.xlsx) with client name, client email, amount, and due date."
+            icon={
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v12m0 0l-3-3m3 3l3-3M4 20h16" />
+              </svg>
+            }
+          >
+            {choice === "csv" && (
+              <div className="mt-4 space-y-3">
+                <OnboardingInfoBox>
+                  Required columns: <strong>client_name</strong> (or customer), <strong>client_email</strong> (or
+                  email), <strong>amount</strong> (or balance), <strong>due_date</strong>. Optional: invoice_number,
+                  currency.
+                </OnboardingInfoBox>
+                <label className="btn-secondary inline-flex cursor-pointer py-2 text-sm">
+                  {uploading ? "Uploading…" : "Choose file"}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                    disabled={uploading}
+                  />
+                </label>
+                {uploadResult && (
+                  <p className="text-sm text-muted">
+                    Imported {uploadResult.imported} invoice{uploadResult.imported === 1 ? "" : "s"}
+                    {uploadResult.skipped > 0 ? ` · ${uploadResult.skipped} row(s) skipped` : ""}
+                  </p>
+                )}
+              </div>
+            )}
+          </OptionCard>
         </div>
       )}
-
-      <div className="space-y-3">
-        <OptionCard
-          selected={choice === "quickbooks"}
-          onSelect={() => setChoice("quickbooks")}
-          badge="Recommended"
-          title="Connect QuickBooks"
-          description="Import unpaid invoices automatically. Read-only — nothing is changed in QuickBooks."
-          icon={
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          }
-        >
-          {choice === "quickbooks" && !qbConnected && (
-            <div className="mt-4 flex justify-center">
-              <ConnectQuickBooksButton onClick={onConnectQuickBooks} busy={qbConnecting} />
-            </div>
-          )}
-          {qbConnected && (
-            <p className="mt-2 text-xs text-green">QuickBooks connected</p>
-          )}
-        </OptionCard>
-
-        <OptionCard
-          selected={choice === "csv"}
-          onSelect={() => setChoice("csv")}
-          title="Upload invoice spreadsheet"
-          description="CSV or Excel (.xlsx) with client name, amount, and due date."
-          icon={
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v12m0 0l-3-3m3 3l3-3M4 20h16" />
-            </svg>
-          }
-        >
-          {choice === "csv" && (
-            <div className="mt-4 space-y-3">
-              <OnboardingInfoBox>
-                Required columns: <strong>client_name</strong> (or customer), <strong>amount</strong> (or balance),{" "}
-                <strong>due_date</strong>. Optional: client_email, invoice_number, currency.
-              </OnboardingInfoBox>
-              <label className="btn-secondary inline-flex cursor-pointer py-2 text-sm">
-                {uploading ? "Uploading…" : "Choose file"}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                  className="hidden"
-                  onChange={handleFileUpload}
-                  disabled={uploading}
-                />
-              </label>
-              {uploadResult && (
-                <p className="text-sm text-muted">
-                  Imported {uploadResult.imported} invoice{uploadResult.imported === 1 ? "" : "s"}
-                  {uploadResult.skipped > 0 ? ` · ${uploadResult.skipped} row(s) skipped` : ""}
-                </p>
-              )}
-            </div>
-          )}
-        </OptionCard>
-      </div>
 
       <button type="button" className="btn-primary w-full" disabled={primaryDisabled} onClick={handlePrimary}>
         {primaryLabel}

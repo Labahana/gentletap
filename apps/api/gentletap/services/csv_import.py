@@ -90,10 +90,16 @@ def import_invoices_from_file(db: Session, user_id: UUID, content: bytes, filena
         raise ValueError("Missing client name column — use client_name, customer, or client")
 
     email_col = _resolve_column(headers, "client_email")
+    if not email_col:
+        raise ValueError("Missing client email column — use client_email, email, or customer_email")
+
     number_col = _resolve_column(headers, "invoice_number")
     amount_col = _resolve_column(headers, "amount")
     balance_col = _resolve_column(headers, "balance")
     due_col = _resolve_column(headers, "due_date")
+    if not due_col:
+        raise ValueError("Missing due date column — use due_date or due")
+
     invoice_date_col = _resolve_column(headers, "invoice_date")
     currency_col = _resolve_column(headers, "currency")
 
@@ -112,8 +118,11 @@ def import_invoices_from_file(db: Session, user_id: UUID, content: bytes, filena
             continue
 
         email = None
-        if email_col and pd.notna(row[email_col]):
+        if pd.notna(row[email_col]):
             email = str(row[email_col]).strip() or None
+        if not email or "@" not in email:
+            skipped += 1
+            continue
 
         amount = _parse_decimal(row[amount_col]) if amount_col else None
         balance = _parse_decimal(row[balance_col]) if balance_col else None
@@ -159,8 +168,7 @@ def import_invoices_from_file(db: Session, user_id: UUID, content: bytes, filena
                 db.flush()
             else:
                 client_row.name = name
-                if email:
-                    client_row.email = email
+                client_row.email = email
             client_cache[customer_id] = client_row
 
         if doc_number:
