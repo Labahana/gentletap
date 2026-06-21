@@ -31,6 +31,13 @@ function StepIcon({ id, active, done }: { id: string; active: boolean; done: boo
         d="M12 12a4 4 0 100-8 4 4 0 000 8zM6 20v-1a6 6 0 0112 0v1"
       />
     ),
+    import: (
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M4 7h16M4 12h16M4 17h10M8 3v4M14 3v4"
+      />
+    ),
     quickbooks: (
       <path
         strokeLinecap="round"

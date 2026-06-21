@@ -122,7 +122,7 @@ class DomainSetupRequest(BaseModel):
 
 def _advance_email_onboarding(user: Profile, db: Session) -> None:
     if user.onboarding_step == "email":
-        user.onboarding_step = "quickbooks"
+        user.onboarding_step = "preview"
 
 
 def _set_provider(db: Session, user_id, provider: str) -> EmailPreference:
@@ -280,7 +280,7 @@ def sender_status(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
         return {"verified": False}
     sender = resend_sender.refresh_sender_status(db, sender)
     if sender.verification_status == "verified" and user.onboarding_step == "email":
-        user.onboarding_step = "quickbooks"
+        user.onboarding_step = "preview"
         db.commit()
     return {
         "email": sender.email_address,

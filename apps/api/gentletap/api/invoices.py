@@ -1,11 +1,12 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from gentletap.database import Invoice, ReminderMessage, get_db
 from gentletap.dependencies import CurrentUser
+from gentletap.services.csv_import import import_invoices_from_file
 from gentletap.services.dashboard_data import (
     build_activity_feed,
     build_summary_extras,
@@ -21,6 +22,24 @@ from gentletap.services.sequences import (
 )
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
+
+
+@router.post("/import")
+async def import_invoices_csv(
+    user: CurrentUser,
+    db: Session = Depends(get_db),
+    file: UploadFile = File(...),
+) -> dict:
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File is empty")
+    if len(content) > 5_000_000:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File is too large — max 5 MB")
+    filename = file.filename or "upload.csv"
+    try:
+        return import_invoices_from_file(db, user.id, content, filename)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
 @router.get("")

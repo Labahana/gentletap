@@ -153,7 +153,8 @@ def _upsert_connection(
         connection.connected_at = now
         connection.disconnected_at = None
 
-    user.onboarding_step = "preview"
+    if user.onboarding_step in ("invoice_import", "quickbooks", "account", "persona"):
+        user.onboarding_step = "invoice_import"
     db.commit()
     db.refresh(user)
     db.refresh(connection)

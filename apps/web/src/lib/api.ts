@@ -216,8 +216,9 @@ async function request<T>(
   options: RequestInit = {},
   token?: string | null,
 ): Promise<T> {
+  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...(options.headers as Record<string, string>),
   };
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -321,6 +322,20 @@ export const api = {
 
   advanceOnboardingQuickbooks: (token: string) =>
     request<{ current_step: string }>("/onboarding/advance-quickbooks", { method: "POST" }, token),
+
+  advanceOnboardingImport: (token: string) =>
+    request<{ current_step: string }>("/onboarding/advance-import", { method: "POST" }, token),
+
+  importInvoicesCsv: (token: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request<{
+      imported: number;
+      skipped: number;
+      total_outstanding: number;
+      columns_found: string[];
+    }>("/invoices/import", { method: "POST", body: form }, token);
+  },
 
   advanceOnboardingEmail: (token: string) =>
     request<{ current_step: string }>("/onboarding/advance-email", { method: "POST" }, token),

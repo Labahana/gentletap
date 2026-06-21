@@ -2,8 +2,8 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { ConnectQuickBooksButton } from "@/components/connect-quickbooks-button";
 import { OnboardingEmailStep } from "@/components/onboarding-email-step";
+import { OnboardingImportStep } from "@/components/onboarding-import-step";
 import { OnboardingInfoBox, OnboardingLoadingOverlay, OnboardingShell } from "@/components/onboarding-shell";
 import { PricingGrid } from "@/components/pricing-grid";
 import { api, getToken, type ReminderPreviewItem, type ReminderPreviewSummary } from "@/lib/api";
@@ -13,28 +13,30 @@ import type { PlanFeature } from "@/lib/pricing";
 
 const STEPS = [
   { id: "profile", label: "Your Profile", subtitle: "Name, company & logo" },
+  { id: "import", label: "Import Invoices", subtitle: "QuickBooks or spreadsheet" },
   { id: "email", label: "Email Setup", subtitle: "Send from your inbox" },
-  { id: "invoice", label: "First Invoice", subtitle: "Connect QuickBooks & go live" },
+  { id: "invoice", label: "First Invoice", subtitle: "Preview & go live" },
 ];
 
-type InvoicePhase = "quickbooks" | "preview" | "pricing";
+type InvoicePhase = "preview" | "pricing";
 
 function backendToView(onboardingStep: string): { macro: number; invoicePhase: InvoicePhase } {
   switch (onboardingStep) {
     case "account":
     case "persona":
-      return { macro: 0, invoicePhase: "quickbooks" };
-    case "email":
-      return { macro: 1, invoicePhase: "quickbooks" };
+      return { macro: 0, invoicePhase: "preview" };
+    case "invoice_import":
     case "quickbooks":
-      return { macro: 2, invoicePhase: "quickbooks" };
+      return { macro: 1, invoicePhase: "preview" };
+    case "email":
+      return { macro: 2, invoicePhase: "preview" };
     case "preview":
     case "import":
-      return { macro: 2, invoicePhase: "preview" };
+      return { macro: 3, invoicePhase: "preview" };
     case "pricing":
-      return { macro: 2, invoicePhase: "pricing" };
+      return { macro: 3, invoicePhase: "pricing" };
     default:
-      return { macro: 0, invoicePhase: "quickbooks" };
+      return { macro: 0, invoicePhase: "preview" };
   }
 }
 
@@ -46,14 +48,14 @@ function stepHeading(macro: number, invoicePhase: InvoicePhase): { title: string
   if (macro === 0) return { title: "Your Profile", description: "Name, company & logo" };
   if (macro === 1) {
     return {
-      title: "Email Setup",
-      description: "Configure sending",
+      title: "Import Invoices",
+      description: "Connect QuickBooks or upload a spreadsheet of unpaid invoices.",
     };
   }
-  if (invoicePhase === "quickbooks") {
+  if (macro === 2) {
     return {
-      title: "First Invoice",
-      description: "Connect QuickBooks to import unpaid invoices — read-only, nothing is changed.",
+      title: "Email Setup",
+      description: "Configure sending",
     };
   }
   if (invoicePhase === "preview") {
@@ -64,7 +66,7 @@ function stepHeading(macro: number, invoicePhase: InvoicePhase): { title: string
   }
   return {
     title: "First Invoice",
-    description: "Pick a plan and turn on autopilot — sequences stop when QuickBooks shows paid.",
+    description: "Pick a plan and turn on autopilot — sequences stop when invoices are marked paid.",
   };
 }
 
@@ -149,7 +151,7 @@ function SequenceTimeline() {
     { when: "+3 days", channel: "Email", detail: "Professional follow-up" },
     { when: "+3 hours later", channel: "WhatsApp", detail: "Short nudge (Pro+ plans)" },
     { when: "Up to 5 touches", channel: "Email", detail: "Escalates only when needed" },
-    { when: "When paid in QuickBooks", channel: "Stops", detail: "Autopilot ends — no manual cleanup" },
+    { when: "When marked paid", channel: "Stops", detail: "Autopilot ends — no manual cleanup" },
   ];
   return (
     <div className="rounded-xl border border-border bg-background p-4">
@@ -219,7 +221,7 @@ function OnboardingContent() {
   const searchParams = useSearchParams();
   const stepSynced = useRef(false);
   const [macroStep, setMacroStep] = useState(0);
-  const [invoicePhase, setInvoicePhase] = useState<InvoicePhase>("quickbooks");
+  const [invoicePhase, setInvoicePhase] = useState<InvoicePhase>("preview");
   const [companyName, setCompanyName] = useState("");
   const [emailDisplayName, setEmailDisplayName] = useState("");
   const [phone, setPhone] = useState("");
@@ -237,7 +239,7 @@ function OnboardingContent() {
   const [importSummary, setImportSummary] = useState<ImportSummary>({
     count: 0,
     total: 0,
-    message: "Connect QuickBooks to import your unpaid invoices",
+    message: "Connect QuickBooks or upload a spreadsheet to import invoices",
     syncing: false,
     oldestDays: 0,
     avgDays: 0,
@@ -281,32 +283,36 @@ function OnboardingContent() {
     const checkout = searchParams.get("checkout");
 
     if (qb === "connected") {
-      setMacroStep(2);
-      setInvoicePhase("preview");
+      setMacroStep(1);
       setImportSummary((s) => ({ ...s, message: "Syncing invoices from QuickBooks…", syncing: true }));
       router.replace("/onboarding");
     } else if (qb === "error") {
-      setMacroStep(2);
-      setInvoicePhase("quickbooks");
+      setMacroStep(1);
       setQbError(message ?? "QuickBooks connection failed");
       router.replace("/onboarding");
     } else if (email === "connected") {
       const token = getToken();
       if (token) {
         api.googleStatus(token).then((g) => setSenderEmail(g.email ?? null)).catch(() => {});
+        api.me(token).then((me) => {
+          const view = backendToView(me.onboarding_step);
+          setMacroStep(view.macro);
+          setInvoicePhase(view.invoicePhase);
+        }).catch(() => setMacroStep(3));
         void refresh();
+      } else {
+        setMacroStep(3);
+        setInvoicePhase("preview");
       }
-      setMacroStep(2);
-      setInvoicePhase("quickbooks");
       router.replace("/onboarding");
     } else if (email === "error") {
-      setMacroStep(1);
+      setMacroStep(2);
       setEmailError(message ?? "Email connection failed");
       router.replace("/onboarding");
     } else if (paid === "1") {
       router.replace("/onboarding");
     } else if (checkout === "cancelled") {
-      setMacroStep(2);
+      setMacroStep(3);
       setInvoicePhase("pricing");
       setEmailError("Checkout cancelled — pick a plan or start free.");
       router.replace("/onboarding");
@@ -325,7 +331,7 @@ function OnboardingContent() {
         await new Promise((r) => setTimeout(r, 2000));
       }
       await refresh();
-      setMacroStep(2);
+      setMacroStep(3);
       setInvoicePhase("pricing");
       try {
         const result = await api.onboardingActivate(token);
@@ -366,7 +372,14 @@ function OnboardingContent() {
   }, []);
 
   useEffect(() => {
-    if (macroStep !== 2 || invoicePhase !== "preview") return;
+    if (macroStep !== 1) return;
+    void pollImportStatus();
+  }, [macroStep, pollImportStatus]);
+
+  useEffect(() => {
+    const shouldPoll =
+      (macroStep === 1 && importSummary.syncing) || (macroStep === 3 && invoicePhase === "preview");
+    if (!shouldPoll) return;
     let active = true;
     let interval: ReturnType<typeof setInterval> | null = null;
     (async () => {
@@ -383,10 +396,10 @@ function OnboardingContent() {
       active = false;
       if (interval) clearInterval(interval);
     };
-  }, [macroStep, invoicePhase, pollImportStatus]);
+  }, [macroStep, invoicePhase, importSummary.syncing, pollImportStatus]);
 
   useEffect(() => {
-    if (macroStep !== 1) return;
+    if (macroStep !== 2) return;
     const token = getToken();
     if (!token) return;
     api.googleStatus(token).then((g) => {
@@ -395,7 +408,7 @@ function OnboardingContent() {
   }, [macroStep]);
 
   useEffect(() => {
-    if (macroStep !== 2 || invoicePhase !== "pricing") return;
+    if (macroStep !== 3 || invoicePhase !== "pricing") return;
     const token = getToken();
     if (!token) return;
     api.billingStatus(token).then((s) => {
@@ -457,14 +470,23 @@ function OnboardingContent() {
     }
   }
 
-  async function continueToFirstInvoice() {
+  async function continueToEmail() {
+    const token = getToken();
+    if (token) {
+      await api.advanceOnboardingImport(token);
+      await refresh();
+    }
+    setMacroStep(2);
+  }
+
+  async function continueToPreview() {
     const token = getToken();
     if (token) {
       await api.advanceOnboardingQuickbooks(token);
       await refresh();
     }
-    setMacroStep(2);
-    setInvoicePhase("quickbooks");
+    setMacroStep(3);
+    setInvoicePhase("preview");
   }
 
   async function continueToPricing() {
@@ -473,7 +495,7 @@ function OnboardingContent() {
       await api.advanceOnboardingPricing(token);
       await refresh();
     }
-    setMacroStep(2);
+    setMacroStep(3);
     setInvoicePhase("pricing");
   }
 
@@ -572,16 +594,15 @@ function OnboardingContent() {
   function goToStep(index: number) {
     if (index > furthestStep) return;
     setMacroStep(index);
-    if (index === 2) {
+    if (index === 3) {
       setInvoicePhase(backendToView(onboardingStep).invoicePhase);
     }
   }
 
   function goBack() {
-    if (macroStep === 2) {
+    if (macroStep === 3) {
       if (invoicePhase === "pricing") setInvoicePhase("preview");
-      else if (invoicePhase === "preview") setInvoicePhase("quickbooks");
-      else setMacroStep(1);
+      else setMacroStep(2);
       return;
     }
     setMacroStep((current) => Math.max(0, current - 1));
@@ -611,7 +632,7 @@ function OnboardingContent() {
       onStepSelect={goToStep}
       title={content.title}
       description={content.description}
-      wide={macroStep === 2 && invoicePhase === "pricing"}
+      wide={macroStep === 3 && invoicePhase === "pricing"}
     >
         {macroStep === 0 && (
           <form className="space-y-5" onSubmit={saveProfile}>
@@ -693,36 +714,35 @@ function OnboardingContent() {
         )}
 
         {macroStep === 1 && (
+          <OnboardingImportStep
+            onBack={goBack}
+            onContinue={continueToEmail}
+            onConnectQuickBooks={connectQuickBooks}
+            qbConnecting={qbConnecting}
+            qbError={qbError}
+            importMessage={importSummary.message}
+            importSyncing={importSummary.syncing}
+            invoiceCount={importSummary.count}
+            totalOutstanding={importSummary.total}
+            onInvoicesChanged={() => void pollImportStatus()}
+          />
+        )}
+
+        {macroStep === 2 && (
           <OnboardingEmailStep
             userEmail={user.email}
             onBack={goBack}
-            onContinue={continueToFirstInvoice}
+            onContinue={continueToPreview}
             onConnectGmail={connectGmail}
             externalError={emailError}
           />
         )}
 
-        {macroStep === 2 && invoicePhase === "quickbooks" && (
-          <div className="space-y-4">
-            <OnboardingInfoBox>
-              We&apos;ll show exactly what GentleTap will send before anything goes live. Nothing is changed in
-              QuickBooks Online.
-            </OnboardingInfoBox>
-            {qbError && (
-              <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{qbError}</p>
-            )}
-            <div className="flex justify-center pt-2">
-              <ConnectQuickBooksButton onClick={connectQuickBooks} busy={qbConnecting} />
-            </div>
-            <OnboardingNavFooter onBack={goBack} />
-          </div>
-        )}
-
-        {macroStep === 2 && invoicePhase === "preview" && (
+        {macroStep === 3 && invoicePhase === "preview" && (
           <div className="space-y-6">
             {importSummary.syncing ? (
               <div className="rounded-xl bg-background p-10 text-center">
-                <p className="text-sm text-muted animate-pulse">Syncing from QuickBooks…</p>
+                <p className="text-sm text-muted animate-pulse">Loading your invoices…</p>
               </div>
             ) : invoiceCount > 0 ? (
               <>
@@ -772,8 +792,7 @@ function OnboardingContent() {
             ) : (
               <>
                 <p className="text-sm text-muted">
-                  No overdue invoices in QuickBooks yet. When they appear, GentleTap syncs every 30 minutes and drafts
-                  reminders automatically.
+                  No overdue invoices yet. When you add more, GentleTap syncs and drafts reminders automatically.
                 </p>
                 <EmailPreviewCard preview={EXAMPLE_PREVIEW} senderLabel={senderLabel} example />
                 <SequenceTimeline />
@@ -787,7 +806,7 @@ function OnboardingContent() {
           </div>
         )}
 
-        {macroStep === 2 && invoicePhase === "pricing" && (
+        {macroStep === 3 && invoicePhase === "pricing" && (
           <div className="space-y-6">
             {invoiceCount > 0 && (
               <div className="rounded-xl border border-border bg-background p-6 text-center">
@@ -795,8 +814,8 @@ function OnboardingContent() {
                   Turn on autopilot for {formatMoney(importSummary.total)} outstanding
                 </p>
                 <p className="mt-1 text-sm text-muted">
-                  {invoiceCount} invoice{invoiceCount === 1 ? "" : "s"} · sequences stop automatically when QuickBooks
-                  shows paid
+                  {invoiceCount} invoice{invoiceCount === 1 ? "" : "s"} · sequences stop automatically when invoices are
+                  marked paid
                 </p>
               </div>
             )}

@@ -29,7 +29,7 @@ def health(db: Session = Depends(get_db)) -> HealthResponse:
     return HealthResponse(status=status, environment=settings.environment, checks=checks)
 
 
-ONBOARDING_STEPS = ["account", "email", "quickbooks", "preview", "pricing", "live"]
+ONBOARDING_STEPS = ["account", "invoice_import", "email", "preview", "pricing", "live"]
 
 
 def _validate_logo_url(value: str | None) -> str | None:
@@ -64,7 +64,7 @@ def save_onboarding_profile(
     if not user.persona:
         user.persona = "freelancer"
     if user.onboarding_step in ("account", "persona"):
-        user.onboarding_step = "email"
+        user.onboarding_step = "invoice_import"
     db.commit()
     db.refresh(user)
     return UserResponse.model_validate(user)
@@ -74,6 +74,7 @@ def _onboarding_step_index(step: str) -> int:
     legacy = {
         "persona": "account",
         "import": "preview",
+        "quickbooks": "invoice_import",
     }
     normalized = legacy.get(step, step)
     try:
@@ -92,18 +93,26 @@ def onboarding_status(user: CurrentUser) -> dict:
     }
 
 
+@router.post("/onboarding/advance-import")
+def advance_from_import(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
+    if user.onboarding_step in ("invoice_import", "quickbooks"):
+        user.onboarding_step = "email"
+        db.commit()
+    return {"current_step": user.onboarding_step}
+
+
 @router.post("/onboarding/advance-quickbooks")
-def advance_to_quickbooks(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
+def advance_to_preview(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
     if user.onboarding_step == "email":
-        user.onboarding_step = "quickbooks"
+        user.onboarding_step = "preview"
         db.commit()
     return {"current_step": user.onboarding_step}
 
 
 @router.post("/onboarding/advance-email")
 def advance_to_email(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
-    """Legacy — email now precedes QuickBooks in onboarding."""
-    if user.onboarding_step in ("preview", "import", "quickbooks"):
+    """Legacy — navigate back to email setup from later steps."""
+    if user.onboarding_step in ("preview", "import", "pricing"):
         user.onboarding_step = "email"
         db.commit()
     return {"current_step": user.onboarding_step}
@@ -132,7 +141,7 @@ def set_persona(
 ) -> UserResponse:
     user.persona = body.persona
     if user.onboarding_step in ("account", "persona"):
-        user.onboarding_step = "email"
+        user.onboarding_step = "invoice_import"
     db.commit()
     db.refresh(user)
     return UserResponse.model_validate(user)
