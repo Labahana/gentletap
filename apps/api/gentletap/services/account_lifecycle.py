@@ -9,6 +9,7 @@ from gentletap.database import (
     AgentDecision,
     Client,
     EmailPreference,
+    EmailDomain,
     EmailSender,
     GoogleConnection,
     Invoice,
@@ -100,6 +101,7 @@ def delete_user_account(db: Session, user_id: UUID) -> None:
     db.query(GoogleConnection).filter(GoogleConnection.user_id == user_id).delete(synchronize_session=False)
     db.query(WhatsappConnection).filter(WhatsappConnection.user_id == user_id).delete(synchronize_session=False)
     db.query(EmailSender).filter(EmailSender.user_id == user_id).delete(synchronize_session=False)
+    db.query(EmailDomain).filter(EmailDomain.user_id == user_id).delete(synchronize_session=False)
     db.query(EmailPreference).filter(EmailPreference.user_id == user_id).delete(synchronize_session=False)
     db.query(RefreshToken).filter(RefreshToken.user_id == user_id).delete(synchronize_session=False)
     db.query(Profile).filter(Profile.id == user_id).delete(synchronize_session=False)

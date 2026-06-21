@@ -2,14 +2,16 @@
 
 from sqlalchemy.orm import Session
 
-from gentletap.database import EmailPreference, EmailSender, GoogleConnection, Profile, ReminderMessage
+from gentletap.database import EmailDomain, EmailPreference, EmailSender, GoogleConnection, Profile, ReminderMessage
 from gentletap.integrations.google import oauth as google_oauth
+from gentletap.integrations.resend import domains as resend_domains
 from gentletap.integrations.resend import sender as resend_sender
 from gentletap.integrations.twilio import templates as wa_templates
 from gentletap.integrations.twilio import whatsapp as twilio_whatsapp
 from gentletap.intelligence.schemas import Channel
 from gentletap.plans import has_whatsapp
 from gentletap.services.context_builder import build_reminder_context
+from gentletap.services.email_platform import domain_from_preview, platform_from_address
 from gentletap.services.whatsapp_connection import resolve_twilio_credentials, resolve_whatsapp_from
 from gentletap.services.whatsapp_usage import get_active_connection
 
@@ -89,6 +91,34 @@ def send_reminder_message(
         message.send_provider = "google"
         message.channel = "email"
         return external_id
+
+    if provider == "platform":
+        user = db.query(Profile).filter(Profile.id == user_id).one()
+        external_id = resend_sender.send_email(
+            from_email=platform_from_address(user),
+            to=to_email,
+            subject=subject,
+            body=body,
+            reply_to=user.email,
+        )
+        message.send_provider = "platform"
+        message.channel = "email"
+        return external_id
+
+    if provider == "resend":
+        user = db.query(Profile).filter(Profile.id == user_id).one()
+        domain_row = db.query(EmailDomain).filter(EmailDomain.user_id == user_id).one_or_none()
+        if domain_row and domain_row.verification_status == "verified":
+            external_id = resend_sender.send_email(
+                from_email=domain_from_preview(user, domain_row.domain),
+                to=to_email,
+                subject=subject,
+                body=body,
+                reply_to=user.email,
+            )
+            message.send_provider = "resend"
+            message.channel = "email"
+            return external_id
 
     sender = (
         db.query(EmailSender)

@@ -200,6 +200,17 @@ class EmailPreference(Base, TimestampMixin):
     first_batch_approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class EmailDomain(Base, TimestampMixin):
+    __tablename__ = "email_domains"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), unique=True, index=True, nullable=False)
+    domain: Mapped[str] = mapped_column(String(255), nullable=False)
+    resend_domain_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    verification_status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class Client(Base, TimestampMixin):
     __tablename__ = "clients"
     __table_args__ = (UniqueConstraint("user_id", "qb_customer_id", name="uq_clients_user_qb_customer"),)

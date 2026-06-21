@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     resend_webhook_secret: str = ""
     auth_email_from: str = "GentleTap <noreply@gentletap.co>"
+    platform_email_address: str = "accounts@notify.gentletap.co"
 
     kimi_api_key: str = ""
     kimi_model: str = "kimi-k2.6"

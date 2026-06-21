@@ -10,6 +10,7 @@ from gentletap.database import Base
 from gentletap.database import (  # noqa: F401
     AgentDecision,
     Client,
+    EmailDomain,
     EmailPreference,
     EmailSender,
     GoogleConnection,

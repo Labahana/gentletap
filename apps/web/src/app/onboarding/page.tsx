@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { ConnectQuickBooksButton } from "@/components/connect-quickbooks-button";
+import { OnboardingEmailStep } from "@/components/onboarding-email-step";
 import { OnboardingInfoBox, OnboardingShell } from "@/components/onboarding-shell";
 import { PricingGrid } from "@/components/pricing-grid";
 import { api, getToken, type ReminderPreviewItem, type ReminderPreviewSummary } from "@/lib/api";
@@ -46,7 +47,7 @@ function stepHeading(macro: number, invoicePhase: InvoicePhase): { title: string
   if (macro === 1) {
     return {
       title: "Email Setup",
-      description: "Reminders send from your inbox so clients see your name, not a robot.",
+      description: "Configure sending",
     };
   }
   if (invoicePhase === "quickbooks") {
@@ -231,8 +232,6 @@ function OnboardingContent() {
   const [qbConnecting, setQbConnecting] = useState(false);
   const [qbError, setQbError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
-  const [resendEmail, setResendEmail] = useState("");
-  const [emailReady, setEmailReady] = useState(false);
   const [senderEmail, setSenderEmail] = useState<string | null>(null);
   const [activating, setActivating] = useState(false);
   const [importSummary, setImportSummary] = useState<ImportSummary>({
@@ -294,12 +293,7 @@ function OnboardingContent() {
     } else if (email === "connected") {
       const token = getToken();
       if (token) {
-        api.emailStatus(token).then((s) => {
-          setEmailReady(s.ready);
-          if (s.provider === "google") {
-            api.googleStatus(token).then((g) => setSenderEmail(g.email ?? null)).catch(() => {});
-          }
-        }).catch(() => setEmailReady(false));
+        api.googleStatus(token).then((g) => setSenderEmail(g.email ?? null)).catch(() => {});
         void refresh();
       }
       setMacroStep(2);
@@ -395,12 +389,9 @@ function OnboardingContent() {
     if (macroStep !== 1) return;
     const token = getToken();
     if (!token) return;
-    api.emailStatus(token).then((s) => {
-      setEmailReady(s.ready);
-      if (s.provider === "google") {
-        api.googleStatus(token).then((g) => setSenderEmail(g.email ?? null)).catch(() => {});
-      }
-    }).catch(() => setEmailReady(false));
+    api.googleStatus(token).then((g) => {
+      if (g.connected && g.email) setSenderEmail(g.email);
+    }).catch(() => {});
   }, [macroStep]);
 
   useEffect(() => {
@@ -466,33 +457,7 @@ function OnboardingContent() {
     }
   }
 
-  async function verifyResend() {
-    const token = getToken();
-    if (!token || !resendEmail) return;
-    setEmailError(null);
-    try {
-      await api.verifyResendSender(token, resendEmail);
-      for (let attempt = 0; attempt < 30; attempt += 1) {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        const status = await api.resendSenderStatus(token);
-        if (status.verified) {
-          setSenderEmail(resendEmail);
-          await refresh();
-          await api.advanceOnboardingQuickbooks(token);
-          await refresh();
-          setMacroStep(2);
-          setInvoicePhase("quickbooks");
-          return;
-        }
-      }
-      setEmailError("Verification pending — check your inbox, then reload this page.");
-    } catch (err) {
-      setEmailError(err instanceof Error ? err.message : "Verification failed");
-    }
-  }
-
   async function continueToFirstInvoice() {
-    if (!emailReady) return;
     const token = getToken();
     if (token) {
       await api.advanceOnboardingQuickbooks(token);
@@ -728,41 +693,13 @@ function OnboardingContent() {
         )}
 
         {macroStep === 1 && (
-          <div className="space-y-4">
-            <OnboardingInfoBox>
-              You can add more sender addresses later in Settings. Gmail uses a separate OAuth grant from sign-in.
-            </OnboardingInfoBox>
-            {emailError && (
-              <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{emailError}</p>
-            )}
-            {emailReady && (
-              <p className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-                Email connected — ready for your first invoice.
-              </p>
-            )}
-            <button className="card w-full text-left hover:border-accent" onClick={connectGmail}>
-              <p className="font-semibold">Connect Gmail</p>
-              <p className="mt-1 text-sm text-muted">Grant send access — separate from sign-in.</p>
-            </button>
-            <div className="card space-y-3">
-              <p className="font-semibold">Use your domain email (Resend)</p>
-              <input
-                type="email"
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                placeholder="you@yourdomain.com"
-                value={resendEmail}
-                onChange={(e) => setResendEmail(e.target.value)}
-              />
-              <button className="btn-secondary w-full text-sm" onClick={verifyResend} disabled={!resendEmail}>
-                Send verification link
-              </button>
-            </div>
-            <OnboardingNavFooter onBack={goBack}>
-              <button type="button" className="btn-primary w-full sm:w-auto" onClick={continueToFirstInvoice} disabled={!emailReady}>
-                Save &amp; Continue
-              </button>
-            </OnboardingNavFooter>
-          </div>
+          <OnboardingEmailStep
+            userEmail={user.email}
+            onBack={goBack}
+            onContinue={continueToFirstInvoice}
+            onConnectGmail={connectGmail}
+            externalError={emailError}
+          />
         )}
 
         {macroStep === 2 && invoicePhase === "quickbooks" && (

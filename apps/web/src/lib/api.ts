@@ -25,6 +25,30 @@ export type TokenResponse = {
   token_type: string;
 };
 
+export type EmailDnsRecord = {
+  type: string;
+  host: string;
+  value: string;
+  priority?: number | null;
+};
+
+export type EmailSetupInfo = {
+  provider: string | null;
+  ready: boolean;
+  platform_available: boolean;
+  platform_from: string | null;
+  platform_reply_to: string;
+  domain_from_preview: string;
+  google_connected: boolean;
+  google_email: string | null;
+  domain: {
+    domain: string;
+    status: string;
+    verified: boolean;
+    records: EmailDnsRecord[];
+  } | null;
+};
+
 export type InvoiceItem = {
   id: string;
   doc_number: string | null;
@@ -348,6 +372,35 @@ export const api = {
       {},
       token,
     ),
+
+  emailSetup: (token: string) => request<EmailSetupInfo>("/email/setup", {}, token),
+
+  enablePlatformEmail: (token: string) =>
+    request<{ provider: string; from: string; reply_to: string }>("/email/platform", { method: "POST" }, token),
+
+  startEmailDomain: (token: string, domain_or_email: string) =>
+    request<{ domain: string; status: string; records: EmailDnsRecord[] }>(
+      "/email/domain",
+      { method: "POST", body: JSON.stringify({ domain_or_email }) },
+      token,
+    ),
+
+  verifyEmailDomain: (token: string) =>
+    request<{ domain: string; status: string; verified: boolean; records: EmailDnsRecord[] }>(
+      "/email/domain/verify",
+      { method: "POST" },
+      token,
+    ),
+
+  continueEmailDomain: (token: string) =>
+    request<{ provider: string; domain: string; status: string }>(
+      "/email/domain/continue",
+      { method: "POST" },
+      token,
+    ),
+
+  cancelEmailDomain: (token: string) =>
+    request<{ status: string }>("/email/domain", { method: "DELETE" }, token),
 
   verifyResendSender: (token: string, email: string) =>
     request<{ email: string; status: string; message: string }>(
