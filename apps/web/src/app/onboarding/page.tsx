@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { ConnectQuickBooksButton } from "@/components/connect-quickbooks-button";
 import { OnboardingEmailStep } from "@/components/onboarding-email-step";
-import { OnboardingInfoBox, OnboardingShell } from "@/components/onboarding-shell";
+import { OnboardingInfoBox, OnboardingLoadingOverlay, OnboardingShell } from "@/components/onboarding-shell";
 import { PricingGrid } from "@/components/pricing-grid";
 import { api, getToken, type ReminderPreviewItem, type ReminderPreviewSummary } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -563,7 +563,7 @@ function OnboardingContent() {
   }
 
   if (loading || !user) {
-    return <div className="flex min-h-full items-center justify-center text-muted">Loading…</div>;
+    return <OnboardingLoadingOverlay />;
   }
 
   const onboardingStep = user.onboarding_step;
@@ -851,7 +851,7 @@ function OnboardingContent() {
 
 export default function OnboardingPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-full items-center justify-center text-muted">Loading…</div>}>
+    <Suspense fallback={<OnboardingLoadingOverlay />}>
       <OnboardingContent />
     </Suspense>
   );
