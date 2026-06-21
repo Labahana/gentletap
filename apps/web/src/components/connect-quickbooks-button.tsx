@@ -1,11 +1,9 @@
 "use client";
 
-/**
- * Intuit-approved Connect to QuickBooks button (green C2QB).
- * Asset: https://developer.intuit.com/app/developer/qbo/docs/go-live/naming-and-logo-guidelines
- */
-const C2QB_SRC =
-  "https://static.developer.intuit.com/images/C2QB_green_btn_med_default.svg";
+import { useState } from "react";
+
+/** Local C2QB asset — Intuit CDN is blocked in some production environments. */
+const C2QB_SRC = "/brand/c2qb-green.svg";
 
 type Props = {
   onClick: () => void;
@@ -15,7 +13,23 @@ type Props = {
 };
 
 export function ConnectQuickBooksButton({ onClick, disabled, busy, size = "md" }: Props) {
-  const height = size === "sm" ? 32 : 40;
+  const [imgFailed, setImgFailed] = useState(false);
+  const height = size === "sm" ? 32 : 36;
+
+  if (imgFailed) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled || busy}
+        className="inline-flex items-center justify-center rounded bg-[#2CA01C] px-5 font-semibold text-white transition hover:bg-[#248517] disabled:opacity-60"
+        style={{ height, minWidth: 200, fontSize: size === "sm" ? 13 : 14 }}
+        aria-label="Connect to QuickBooks"
+      >
+        {busy ? "Connecting…" : "Connect to QuickBooks"}
+      </button>
+    );
+  }
 
   return (
     <button
@@ -31,6 +45,7 @@ export function ConnectQuickBooksButton({ onClick, disabled, busy, size = "md" }
         alt="Connect to QuickBooks"
         height={height}
         style={{ height, width: "auto" }}
+        onError={() => setImgFailed(true)}
       />
     </button>
   );

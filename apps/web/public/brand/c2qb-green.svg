@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="223" height="36" viewBox="0 0 223 36" role="img" aria-label="Connect to QuickBooks">
+  <rect width="223" height="36" rx="4" fill="#2CA01C"/>
+  <circle cx="22" cy="18" r="10" fill="#fff" fill-opacity="0.95"/>
+  <circle cx="22" cy="18" r="6" fill="#2CA01C"/>
+  <text x="118" y="22" text-anchor="middle" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600">Connect to QuickBooks</text>
+</svg>

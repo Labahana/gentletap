@@ -3,19 +3,38 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { ConnectQuickBooksButton } from "@/components/connect-quickbooks-button";
+import { OnboardingInfoBox, OnboardingShell } from "@/components/onboarding-shell";
 import { PricingGrid } from "@/components/pricing-grid";
-import { Logo } from "@/components/logo";
 import { api, getToken, type ReminderPreviewItem, type ReminderPreviewSummary } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { formatMoney } from "@/lib/onboarding";
 import type { PlanFeature } from "@/lib/pricing";
 
 const STEPS = [
-  { id: "quickbooks", title: "Import unpaid invoices" },
-  { id: "preview", title: "See what GentleTap will send" },
-  { id: "email", title: "Send from your inbox" },
-  { id: "pricing", title: "Turn on autopilot" },
+  { id: "quickbooks", label: "QuickBooks", subtitle: "Import unpaid invoices" },
+  { id: "preview", label: "Preview", subtitle: "See what GentleTap will send" },
+  { id: "email", label: "Email Setup", subtitle: "Send from your inbox" },
+  { id: "pricing", label: "Autopilot", subtitle: "Turn on reminders" },
 ];
+
+const STEP_CONTENT: Record<number, { title: string; description: string }> = {
+  0: {
+    title: "Connect QuickBooks",
+    description: "Read-only access — we import unpaid invoices and stop when they're paid.",
+  },
+  1: {
+    title: "See what GentleTap will send",
+    description: "AI-drafted reminders in your voice — review before anything goes live.",
+  },
+  2: {
+    title: "Email Setup",
+    description: "Reminders send from your inbox so clients see your name, not a robot.",
+  },
+  3: {
+    title: "Turn on autopilot",
+    description: "Pick a plan and activate — sequences stop automatically when QuickBooks shows paid.",
+  },
+};
 
 const BACKEND_STEP_INDEX: Record<string, number> = {
   account: 0,
@@ -439,44 +458,33 @@ function OnboardingContent() {
   const showProHighlight = invoiceCount > FREE_MONTHLY_LIMIT;
   const senderLabel = senderEmail ?? "you@yourdomain.com";
 
+  const content = STEP_CONTENT[step];
+
   return (
-    <div className="mx-auto max-w-3xl px-6 py-12">
-      <div className="mb-8 flex items-center justify-between">
-        <Logo height={28} />
-        <span className="text-sm text-muted">
-          Step {step + 1} of {STEPS.length}
-        </span>
-      </div>
-
-      <div className="mb-6 h-2 overflow-hidden rounded-full bg-border">
-        <div
-          className="h-full bg-accent transition-all"
-          style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
-        />
-      </div>
-
-      <div className="card">
-        <h1 className="text-2xl font-bold">{STEPS[step].title}</h1>
-
+    <OnboardingShell
+      steps={STEPS}
+      currentStep={step}
+      title={content.title}
+      description={content.description}
+      wide={step === 3}
+    >
         {step === 0 && (
-          <div className="mt-6 space-y-4">
-            <p className="text-sm text-muted">
-              Connect QuickBooks first — we&apos;ll show exactly what GentleTap will send before anything goes live.
-            </p>
+          <div className="space-y-4">
+            <OnboardingInfoBox>
+              We&apos;ll show exactly what GentleTap will send before anything goes live. Nothing is changed in
+              QuickBooks Online.
+            </OnboardingInfoBox>
             {qbError && (
-              <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{qbError}</p>
+              <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{qbError}</p>
             )}
-            <div className="flex justify-center">
+            <div className="flex justify-center pt-2">
               <ConnectQuickBooksButton onClick={connectQuickBooks} busy={qbConnecting} />
             </div>
-            <p className="text-center text-xs text-muted">
-              Read-only access · nothing is changed in QuickBooks Online
-            </p>
           </div>
         )}
 
         {step === 1 && (
-          <div className="mt-6 space-y-6">
+          <div className="space-y-6">
             {importSummary.syncing ? (
               <div className="rounded-xl bg-background p-10 text-center">
                 <p className="text-sm text-muted animate-pulse">Syncing from QuickBooks…</p>
@@ -541,11 +549,10 @@ function OnboardingContent() {
         )}
 
         {step === 2 && (
-          <div className="mt-6 space-y-4">
-            <p className="text-sm text-muted">
-              Reminders send from <strong>your</strong> inbox — clients see your name, not a robot. Connect once to go
-              live.
-            </p>
+          <div className="space-y-4">
+            <OnboardingInfoBox>
+              You can add more sender addresses later in Settings. Gmail uses a separate OAuth grant from sign-in.
+            </OnboardingInfoBox>
             {emailError && (
               <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{emailError}</p>
             )}
@@ -578,9 +585,9 @@ function OnboardingContent() {
         )}
 
         {step === 3 && (
-          <div className="mt-6 space-y-6">
+          <div className="space-y-6">
             {invoiceCount > 0 && (
-              <div className="rounded-xl bg-background p-6 text-center">
+              <div className="rounded-xl border border-border bg-background p-6 text-center">
                 <p className="text-lg font-semibold">
                   Turn on autopilot for {formatMoney(importSummary.total)} outstanding
                 </p>
@@ -592,13 +599,20 @@ function OnboardingContent() {
             )}
 
             {emailError && (
-              <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{emailError}</p>
+              <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{emailError}</p>
             )}
             {!checkoutAvailable && (
-              <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                 Paid checkout isn&apos;t configured yet — start free to activate up to {FREE_MONTHLY_LIMIT} invoices.
               </p>
             )}
+
+            <div className="text-center">
+              <h3 className="text-2xl font-bold">Simple, transparent pricing</h3>
+              <p className="mt-2 text-muted">
+                Start free. One recovered invoice pays for months of GentleTap.
+              </p>
+            </div>
 
             <PricingGrid
               plans={plans}
@@ -616,7 +630,6 @@ function OnboardingContent() {
               onSelectPlan={checkoutAvailable ? checkoutPaid : undefined}
               highlightPlan={showProHighlight ? "pro" : "pro_plus"}
               invoiceCount={invoiceCount}
-              compact
             />
 
             {activating && (
@@ -627,8 +640,7 @@ function OnboardingContent() {
             )}
           </div>
         )}
-      </div>
-    </div>
+    </OnboardingShell>
   );
 }
 
