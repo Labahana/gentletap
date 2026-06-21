@@ -169,6 +169,16 @@ def update_profile(
 ) -> UserResponse:
     if body.full_name is not None:
         user.full_name = body.full_name.strip() or None
+    if body.company_name is not None:
+        user.company_name = body.company_name.strip() or None
+    if body.email_display_name is not None:
+        user.email_display_name = body.email_display_name.strip() or None
+    if body.phone is not None:
+        user.phone = body.phone.strip() or None
+    if body.website is not None:
+        user.website = body.website.strip() or None
+    if body.logo_url is not None:
+        user.logo_url = body.logo_url.strip() or None
     if body.persona is not None:
         user.persona = body.persona
     db.commit()

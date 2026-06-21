@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from gentletap.config import get_settings
 from gentletap.database import get_db
 from gentletap.dependencies import CurrentUser
-from gentletap.schemas.auth import HealthResponse, OnboardingPersonaRequest, UserResponse
+from gentletap.schemas.auth import HealthResponse, OnboardingPersonaRequest, OnboardingProfileRequest, UserResponse
 from gentletap.utils.redis_client import get_redis
 
 router = APIRouter(tags=["core"])
@@ -32,6 +32,44 @@ def health(db: Session = Depends(get_db)) -> HealthResponse:
 ONBOARDING_STEPS = ["account", "email", "quickbooks", "preview", "pricing", "live"]
 
 
+def _validate_logo_url(value: str | None) -> str | None:
+    if value is None or not value.strip():
+        return None
+    trimmed = value.strip()
+    if not trimmed.startswith("data:image/"):
+        raise ValueError("Logo must be a PNG or JPG image")
+    if len(trimmed) > 400_000:
+        raise ValueError("Logo file is too large — use PNG or JPG under 600×600 px")
+    return trimmed
+
+
+@router.post("/onboarding/profile", response_model=UserResponse)
+def save_onboarding_profile(
+    body: OnboardingProfileRequest,
+    user: CurrentUser,
+    db: Session = Depends(get_db),
+) -> UserResponse:
+    from fastapi import HTTPException, status
+
+    try:
+        logo = _validate_logo_url(body.logo_url)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    user.company_name = body.company_name.strip()
+    user.email_display_name = (body.email_display_name or "").strip() or None
+    user.phone = (body.phone or "").strip() or None
+    user.website = (body.website or "").strip() or None
+    user.logo_url = logo
+    if not user.persona:
+        user.persona = "freelancer"
+    if user.onboarding_step in ("account", "persona"):
+        user.onboarding_step = "email"
+    db.commit()
+    db.refresh(user)
+    return UserResponse.model_validate(user)
+
+
 def _onboarding_step_index(step: str) -> int:
     legacy = {
         "persona": "account",
@@ -54,9 +92,18 @@ def onboarding_status(user: CurrentUser) -> dict:
     }
 
 
+@router.post("/onboarding/advance-quickbooks")
+def advance_to_quickbooks(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
+    if user.onboarding_step == "email":
+        user.onboarding_step = "quickbooks"
+        db.commit()
+    return {"current_step": user.onboarding_step}
+
+
 @router.post("/onboarding/advance-email")
 def advance_to_email(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
-    if user.onboarding_step in ("preview", "import", "account", "quickbooks"):
+    """Legacy — email now precedes QuickBooks in onboarding."""
+    if user.onboarding_step in ("preview", "import", "quickbooks"):
         user.onboarding_step = "email"
         db.commit()
     return {"current_step": user.onboarding_step}
@@ -64,7 +111,7 @@ def advance_to_email(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
 
 @router.post("/onboarding/advance-pricing")
 def advance_to_pricing(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
-    if user.onboarding_step in ("preview", "import", "email"):
+    if user.onboarding_step in ("preview", "import"):
         user.onboarding_step = "pricing"
         db.commit()
     return {"current_step": user.onboarding_step}
@@ -84,7 +131,8 @@ def set_persona(
     db: Session = Depends(get_db),
 ) -> UserResponse:
     user.persona = body.persona
-    user.onboarding_step = "email"
+    if user.onboarding_step in ("account", "persona"):
+        user.onboarding_step = "email"
     db.commit()
     db.refresh(user)
     return UserResponse.model_validate(user)

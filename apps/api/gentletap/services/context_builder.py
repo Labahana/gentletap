@@ -66,7 +66,9 @@ def build_reminder_context(db: Session, invoice_id: UUID, user_id: UUID) -> Remi
         return None
     client = db.query(Client).filter(Client.id == invoice.client_id).one()
     user = db.query(Profile).filter(Profile.id == user_id).one()
-    sender_name = (user.full_name or user.email.split("@")[0]).strip()
+    sender_name = (
+        user.email_display_name or user.full_name or user.email.split("@")[0]
+    ).strip()
     return ReminderContext(
         client_id=str(client.id),
         client_name=client.name,

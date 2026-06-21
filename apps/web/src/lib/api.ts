@@ -8,6 +8,11 @@ export type User = {
   id: string;
   email: string;
   full_name: string | null;
+  company_name: string | null;
+  email_display_name: string | null;
+  phone: string | null;
+  website: string | null;
+  logo_url: string | null;
   persona: string | null;
   plan: string;
   onboarding_step: string;
@@ -274,6 +279,24 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ persona }),
     }, token),
+
+  saveOnboardingProfile: (
+    token: string,
+    body: {
+      company_name: string;
+      email_display_name?: string;
+      phone?: string;
+      website?: string;
+      logo_url?: string | null;
+    },
+  ) =>
+    request<User>("/onboarding/profile", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }, token),
+
+  advanceOnboardingQuickbooks: (token: string) =>
+    request<{ current_step: string }>("/onboarding/advance-quickbooks", { method: "POST" }, token),
 
   advanceOnboardingEmail: (token: string) =>
     request<{ current_step: string }>("/onboarding/advance-email", { method: "POST" }, token),

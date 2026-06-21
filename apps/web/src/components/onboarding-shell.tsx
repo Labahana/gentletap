@@ -11,6 +11,8 @@ export type OnboardingStepDef = {
 type Props = {
   steps: OnboardingStepDef[];
   currentStep: number;
+  maxUnlockedStep: number;
+  onStepSelect?: (index: number) => void;
   title: string;
   description?: string;
   wide?: boolean;
@@ -22,6 +24,13 @@ function StepIcon({ id, active, done }: { id: string; active: boolean; done: boo
   const iconClass = active ? "text-white" : done ? "text-accent" : "text-muted";
 
   const paths: Record<string, ReactNode> = {
+    profile: (
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 12a4 4 0 100-8 4 4 0 000 8zM6 20v-1a6 6 0 0112 0v1"
+      />
+    ),
     quickbooks: (
       <path
         strokeLinecap="round"
@@ -41,6 +50,13 @@ function StepIcon({ id, active, done }: { id: string; active: boolean; done: boo
         strokeLinecap="round"
         strokeLinejoin="round"
         d="M4 8l8 5 8-5v10H4V8z"
+      />
+    ),
+    invoice: (
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M6 6h12v16H6V6zm3 4h6m-6 4h4"
       />
     ),
     pricing: (
@@ -77,6 +93,8 @@ export function OnboardingInfoBox({ children }: { children: ReactNode }) {
 export function OnboardingShell({
   steps,
   currentStep,
+  maxUnlockedStep,
+  onStepSelect,
   title,
   description,
   wide = false,
@@ -107,30 +125,42 @@ export function OnboardingShell({
             />
           </div>
 
-          <div className="mt-5 grid grid-cols-4 gap-2">
+          <div className="mt-5 grid grid-cols-3 gap-2">
             {steps.map((step, index) => {
               const active = index === currentStep;
-              const done = index < currentStep;
+              const unlocked = index <= maxUnlockedStep;
+              const clickable = unlocked && onStepSelect && index !== currentStep;
               return (
                 <div key={step.id} className="flex flex-col items-center text-center">
-                  <div
-                    className={`flex h-11 w-11 items-center justify-center rounded-full border-2 transition-colors ${
-                      active
-                        ? "border-accent bg-accent text-white"
-                        : done
-                          ? "border-accent/40 bg-accent/10 text-accent"
-                          : "border-border bg-background text-muted"
+                  <button
+                    type="button"
+                    disabled={!clickable}
+                    onClick={() => clickable && onStepSelect(index)}
+                    className={`flex flex-col items-center text-center transition-opacity ${
+                      clickable ? "cursor-pointer hover:opacity-80" : "cursor-default"
                     }`}
+                    aria-label={`${step.label}${active ? " (current step)" : unlocked ? "" : " (locked)"}`}
+                    aria-current={active ? "step" : undefined}
                   >
-                    <StepIcon id={step.id} active={active} done={done} />
-                  </div>
-                  <p
-                    className={`mt-2 text-xs font-medium leading-tight ${
-                      active ? "text-accent" : done ? "text-foreground" : "text-muted"
-                    }`}
-                  >
-                    {step.label}
-                  </p>
+                    <div
+                      className={`flex h-11 w-11 items-center justify-center rounded-full border-2 transition-colors ${
+                        active
+                          ? "border-accent bg-accent text-white"
+                          : unlocked
+                            ? "border-accent/40 bg-accent/10 text-accent"
+                            : "border-border bg-background text-muted"
+                      }`}
+                    >
+                      <StepIcon id={step.id} active={active} done={unlocked && !active} />
+                    </div>
+                    <p
+                      className={`mt-2 text-xs font-medium leading-tight ${
+                        active ? "text-accent" : unlocked ? "text-foreground" : "text-muted"
+                      }`}
+                    >
+                      {step.label}
+                    </p>
+                  </button>
                 </div>
               );
             })}

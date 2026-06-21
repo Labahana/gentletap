@@ -29,6 +29,11 @@ class UserResponse(BaseModel):
     id: UUID
     email: str
     full_name: str | None
+    company_name: str | None = None
+    email_display_name: str | None = None
+    phone: str | None = None
+    website: str | None = None
+    logo_url: str | None = None
     persona: str | None
     plan: str
     onboarding_step: str
@@ -48,6 +53,14 @@ class OnboardingPersonaRequest(BaseModel):
     persona: str = Field(pattern="^(freelancer|consultant|agency)$")
 
 
+class OnboardingProfileRequest(BaseModel):
+    company_name: str = Field(min_length=1, max_length=255)
+    email_display_name: str | None = Field(default=None, max_length=255)
+    phone: str | None = Field(default=None, max_length=50)
+    website: str | None = Field(default=None, max_length=255)
+    logo_url: str | None = Field(default=None, max_length=400_000)
+
+
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
@@ -63,6 +76,11 @@ class GoogleExchangeRequest(BaseModel):
 
 class UpdateProfileRequest(BaseModel):
     full_name: str | None = Field(default=None, max_length=255)
+    company_name: str | None = Field(default=None, max_length=255)
+    email_display_name: str | None = Field(default=None, max_length=255)
+    phone: str | None = Field(default=None, max_length=50)
+    website: str | None = Field(default=None, max_length=255)
+    logo_url: str | None = Field(default=None, max_length=400_000)
     persona: str | None = Field(default=None, pattern="^(freelancer|consultant|agency)$")
 
 

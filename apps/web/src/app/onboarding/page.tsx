@@ -11,39 +11,61 @@ import { formatMoney } from "@/lib/onboarding";
 import type { PlanFeature } from "@/lib/pricing";
 
 const STEPS = [
-  { id: "quickbooks", label: "QuickBooks", subtitle: "Import unpaid invoices" },
-  { id: "preview", label: "Preview", subtitle: "See what GentleTap will send" },
+  { id: "profile", label: "Your Profile", subtitle: "Name, company & logo" },
   { id: "email", label: "Email Setup", subtitle: "Send from your inbox" },
-  { id: "pricing", label: "Autopilot", subtitle: "Turn on reminders" },
+  { id: "invoice", label: "First Invoice", subtitle: "Connect QuickBooks & go live" },
 ];
 
-const STEP_CONTENT: Record<number, { title: string; description: string }> = {
-  0: {
-    title: "Connect QuickBooks",
-    description: "Read-only access — we import unpaid invoices and stop when they're paid.",
-  },
-  1: {
-    title: "See what GentleTap will send",
-    description: "AI-drafted reminders in your voice — review before anything goes live.",
-  },
-  2: {
-    title: "Email Setup",
-    description: "Reminders send from your inbox so clients see your name, not a robot.",
-  },
-  3: {
-    title: "Turn on autopilot",
-    description: "Pick a plan and activate — sequences stop automatically when QuickBooks shows paid.",
-  },
-};
+type InvoicePhase = "quickbooks" | "preview" | "pricing";
 
-const BACKEND_STEP_INDEX: Record<string, number> = {
-  account: 0,
-  quickbooks: 0,
-  preview: 1,
-  import: 1,
-  email: 2,
-  pricing: 3,
-};
+function backendToView(onboardingStep: string): { macro: number; invoicePhase: InvoicePhase } {
+  switch (onboardingStep) {
+    case "account":
+    case "persona":
+      return { macro: 0, invoicePhase: "quickbooks" };
+    case "email":
+      return { macro: 1, invoicePhase: "quickbooks" };
+    case "quickbooks":
+      return { macro: 2, invoicePhase: "quickbooks" };
+    case "preview":
+    case "import":
+      return { macro: 2, invoicePhase: "preview" };
+    case "pricing":
+      return { macro: 2, invoicePhase: "pricing" };
+    default:
+      return { macro: 0, invoicePhase: "quickbooks" };
+  }
+}
+
+function furthestMacroStep(onboardingStep: string): number {
+  return backendToView(onboardingStep).macro;
+}
+
+function stepHeading(macro: number, invoicePhase: InvoicePhase): { title: string; description: string } {
+  if (macro === 0) return { title: "Your Profile", description: "Name, company & logo" };
+  if (macro === 1) {
+    return {
+      title: "Email Setup",
+      description: "Reminders send from your inbox so clients see your name, not a robot.",
+    };
+  }
+  if (invoicePhase === "quickbooks") {
+    return {
+      title: "First Invoice",
+      description: "Connect QuickBooks to import unpaid invoices — read-only, nothing is changed.",
+    };
+  }
+  if (invoicePhase === "preview") {
+    return {
+      title: "First Invoice",
+      description: "See what GentleTap will send before anything goes live.",
+    };
+  }
+  return {
+    title: "First Invoice",
+    description: "Pick a plan and turn on autopilot — sequences stop when QuickBooks shows paid.",
+  };
+}
 
 const FREE_MONTHLY_LIMIT = 5;
 
@@ -68,6 +90,57 @@ type ImportSummary = {
   oldestDays: number;
   avgDays: number;
 };
+
+function OnboardingField({
+  label,
+  required,
+  hint,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-sm font-medium">
+        {label}
+        {required && <span className="text-red"> *</span>}
+      </label>
+      {children}
+      {hint && <p className="mt-1.5 text-xs text-muted">{hint}</p>}
+    </div>
+  );
+}
+
+function OnboardingNavFooter({
+  onBack,
+  backDisabled,
+  children,
+}: {
+  onBack?: () => void;
+  backDisabled?: boolean;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-between">
+      {onBack !== undefined || backDisabled ? (
+        <button
+          type="button"
+          className="btn-secondary w-full sm:w-auto disabled:opacity-50"
+          onClick={onBack}
+          disabled={backDisabled || !onBack}
+        >
+          Back
+        </button>
+      ) : (
+        <span className="hidden sm:block" />
+      )}
+      {children ? <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">{children}</div> : null}
+    </div>
+  );
+}
 
 function SequenceTimeline() {
   const rows = [
@@ -143,8 +216,16 @@ function OnboardingContent() {
   const { user, loading, refresh } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const personaSaved = useRef(false);
-  const [step, setStep] = useState(0);
+  const stepSynced = useRef(false);
+  const [macroStep, setMacroStep] = useState(0);
+  const [invoicePhase, setInvoicePhase] = useState<InvoicePhase>("quickbooks");
+  const [companyName, setCompanyName] = useState("");
+  const [emailDisplayName, setEmailDisplayName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [website, setWebsite] = useState("");
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [previews, setPreviews] = useState<ReminderPreviewItem[]>([]);
   const [previewSummary, setPreviewSummary] = useState<ReminderPreviewSummary | null>(null);
   const [qbConnecting, setQbConnecting] = useState(false);
@@ -177,18 +258,21 @@ function OnboardingContent() {
       router.replace("/dashboard");
       return;
     }
-    const idx = BACKEND_STEP_INDEX[user.onboarding_step];
-    if (idx !== undefined) setStep(idx);
+    if (stepSynced.current) return;
+    const view = backendToView(user.onboarding_step);
+    setMacroStep(view.macro);
+    setInvoicePhase(view.invoicePhase);
+    stepSynced.current = true;
   }, [user, router]);
 
   useEffect(() => {
-    if (!user || personaSaved.current) return;
-    if (user.onboarding_step !== "account") return;
-    const token = getToken();
-    if (!token) return;
-    personaSaved.current = true;
-    void api.setPersona(token, "freelancer").then(() => refresh()).catch(() => {});
-  }, [user, refresh]);
+    if (!user) return;
+    setCompanyName(user.company_name ?? "");
+    setEmailDisplayName(user.email_display_name ?? user.full_name ?? "");
+    setPhone(user.phone ?? "");
+    setWebsite(user.website ?? "");
+    setLogoPreview(user.logo_url ?? null);
+  }, [user]);
 
   useEffect(() => {
     const qb = searchParams.get("qb");
@@ -198,11 +282,13 @@ function OnboardingContent() {
     const checkout = searchParams.get("checkout");
 
     if (qb === "connected") {
-      setStep(1);
+      setMacroStep(2);
+      setInvoicePhase("preview");
       setImportSummary((s) => ({ ...s, message: "Syncing invoices from QuickBooks…", syncing: true }));
       router.replace("/onboarding");
     } else if (qb === "error") {
-      setStep(0);
+      setMacroStep(2);
+      setInvoicePhase("quickbooks");
       setQbError(message ?? "QuickBooks connection failed");
       router.replace("/onboarding");
     } else if (email === "connected") {
@@ -216,16 +302,18 @@ function OnboardingContent() {
         }).catch(() => setEmailReady(false));
         void refresh();
       }
-      setStep(3);
+      setMacroStep(2);
+      setInvoicePhase("quickbooks");
       router.replace("/onboarding");
     } else if (email === "error") {
-      setStep(2);
+      setMacroStep(1);
       setEmailError(message ?? "Email connection failed");
       router.replace("/onboarding");
     } else if (paid === "1") {
       router.replace("/onboarding");
     } else if (checkout === "cancelled") {
-      setStep(3);
+      setMacroStep(2);
+      setInvoicePhase("pricing");
       setEmailError("Checkout cancelled — pick a plan or start free.");
       router.replace("/onboarding");
     }
@@ -243,7 +331,8 @@ function OnboardingContent() {
         await new Promise((r) => setTimeout(r, 2000));
       }
       await refresh();
-      setStep(3);
+      setMacroStep(2);
+      setInvoicePhase("pricing");
       try {
         const result = await api.onboardingActivate(token);
         await refresh();
@@ -283,7 +372,7 @@ function OnboardingContent() {
   }, []);
 
   useEffect(() => {
-    if (step !== 1) return;
+    if (macroStep !== 2 || invoicePhase !== "preview") return;
     let active = true;
     let interval: ReturnType<typeof setInterval> | null = null;
     (async () => {
@@ -300,10 +389,10 @@ function OnboardingContent() {
       active = false;
       if (interval) clearInterval(interval);
     };
-  }, [step, pollImportStatus]);
+  }, [macroStep, invoicePhase, pollImportStatus]);
 
   useEffect(() => {
-    if (step !== 2) return;
+    if (macroStep !== 1) return;
     const token = getToken();
     if (!token) return;
     api.emailStatus(token).then((s) => {
@@ -312,10 +401,10 @@ function OnboardingContent() {
         api.googleStatus(token).then((g) => setSenderEmail(g.email ?? null)).catch(() => {});
       }
     }).catch(() => setEmailReady(false));
-  }, [step]);
+  }, [macroStep]);
 
   useEffect(() => {
-    if (step !== 3) return;
+    if (macroStep !== 2 || invoicePhase !== "pricing") return;
     const token = getToken();
     if (!token) return;
     api.billingStatus(token).then((s) => {
@@ -323,7 +412,7 @@ function OnboardingContent() {
       setCheckoutAvailable(s.checkout_available);
     });
     pollImportStatus();
-  }, [step, pollImportStatus]);
+  }, [macroStep, invoicePhase, pollImportStatus]);
 
   function storeWelcome(result: {
     activated: number;
@@ -389,9 +478,10 @@ function OnboardingContent() {
         if (status.verified) {
           setSenderEmail(resendEmail);
           await refresh();
-          await api.advanceOnboardingPricing(token);
+          await api.advanceOnboardingQuickbooks(token);
           await refresh();
-          setStep(3);
+          setMacroStep(2);
+          setInvoicePhase("quickbooks");
           return;
         }
       }
@@ -401,23 +491,81 @@ function OnboardingContent() {
     }
   }
 
-  async function goToEmail() {
+  async function continueToFirstInvoice() {
+    if (!emailReady) return;
     const token = getToken();
     if (token) {
-      await api.advanceOnboardingEmail(token);
+      await api.advanceOnboardingQuickbooks(token);
       await refresh();
     }
-    setStep(2);
+    setMacroStep(2);
+    setInvoicePhase("quickbooks");
   }
 
-  async function continueToGoLive() {
-    if (!emailReady) return;
+  async function continueToPricing() {
     const token = getToken();
     if (token) {
       await api.advanceOnboardingPricing(token);
       await refresh();
     }
-    setStep(3);
+    setMacroStep(2);
+    setInvoicePhase("pricing");
+  }
+
+  async function saveProfile(e: React.FormEvent) {
+    e.preventDefault();
+    const token = getToken();
+    if (!token) return;
+    if (!companyName.trim()) {
+      setProfileError("Company name is required");
+      return;
+    }
+    setProfileSaving(true);
+    setProfileError(null);
+    const isFirstSave = user!.onboarding_step === "account" || user!.onboarding_step === "persona";
+    try {
+      await api.saveOnboardingProfile(token, {
+        company_name: companyName.trim(),
+        email_display_name: emailDisplayName.trim() || undefined,
+        phone: phone.trim() || undefined,
+        website: website.trim() || undefined,
+        logo_url: logoPreview,
+      });
+      await refresh();
+      if (isFirstSave) setMacroStep(1);
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : "Could not save profile");
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
+  function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!/^image\/(png|jpeg|jpg)$/i.test(file.type)) {
+      setProfileError("Logo must be PNG or JPG");
+      return;
+    }
+    if (file.size > 500_000) {
+      setProfileError("Logo file is too large — max 500 KB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const img = new Image();
+      img.onload = () => {
+        if (img.width > 600 || img.height > 600) {
+          setProfileError("Logo must be at most 600×600 px");
+          return;
+        }
+        setProfileError(null);
+        setLogoPreview(dataUrl);
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
   }
 
   async function activateFree() {
@@ -454,21 +602,170 @@ function OnboardingContent() {
     return <div className="flex min-h-full items-center justify-center text-muted">Loading…</div>;
   }
 
+  const furthestStep = furthestMacroStep(user.onboarding_step);
+
+  function goToStep(index: number) {
+    if (index > furthestStep) return;
+    setMacroStep(index);
+    if (index === 2) {
+      setInvoicePhase(backendToView(user.onboarding_step).invoicePhase);
+    }
+  }
+
+  function goBack() {
+    if (macroStep === 2) {
+      if (invoicePhase === "pricing") setInvoicePhase("preview");
+      else if (invoicePhase === "preview") setInvoicePhase("quickbooks");
+      else setMacroStep(1);
+      return;
+    }
+    setMacroStep((current) => Math.max(0, current - 1));
+  }
+
   const invoiceCount = importSummary.count;
   const showProHighlight = invoiceCount > FREE_MONTHLY_LIMIT;
-  const senderLabel = senderEmail ?? "you@yourdomain.com";
+  const senderLabel = (() => {
+    const name = emailDisplayName || user.full_name || user.email.split("@")[0];
+    const company = companyName || user.company_name;
+    const from = senderEmail ?? user.email;
+    if (company) {
+      const role = emailDisplayName || user.email_display_name;
+      const title = role ? `${role} · ${company}` : company;
+      return `${title} <${from}>`;
+    }
+    return `${name} <${from}>`;
+  })();
 
-  const content = STEP_CONTENT[step];
+  const content = stepHeading(macroStep, invoicePhase);
 
   return (
     <OnboardingShell
       steps={STEPS}
-      currentStep={step}
+      currentStep={macroStep}
+      maxUnlockedStep={furthestStep}
+      onStepSelect={goToStep}
       title={content.title}
       description={content.description}
-      wide={step === 3}
+      wide={macroStep === 2 && invoicePhase === "pricing"}
     >
-        {step === 0 && (
+        {macroStep === 0 && (
+          <form className="space-y-5" onSubmit={saveProfile}>
+            <p className="text-sm leading-relaxed text-muted">
+              These details appear in the email signature on every reminder you send. Enter how you want to appear to
+              your clients — not necessarily your internal role.
+            </p>
+            <OnboardingInfoBox>
+              If you have multiple sender addresses (e.g. accounts@ and legal@), you can set a different signature for
+              each one later in Settings.
+            </OnboardingInfoBox>
+            {profileError && (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{profileError}</p>
+            )}
+            <OnboardingField label="Company Name" required hint={'Used in the "From" display and your email signature.'}>
+              <input
+                className="input w-full"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                placeholder="e.g. Acme Ltd"
+                required
+              />
+            </OnboardingField>
+            <OnboardingField
+              label="Your Name as it appears in emails (optional)"
+              hint={'This shows as your title/role in the signature e.g. "Owner · Acme Ltd" or "Lucy – Accounts Receivable".'}
+            >
+              <input
+                className="input w-full"
+                value={emailDisplayName}
+                onChange={(e) => setEmailDisplayName(e.target.value)}
+                placeholder="e.g. Accounts Receivable, Lucy from Finance"
+              />
+            </OnboardingField>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <OnboardingField label="Phone (optional)">
+                <input
+                  className="input w-full"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="e.g. +1 555 0100"
+                />
+              </OnboardingField>
+              <OnboardingField label="Website (optional)">
+                <input
+                  className="input w-full"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  placeholder="e.g. yourcompany.com"
+                />
+              </OnboardingField>
+            </div>
+            <OnboardingField
+              label="Company Logo (optional)"
+              hint="Shown in your email signature and on hosted invoice pages. PNG or JPG, max 600×600 px."
+            >
+              <div className="flex flex-wrap items-center gap-4">
+                {logoPreview && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={logoPreview} alt="Company logo preview" className="h-16 w-16 rounded-lg border border-border object-contain" />
+                )}
+                <label className="btn-secondary cursor-pointer py-2 text-sm">
+                  Upload Logo
+                  <input type="file" accept="image/png,image/jpeg" className="hidden" onChange={handleLogoUpload} />
+                </label>
+                {logoPreview && (
+                  <button type="button" className="text-sm text-muted hover:text-foreground" onClick={() => setLogoPreview(null)}>
+                    Remove
+                  </button>
+                )}
+              </div>
+            </OnboardingField>
+            <OnboardingNavFooter backDisabled>
+              <button type="submit" className="btn-primary w-full sm:w-auto" disabled={profileSaving}>
+                {profileSaving ? "Saving…" : furthestStep > 0 ? "Save changes" : "Save & Continue"}
+              </button>
+            </OnboardingNavFooter>
+          </form>
+        )}
+
+        {macroStep === 1 && (
+          <div className="space-y-4">
+            <OnboardingInfoBox>
+              You can add more sender addresses later in Settings. Gmail uses a separate OAuth grant from sign-in.
+            </OnboardingInfoBox>
+            {emailError && (
+              <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{emailError}</p>
+            )}
+            {emailReady && (
+              <p className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+                Email connected — ready for your first invoice.
+              </p>
+            )}
+            <button className="card w-full text-left hover:border-accent" onClick={connectGmail}>
+              <p className="font-semibold">Connect Gmail</p>
+              <p className="mt-1 text-sm text-muted">Grant send access — separate from sign-in.</p>
+            </button>
+            <div className="card space-y-3">
+              <p className="font-semibold">Use your domain email (Resend)</p>
+              <input
+                type="email"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                placeholder="you@yourdomain.com"
+                value={resendEmail}
+                onChange={(e) => setResendEmail(e.target.value)}
+              />
+              <button className="btn-secondary w-full text-sm" onClick={verifyResend} disabled={!resendEmail}>
+                Send verification link
+              </button>
+            </div>
+            <OnboardingNavFooter onBack={goBack}>
+              <button type="button" className="btn-primary w-full sm:w-auto" onClick={continueToFirstInvoice} disabled={!emailReady}>
+                Save &amp; Continue
+              </button>
+            </OnboardingNavFooter>
+          </div>
+        )}
+
+        {macroStep === 2 && invoicePhase === "quickbooks" && (
           <div className="space-y-4">
             <OnboardingInfoBox>
               We&apos;ll show exactly what GentleTap will send before anything goes live. Nothing is changed in
@@ -480,10 +777,11 @@ function OnboardingContent() {
             <div className="flex justify-center pt-2">
               <ConnectQuickBooksButton onClick={connectQuickBooks} busy={qbConnecting} />
             </div>
+            <OnboardingNavFooter onBack={goBack} />
           </div>
         )}
 
-        {step === 1 && (
+        {macroStep === 2 && invoicePhase === "preview" && (
           <div className="space-y-6">
             {importSummary.syncing ? (
               <div className="rounded-xl bg-background p-10 text-center">
@@ -528,9 +826,11 @@ function OnboardingContent() {
                   First reminders can go out within a few hours after you connect email and turn on autopilot.
                 </p>
 
-                <button className="btn-primary w-full" onClick={goToEmail}>
-                  Connect email to continue
-                </button>
+                <OnboardingNavFooter onBack={goBack}>
+                  <button type="button" className="btn-primary w-full sm:w-auto" onClick={continueToPricing}>
+                    Continue
+                  </button>
+                </OnboardingNavFooter>
               </>
             ) : (
               <>
@@ -540,51 +840,17 @@ function OnboardingContent() {
                 </p>
                 <EmailPreviewCard preview={EXAMPLE_PREVIEW} senderLabel={senderLabel} example />
                 <SequenceTimeline />
-                <button className="btn-primary w-full" onClick={goToEmail}>
-                  Connect email &amp; finish setup
-                </button>
+                <OnboardingNavFooter onBack={goBack}>
+                  <button type="button" className="btn-primary w-full sm:w-auto" onClick={continueToPricing}>
+                    Continue
+                  </button>
+                </OnboardingNavFooter>
               </>
             )}
           </div>
         )}
 
-        {step === 2 && (
-          <div className="space-y-4">
-            <OnboardingInfoBox>
-              You can add more sender addresses later in Settings. Gmail uses a separate OAuth grant from sign-in.
-            </OnboardingInfoBox>
-            {emailError && (
-              <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{emailError}</p>
-            )}
-            {emailReady && (
-              <p className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-                Email connected — ready to turn on autopilot.
-              </p>
-            )}
-            <button className="card w-full text-left hover:border-accent" onClick={connectGmail}>
-              <p className="font-semibold">Connect Gmail</p>
-              <p className="mt-1 text-sm text-muted">Grant send access — separate from sign-in.</p>
-            </button>
-            <div className="card space-y-3">
-              <p className="font-semibold">Use your domain email (Resend)</p>
-              <input
-                type="email"
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                placeholder="you@yourdomain.com"
-                value={resendEmail}
-                onChange={(e) => setResendEmail(e.target.value)}
-              />
-              <button className="btn-secondary w-full text-sm" onClick={verifyResend} disabled={!resendEmail}>
-                Send verification link
-              </button>
-            </div>
-            <button className="btn-primary w-full" onClick={continueToGoLive} disabled={!emailReady}>
-              Continue to turn on autopilot
-            </button>
-          </div>
-        )}
-
-        {step === 3 && (
+        {macroStep === 2 && invoicePhase === "pricing" && (
           <div className="space-y-6">
             {invoiceCount > 0 && (
               <div className="rounded-xl border border-border bg-background p-6 text-center">
@@ -638,6 +904,8 @@ function OnboardingContent() {
             {busyPlan && (
               <p className="text-center text-sm text-muted animate-pulse">Redirecting to checkout…</p>
             )}
+
+            <OnboardingNavFooter onBack={goBack} />
           </div>
         )}
     </OnboardingShell>
