@@ -602,13 +602,14 @@ function OnboardingContent() {
     return <div className="flex min-h-full items-center justify-center text-muted">Loading…</div>;
   }
 
-  const furthestStep = furthestMacroStep(user.onboarding_step);
+  const onboardingStep = user.onboarding_step;
+  const furthestStep = furthestMacroStep(onboardingStep);
 
   function goToStep(index: number) {
     if (index > furthestStep) return;
     setMacroStep(index);
     if (index === 2) {
-      setInvoicePhase(backendToView(user.onboarding_step).invoicePhase);
+      setInvoicePhase(backendToView(onboardingStep).invoicePhase);
     }
   }
 
