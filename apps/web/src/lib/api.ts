@@ -86,6 +86,8 @@ export type DashboardSummary = {
   unpaid_count: number;
   overdue_count: number;
   total_outstanding: number;
+  oldest_days_overdue?: number;
+  avg_days_overdue?: number;
   currency: string;
   green_count: number;
   yellow_count: number;
@@ -202,6 +204,8 @@ export type ReminderPreviewItem = {
   channel?: string;
   whatsapp_followup?: boolean;
   error?: string;
+  tone_insight?: string;
+  needs_firm_tone?: boolean;
 };
 
 export type ReminderPreviewSummary = {

@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ConnectQuickBooksButton } from "@/components/connect-quickbooks-button";
+import { OnboardingImportStats } from "@/components/onboarding-import-stats";
 import { OnboardingInfoBox } from "@/components/onboarding-shell";
-import { OnboardingValueReveal } from "@/components/onboarding-value-reveal";
-import { api, getToken, type ReminderPreviewItem } from "@/lib/api";
+import { api, getToken } from "@/lib/api";
 
 type ImportChoice = "quickbooks" | "csv";
 type ImportPhase = "choose" | "results";
@@ -17,13 +17,10 @@ type Props = {
   qbError?: string | null;
   importMessage?: string;
   importSyncing?: boolean;
-  previewsLoading?: boolean;
   invoiceCount?: number;
   totalOutstanding?: number;
   oldestDays?: number;
   avgDays?: number;
-  previews?: ReminderPreviewItem[];
-  senderLabel: string;
   onInvoicesChanged?: () => void;
 };
 
@@ -81,13 +78,10 @@ export function OnboardingImportStep({
   qbError,
   importMessage,
   importSyncing,
-  previewsLoading,
   invoiceCount = 0,
   totalOutstanding = 0,
   oldestDays = 0,
   avgDays = 0,
-  previews = [],
-  senderLabel,
   onInvoicesChanged,
 }: Props) {
   const [phase, setPhase] = useState<ImportPhase>("choose");
@@ -160,14 +154,13 @@ export function OnboardingImportStep({
   }
 
   const qbReady = qbConnected && !importSyncing;
-  const csvReady = uploadResult !== null && !uploading;
 
   let primaryLabel = "Choose an option above";
   let primaryDisabled = !choice;
 
   if (phase === "results") {
-    primaryLabel = importSyncing || previewsLoading ? "Loading…" : "Continue to email setup";
-    primaryDisabled = Boolean(importSyncing || previewsLoading);
+    primaryLabel = importSyncing ? "Syncing…" : "Continue to email setup";
+    primaryDisabled = Boolean(importSyncing);
   } else if (choice === "quickbooks") {
     if (importSyncing) {
       primaryLabel = "Syncing from QuickBooks…";
@@ -180,18 +173,13 @@ export function OnboardingImportStep({
       primaryDisabled = qbConnecting;
     }
   } else if (choice === "csv") {
-    if (uploading) {
-      primaryLabel = "Uploading…";
-      primaryDisabled = true;
-    } else {
-      primaryLabel = "Choose a file to upload";
-      primaryDisabled = true;
-    }
+    primaryLabel = uploading ? "Uploading…" : "Choose a file to upload";
+    primaryDisabled = uploading || true;
   }
 
   function handlePrimary() {
     if (phase === "results") {
-      if (!importSyncing && !previewsLoading) onContinue();
+      if (!importSyncing) onContinue();
       return;
     }
     if (choice === "quickbooks") {
@@ -226,16 +214,12 @@ export function OnboardingImportStep({
 
       {phase === "results" && (
         <>
-          <OnboardingValueReveal
+          <OnboardingImportStats
             invoiceCount={invoiceCount}
             totalOutstanding={totalOutstanding}
             oldestDays={oldestDays}
             avgDays={avgDays}
-            previews={previews}
-            senderLabel={senderLabel}
             syncing={importSyncing}
-            previewsLoading={previewsLoading}
-            senderNote="Sending address configured in the next step."
           />
           <button type="button" className="text-sm text-muted hover:text-foreground" onClick={changeImportMethod}>
             Change import method

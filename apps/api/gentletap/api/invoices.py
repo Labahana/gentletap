@@ -129,10 +129,20 @@ def invoices_summary(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
         return {"count": row[0] or 0, "total": float(row[1] or 0)}
 
     extras = build_summary_extras(db, user.id)
+    overdue_stats = (
+        db.query(
+            func.coalesce(func.max(Invoice.days_overdue), 0),
+            func.coalesce(func.avg(Invoice.days_overdue), 0),
+        )
+        .filter(Invoice.user_id == user.id, Invoice.balance > 0, Invoice.days_overdue > 0)
+        .one()
+    )
     return {
         "unpaid_count": unpaid_count,
         "overdue_count": overdue_count,
         "total_outstanding": float(total_outstanding),
+        "oldest_days_overdue": int(overdue_stats[0] or 0),
+        "avg_days_overdue": int(round(float(overdue_stats[1] or 0))),
         "currency": currency_row[0] if currency_row else "USD",
         "green_count": green_count,
         "yellow_count": yellow_count,

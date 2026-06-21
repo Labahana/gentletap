@@ -93,6 +93,12 @@ def generate_draft(db: Session, invoice: Invoice, *, preview: bool = False) -> R
     return msg
 
 
+def _firm_tone_insight(days_overdue: int) -> str:
+    if days_overdue >= 30:
+        return f"{days_overdue} days overdue — we'll lead with a firmer, clearer tone on this one."
+    return f"{days_overdue} days overdue — we'll keep the tone polite but clear."
+
+
 def preview_overdue_invoices(db: Session, user_id: UUID, limit: int = 10) -> list[dict]:
     invoices = (
         db.query(Invoice)
@@ -138,17 +144,23 @@ def preview_overdue_invoices(db: Session, user_id: UUID, limit: int = 10) -> lis
                 }
             )
         except ValueError as exc:
-            previews.append(
-                {
-                    "invoice_id": str(inv.id),
-                    "doc_number": inv.doc_number,
-                    "client_name": inv.client.name if inv.client else "",
-                    "balance": float(inv.balance),
-                    "days_overdue": inv.days_overdue,
-                    "status": inv.status,
-                    "error": str(exc),
-                }
-            )
+            err = str(exc)
+            base = {
+                "invoice_id": str(inv.id),
+                "doc_number": inv.doc_number,
+                "client_name": inv.client.name if inv.client else "",
+                "client_email": inv.client.email if inv.client else None,
+                "balance": float(inv.balance),
+                "days_overdue": inv.days_overdue,
+                "status": inv.status,
+            }
+            if err == "escalation_recommended":
+                base["needs_firm_tone"] = True
+                base["tone_insight"] = _firm_tone_insight(inv.days_overdue)
+            else:
+                base["error"] = err
+            previews.append(base)
+    previews.sort(key=lambda row: (0 if row.get("body") else 1, -row.get("days_overdue", 0)))
     db.commit()
     return previews
 

@@ -125,6 +125,7 @@ export function OnboardingEmailStep({ userEmail, onBack, onContinue, onConnectGm
     if (data.provider === "platform") setChoice("platform");
     else if (data.provider === "google" || data.google_connected) setChoice("google");
     else if (data.provider === "resend" || data.domain) setChoice("domain");
+    else setChoice("google");
     if (data.domain) setDomainPhase("dns");
   }, []);
 
@@ -221,17 +222,17 @@ export function OnboardingEmailStep({ userEmail, onBack, onContinue, onConnectGm
   let primaryDisabled = !choice || busy;
 
   if (choice === "platform") {
-    primaryLabel = busy ? "Saving…" : "Continue with platform";
+    primaryLabel = busy ? "Saving…" : "Continue to preview";
     primaryDisabled = busy || !setup?.platform_available;
-  } else if (choice === "google") {
-    primaryLabel = setup?.google_connected ? (busy ? "Continuing…" : "Continue") : "Connect Gmail";
+  } else   if (choice === "google") {
+    primaryLabel = setup?.google_connected ? (busy ? "Continuing…" : "Continue to preview") : "Connect Gmail";
     primaryDisabled = busy;
   } else if (choice === "domain") {
     if (domainPhase === "input") {
       primaryLabel = busy ? "Setting up…" : "Continue to DNS setup";
       primaryDisabled = busy || !domainInput.trim();
     } else if (domainPhase === "dns") {
-      primaryLabel = busy ? "Continuing…" : "Continue (you can verify later)";
+      primaryLabel = busy ? "Continuing…" : "Continue to preview";
       primaryDisabled = busy;
     }
   }
@@ -253,29 +254,12 @@ export function OnboardingEmailStep({ userEmail, onBack, onContinue, onConnectGm
       {!showDomainDns && (
         <div className="space-y-3">
           <OptionCard
-            selected={choice === "platform"}
-            onSelect={() => {
-              setChoice("platform");
-              setDomainPhase("choose");
-            }}
-            badge="Recommended"
-            title="Use platform email address"
-            description="Ready to use immediately. No setup required."
-            icon={
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 8l8 5 8-5v10H4V8z" />
-              </svg>
-            }
-          >
-            <PreviewBox from={platformFrom} replyTo={setup?.platform_reply_to ?? userEmail} />
-          </OptionCard>
-
-          <OptionCard
             selected={choice === "google"}
             onSelect={() => {
               setChoice("google");
               setDomainPhase("choose");
             }}
+            badge="Recommended"
             title="Send from Gmail"
             description="Reminders send from your Gmail inbox. Clients see your real email address."
             icon={
@@ -290,6 +274,24 @@ export function OnboardingEmailStep({ userEmail, onBack, onContinue, onConnectGm
             {setup?.google_connected && (
               <p className="mt-2 text-xs text-green">Gmail connected</p>
             )}
+          </OptionCard>
+
+          <OptionCard
+            selected={choice === "platform"}
+            onSelect={() => {
+              setChoice("platform");
+              setDomainPhase("choose");
+            }}
+            badge="Quick setup"
+            title="Use platform email address"
+            description="Ready to use immediately. No setup required."
+            icon={
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 8l8 5 8-5v10H4V8z" />
+              </svg>
+            }
+          >
+            <PreviewBox from={platformFrom} replyTo={setup?.platform_reply_to ?? userEmail} />
           </OptionCard>
 
           <OptionCard

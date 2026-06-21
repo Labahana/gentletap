@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { OnboardingEmailStep } from "@/components/onboarding-email-step";
 import { OnboardingImportStep } from "@/components/onboarding-import-step";
+import { OnboardingPreviewStep } from "@/components/onboarding-preview-step";
 import { OnboardingInfoBox, OnboardingLoadingOverlay, OnboardingShell } from "@/components/onboarding-shell";
 import { PricingGrid } from "@/components/pricing-grid";
 import { api, getToken, type ReminderPreviewItem } from "@/lib/api";
@@ -15,6 +16,7 @@ const STEPS = [
   { id: "profile", label: "Your Profile", subtitle: "Name, company & logo" },
   { id: "import", label: "Import Invoices", subtitle: "QuickBooks or spreadsheet" },
   { id: "email", label: "Email Setup", subtitle: "Send from your inbox" },
+  { id: "preview", label: "Preview", subtitle: "See your first reminder" },
   { id: "invoice", label: "Go Live", subtitle: "Pick a plan & turn on autopilot" },
 ];
 
@@ -30,8 +32,9 @@ function backendToView(onboardingStep: string): { macro: number } {
       return { macro: 2 };
     case "preview":
     case "import":
-    case "pricing":
       return { macro: 3 };
+    case "pricing":
+      return { macro: 4 };
     default:
       return { macro: 0 };
   }
@@ -46,13 +49,19 @@ function stepHeading(macro: number): { title: string; description: string } {
   if (macro === 1) {
     return {
       title: "Import Invoices",
-      description: "Connect QuickBooks or upload a spreadsheet — see what GentleTap will send.",
+      description: "Connect QuickBooks or upload a spreadsheet of unpaid invoices.",
     };
   }
   if (macro === 2) {
     return {
       title: "Email Setup",
-      description: "Configure sending",
+      description: "Choose how your invoice reminder emails will appear to your clients.",
+    };
+  }
+  if (macro === 3) {
+    return {
+      title: "Preview",
+      description: "",
     };
   }
   return {
@@ -215,7 +224,7 @@ function OnboardingContent() {
     } else if (paid === "1") {
       router.replace("/onboarding");
     } else if (checkout === "cancelled") {
-      setMacroStep(3);
+      setMacroStep(4);
       setEmailError("Checkout cancelled — pick a plan or start free.");
       router.replace("/onboarding");
     }
@@ -233,7 +242,7 @@ function OnboardingContent() {
         await new Promise((r) => setTimeout(r, 2000));
       }
       await refresh();
-      setMacroStep(3);
+      setMacroStep(4);
       try {
         const result = await api.onboardingActivate(token);
         await refresh();
@@ -254,33 +263,39 @@ function OnboardingContent() {
         api.invoicesSummary(token),
       ]);
       const syncing = sync.status === "syncing";
-      setImportSummary((s) => ({
-        ...s,
-        count: summary.overdue_count ?? summary.unpaid_count ?? sync.unpaid_count ?? s.count,
-        total: summary.total_outstanding ?? sync.total_outstanding ?? s.total,
+      setImportSummary({
+        count: summary.overdue_count ?? summary.unpaid_count ?? sync.unpaid_count ?? 0,
+        total: summary.total_outstanding ?? sync.total_outstanding ?? 0,
+        oldestDays: summary.oldest_days_overdue ?? 0,
+        avgDays: summary.avg_days_overdue ?? 0,
         message: sync.message,
         syncing,
-      }));
-
-      if (!syncing) {
-        setPreviewsLoading(true);
-        const preview = await api.remindersPreview(token).catch(() => null);
-        if (preview?.items) setPreviews(preview.items);
-        setImportSummary((s) => ({
-          ...s,
-          count: preview?.summary?.overdue_count ?? summary.overdue_count ?? summary.unpaid_count ?? 0,
-          total: preview?.summary?.total_outstanding ?? summary.total_outstanding ?? 0,
-          oldestDays: preview?.summary?.oldest_days_overdue ?? 0,
-          avgDays: preview?.summary?.avg_days_overdue ?? 0,
-          syncing: false,
-        }));
-        setPreviewsLoading(false);
-      }
+      });
       return syncing;
     } catch {
       setImportSummary((s) => ({ ...s, message: "Could not load sync status", syncing: false }));
-      setPreviewsLoading(false);
       return false;
+    }
+  }, []);
+
+  const loadPreviewDrafts = useCallback(async () => {
+    const token = getToken();
+    if (!token) return;
+    setPreviewsLoading(true);
+    try {
+      const preview = await api.remindersPreview(token);
+      if (preview.items) setPreviews(preview.items);
+      setImportSummary((s) => ({
+        ...s,
+        count: preview.summary.overdue_count ?? s.count,
+        total: preview.summary.total_outstanding ?? s.total,
+        oldestDays: preview.summary.oldest_days_overdue ?? s.oldestDays,
+        avgDays: preview.summary.avg_days_overdue ?? s.avgDays,
+      }));
+    } catch {
+      setPreviews([]);
+    } finally {
+      setPreviewsLoading(false);
     }
   }, []);
 
@@ -310,9 +325,16 @@ function OnboardingContent() {
   }, [macroStep, importSummary.syncing, pollImportStatus]);
 
   useEffect(() => {
-    if (macroStep !== 2) return;
+    if (macroStep !== 2 && macroStep !== 3) return;
     const token = getToken();
     if (!token) return;
+    api.emailSetup(token).then((setup) => {
+      if (setup.google_connected && setup.google_email) {
+        setSenderEmail(setup.google_email);
+      } else if (setup.platform_from) {
+        setSenderEmail(setup.platform_from);
+      }
+    }).catch(() => {});
     api.googleStatus(token).then((g) => {
       if (g.connected && g.email) setSenderEmail(g.email);
     }).catch(() => {});
@@ -320,6 +342,11 @@ function OnboardingContent() {
 
   useEffect(() => {
     if (macroStep !== 3) return;
+    void loadPreviewDrafts();
+  }, [macroStep, loadPreviewDrafts]);
+
+  useEffect(() => {
+    if (macroStep !== 4) return;
     const token = getToken();
     if (!token) return;
     api.billingStatus(token).then((s) => {
@@ -390,14 +417,22 @@ function OnboardingContent() {
     setMacroStep(2);
   }
 
-  async function continueToGoLive() {
+  async function continueToPreview() {
     const token = getToken();
     if (token) {
       await api.advanceOnboardingQuickbooks(token);
-      await api.advanceOnboardingPricing(token);
       await refresh();
     }
     setMacroStep(3);
+  }
+
+  async function continueToGoLive() {
+    const token = getToken();
+    if (token) {
+      await api.advanceOnboardingPricing(token);
+      await refresh();
+    }
+    setMacroStep(4);
   }
 
   async function saveProfile(e: React.FormEvent) {
@@ -498,6 +533,10 @@ function OnboardingContent() {
   }
 
   function goBack() {
+    if (macroStep === 4) {
+      setMacroStep(3);
+      return;
+    }
     if (macroStep === 3) {
       setMacroStep(2);
       return;
@@ -508,6 +547,7 @@ function OnboardingContent() {
   const invoiceCount = importSummary.count;
   const showProHighlight = invoiceCount > FREE_MONTHLY_LIMIT;
   const senderLabel = (() => {
+    if (senderEmail && senderEmail.includes("<")) return senderEmail;
     const name = emailDisplayName || user.full_name || user.email.split("@")[0];
     const company = companyName || user.company_name;
     const from = senderEmail ?? user.email;
@@ -529,7 +569,7 @@ function OnboardingContent() {
       onStepSelect={goToStep}
       title={content.title}
       description={content.description}
-      wide={macroStep === 1 || macroStep === 3}
+      wide={macroStep === 3 || macroStep === 4}
     >
         {macroStep === 0 && (
           <form className="space-y-5" onSubmit={saveProfile}>
@@ -619,13 +659,10 @@ function OnboardingContent() {
             qbError={qbError}
             importMessage={importSummary.message}
             importSyncing={importSummary.syncing}
-            previewsLoading={previewsLoading}
             invoiceCount={importSummary.count}
             totalOutstanding={importSummary.total}
             oldestDays={importSummary.oldestDays}
             avgDays={importSummary.avgDays}
-            previews={previews}
-            senderLabel={senderLabel}
             onInvoicesChanged={() => void pollImportStatus()}
           />
         )}
@@ -634,13 +671,26 @@ function OnboardingContent() {
           <OnboardingEmailStep
             userEmail={user.email}
             onBack={goBack}
-            onContinue={continueToGoLive}
+            onContinue={continueToPreview}
             onConnectGmail={connectGmail}
             externalError={emailError}
           />
         )}
 
         {macroStep === 3 && (
+          <OnboardingPreviewStep
+            invoiceCount={invoiceCount}
+            totalOutstanding={importSummary.total}
+            avgDays={importSummary.avgDays}
+            previews={previews}
+            senderLabel={senderLabel}
+            loading={previewsLoading}
+            onBack={goBack}
+            onContinue={continueToGoLive}
+          />
+        )}
+
+        {macroStep === 4 && (
           <div className="space-y-6">
             {invoiceCount > 0 && (
               <div className="rounded-xl border border-border bg-background p-6 text-center">
