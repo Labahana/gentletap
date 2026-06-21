@@ -522,7 +522,6 @@ function OnboardingContent() {
     }
     setProfileSaving(true);
     setProfileError(null);
-    const isFirstSave = user!.onboarding_step === "account" || user!.onboarding_step === "persona";
     try {
       await api.saveOnboardingProfile(token, {
         company_name: companyName.trim(),
@@ -532,7 +531,7 @@ function OnboardingContent() {
         logo_url: logoPreview,
       });
       await refresh();
-      if (isFirstSave) setMacroStep(1);
+      setMacroStep(1);
     } catch (err) {
       setProfileError(err instanceof Error ? err.message : "Could not save profile");
     } finally {
