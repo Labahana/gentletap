@@ -521,6 +521,7 @@ export const api = {
       sequence_step: number;
       dispute_flag: boolean;
       due_date: string | null;
+      payment_link: string | null;
       client_claimed_paid_at: string | null;
       reminders: Array<{
         id: string;
