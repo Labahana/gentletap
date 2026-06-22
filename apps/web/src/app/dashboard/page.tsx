@@ -289,7 +289,7 @@ export default function DashboardPage() {
                 {invoices.length === 0 ? (
                   <>
                     No invoices yet.{" "}
-                    <Link href="/settings/connections" className="text-accent underline">
+                    <Link href="/settings/integrations" className="text-accent underline">
                       Connect QuickBooks
                     </Link>
                   </>

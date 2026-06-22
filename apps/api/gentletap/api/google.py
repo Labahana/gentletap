@@ -51,13 +51,13 @@ def google_callback(
         google_oauth.handle_oauth_callback(db, code=code, state=state)
     except ValueError as exc:
         if return_to == "settings":
-            dest = f"{settings.web_url}/settings/connections?email=error&message={quote(str(exc))}"
+            dest = f"{settings.web_url}/settings/email?email=error&message={quote(str(exc))}"
         else:
             dest = f"{settings.web_url}/onboarding?email=error&message={quote(str(exc))}"
         return RedirectResponse(url=dest, status_code=status.HTTP_302_FOUND)
 
     if return_to == "settings":
-        dest = f"{settings.web_url}/settings/connections?email=connected"
+        dest = f"{settings.web_url}/settings/email?email=connected"
     else:
         dest = f"{settings.web_url}/onboarding?email=connected"
     return RedirectResponse(url=dest, status_code=status.HTTP_302_FOUND)

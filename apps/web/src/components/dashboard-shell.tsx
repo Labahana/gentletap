@@ -34,7 +34,7 @@ const DESKTOP: NavItem[] = [
   { href: "/dashboard/clients", label: "Clients", icon: IconUsers },
   { href: "/dashboard/alerts", label: "Reminders sent", icon: IconMail },
   { href: "/dashboard/analytics", label: "Analytics", icon: IconChartLine },
-  { href: "/settings/connections", label: "Connections", icon: IconPlug },
+  { href: "/settings/integrations", label: "Connections", icon: IconPlug },
   { href: "/settings/profile", label: "Settings", icon: IconSettings },
 ];
 

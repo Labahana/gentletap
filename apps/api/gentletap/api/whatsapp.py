@@ -108,8 +108,8 @@ def whatsapp_checkout_messages(
             db,
             user,
             pack=body.pack,
-            success_url=f"{settings.web_url}/settings/connections?whatsapp_purchased=1",
-            cancel_url=f"{settings.web_url}/settings/connections?cancelled=1",
+            success_url=f"{settings.web_url}/settings/integrations?whatsapp_purchased=1",
+            cancel_url=f"{settings.web_url}/settings/integrations?cancelled=1",
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
