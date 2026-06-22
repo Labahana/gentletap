@@ -28,6 +28,7 @@ import {
   formatAvgDaysSub,
 } from "@/lib/dashboard-ui";
 import { formatMoney, isOnboardingComplete } from "@/lib/onboarding";
+import { hasWhatsapp } from "@/lib/pricing";
 
 const ESC_DISMISS_KEY = "gentletap_esc_dismiss";
 
@@ -320,7 +321,13 @@ export default function DashboardPage() {
                 )}
               </p>
             ) : (
-              activeInvoices.map((inv) => <InvoiceOverviewRow key={inv.id} inv={inv} />)
+              activeInvoices.map((inv) => (
+                <InvoiceOverviewRow
+                  key={inv.id}
+                  inv={inv}
+                  showWhatsappHints={hasWhatsapp(user.plan)}
+                />
+              ))
             )}
           </div>
 

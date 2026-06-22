@@ -122,8 +122,14 @@ function showAddWhatsappButton(inv: InvoiceItem) {
   return !inv.reminder_phone && !inv.effective_reminder_phone;
 }
 
-function InvoiceRowActionButtons({ inv }: { inv: InvoiceItem }) {
-  const addWhatsapp = showAddWhatsappButton(inv);
+function InvoiceRowActionButtons({
+  inv,
+  whatsappEligible,
+}: {
+  inv: InvoiceItem;
+  whatsappEligible?: boolean;
+}) {
+  const addWhatsapp = whatsappEligible && showAddWhatsappButton(inv);
   return (
     <div className="flex flex-wrap items-center justify-end gap-1.5">
       <Link
@@ -203,7 +209,7 @@ export function InvoiceOverviewRow({
           <p className="text-[13px] font-semibold tabular-nums">{formatMoney(inv.balance, inv.currency)}</p>
           <p className={`text-[11px] ${statusClass}`}>{invoiceStatusText(inv)}</p>
         </div>
-        <InvoiceRowActionButtons inv={inv} />
+        <InvoiceRowActionButtons inv={inv} whatsappEligible={showWhatsappHints} />
       </div>
       {showMarkPaid && (
         <button
@@ -275,7 +281,7 @@ export function InvoiceMobileCard({
             </div>
           </Link>
           <div className="mt-2">
-            <InvoiceRowActionButtons inv={inv} />
+            <InvoiceRowActionButtons inv={inv} whatsappEligible={showWhatsappHints} />
           </div>
           {showMarkPaid && (
             <button
