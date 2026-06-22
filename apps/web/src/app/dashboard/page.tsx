@@ -314,7 +314,7 @@ export default function DashboardPage() {
               <p className="py-8 text-center text-sm text-muted">
                 {invoices.length === 0 ? (
                   <>
-                    No invoices yet. Connect QuickBooks or upload a spreadsheet using the options above.
+                    No invoices yet. Upload invoices (CSV, spreadsheet) using the button above, or wait for QuickBooks to sync.
                   </>
                 ) : (
                   "All caught up."

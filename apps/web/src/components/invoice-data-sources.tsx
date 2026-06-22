@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRef } from "react";
 
 export function InvoiceDataSources({
@@ -30,16 +29,13 @@ export function InvoiceDataSources({
             e.target.value = "";
           }}
         />
-        <Link href="/settings/integrations" className="btn-secondary py-1.5 px-4 text-xs">
-          Connect QuickBooks
-        </Link>
         <button
           type="button"
-          className="btn-secondary py-1.5 px-4 text-xs"
+          className="btn-primary py-1.5 px-4 text-xs"
           disabled={uploadBusy}
           onClick={() => fileRef.current?.click()}
         >
-          {uploadBusy ? "Uploading…" : "Upload spreadsheet"}
+          {uploadBusy ? "Uploading…" : "Upload invoices (CSV, spreadsheet)"}
         </button>
       </div>
     );
@@ -51,7 +47,7 @@ export function InvoiceDataSources({
         <div>
           <h2 className="text-sm font-semibold">Add invoices</h2>
           <p className="mt-0.5 text-xs text-muted">
-            Sync from QuickBooks automatically, or import a CSV / Excel file.
+            QuickBooks syncs automatically. Upload a CSV or spreadsheet to add invoices manually.
           </p>
           {uploadNote && (
             <p className="mt-2 text-xs font-medium text-green">{uploadNote}</p>
@@ -69,16 +65,13 @@ export function InvoiceDataSources({
               e.target.value = "";
             }}
           />
-          <Link href="/settings/integrations" className="btn-primary py-2 px-4 text-xs">
-            Connect QuickBooks
-          </Link>
           <button
             type="button"
-            className="btn-secondary py-2 px-4 text-xs"
+            className="btn-primary py-2 px-4 text-xs"
             disabled={uploadBusy}
             onClick={() => fileRef.current?.click()}
           >
-            {uploadBusy ? "Uploading…" : "Upload spreadsheet"}
+            {uploadBusy ? "Uploading…" : "Upload invoices (CSV, spreadsheet)"}
           </button>
         </div>
       </div>
