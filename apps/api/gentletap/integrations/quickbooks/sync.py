@@ -104,16 +104,13 @@ def sync_unpaid_invoices(db: Session, user_id: UUID) -> dict:
                     qb_customer = qb_client.get_customer(db, connection, qb_customer_id)
                     name = qb_customer.get("DisplayName", customer_ref.get("name", "Unknown")) if qb_customer else customer_ref.get("name", "Unknown")
                     email = None
-                    phone = None
                     if qb_customer:
                         email = qb_customer.get("PrimaryEmailAddr", {}).get("Address")
-                        phone = qb_customer.get("PrimaryPhone", {}).get("FreeFormNumber")
                     client_row = Client(
                         user_id=user_id,
                         qb_customer_id=qb_customer_id,
                         name=name,
                         email=email,
-                        phone=phone,
                     )
                     db.add(client_row)
                     db.flush()
@@ -121,7 +118,6 @@ def sync_unpaid_invoices(db: Session, user_id: UUID) -> dict:
                     qb_customer = qb_client.get_customer(db, connection, qb_customer_id)
                     if qb_customer:
                         client_row.email = qb_customer.get("PrimaryEmailAddr", {}).get("Address") or client_row.email
-                        client_row.phone = qb_customer.get("PrimaryPhone", {}).get("FreeFormNumber") or client_row.phone
                         client_row.name = qb_customer.get("DisplayName", client_row.name)
                 customer_cache[qb_customer_id] = client_row
 

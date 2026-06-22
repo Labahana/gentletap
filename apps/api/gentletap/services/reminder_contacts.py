@@ -16,8 +16,8 @@ def effective_reminder_email(inv: Invoice, client: Client | None = None) -> str 
 
 
 def effective_reminder_phone(inv: Invoice, client: Client | None = None) -> str | None:
-    row = client or inv.client
-    raw = (inv.reminder_phone or (row.phone if row else None) or "").strip()
+    """WhatsApp uses only the number added on this invoice — never QB/client fallback."""
+    raw = (inv.reminder_phone or "").strip()
     if not raw:
         return None
     return normalize_phone_e164(raw)
@@ -29,7 +29,7 @@ def reminder_contact_payload(inv: Invoice) -> dict:
         "reminder_phone": inv.reminder_phone,
         "client_phone": inv.client.phone if inv.client else None,
         "effective_reminder_phone": phone,
-        "whatsapp_phone_missing": not phone,
+        "whatsapp_phone_missing": phone is None,
     }
 
 
