@@ -9,9 +9,10 @@ from uuid import UUID
 import pandas as pd
 from sqlalchemy.orm import Session
 
-from gentletap.database import Client, Invoice, InvoiceImportBatch
+from gentletap.database import Client, Invoice, InvoiceImportBatch, Profile
 from gentletap.integrations.quickbooks.sync import _invoice_status, _parse_date
 from gentletap.integrations.twilio.phone import normalize_phone_e164
+from gentletap.plans import has_whatsapp
 
 COLUMN_ALIASES: dict[str, list[str]] = {
     "client_name": ["client_name", "customer", "customer_name", "client", "name"],
@@ -112,6 +113,9 @@ def import_invoices_from_file(db: Session, user_id: UUID, content: bytes, filena
     if not amount_col and not balance_col:
         raise ValueError("Missing amount column — use amount, total, or balance")
 
+    user = db.query(Profile).filter(Profile.id == user_id).one()
+    import_whatsapp_phones = has_whatsapp(user.plan)
+
     client_cache: dict[str, Client] = {}
     imported = 0
     skipped = 0
@@ -181,7 +185,7 @@ def import_invoices_from_file(db: Session, user_id: UUID, content: bytes, filena
             else:
                 client_row.name = name
                 client_row.email = email
-                if phone and not client_row.phone:
+                if phone and import_whatsapp_phones and not client_row.phone:
                     client_row.phone = phone
             client_cache[customer_id] = client_row
 
@@ -207,6 +211,8 @@ def import_invoices_from_file(db: Session, user_id: UUID, content: bytes, filena
         total_outstanding += balance
         now = datetime.now(UTC)
 
+        invoice_phone = phone if import_whatsapp_phones else None
+
         if existing is None:
             invoice_row = Invoice(
                 user_id=user_id,
@@ -222,7 +228,7 @@ def import_invoices_from_file(db: Session, user_id: UUID, content: bytes, filena
                 status=status,
                 source="upload",
                 imported_at=now,
-                reminder_phone=phone,
+                reminder_phone=invoice_phone,
             )
             db.add(invoice_row)
         else:
@@ -237,8 +243,8 @@ def import_invoices_from_file(db: Session, user_id: UUID, content: bytes, filena
             existing.status = status
             existing.source = "upload"
             existing.imported_at = now
-            if phone:
-                existing.reminder_phone = phone
+            if invoice_phone:
+                existing.reminder_phone = invoice_phone
 
         imported += 1
 

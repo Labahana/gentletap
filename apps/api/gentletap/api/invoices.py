@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from gentletap.database import Invoice, InvoiceImportBatch, ReminderMessage, get_db
 from gentletap.dependencies import CurrentUser
+from gentletap.plans import has_whatsapp
 from gentletap.services.csv_import import import_invoices_from_file
 from gentletap.services.dashboard_data import (
     build_activity_feed,
@@ -418,6 +419,12 @@ def update_invoice_contacts_endpoint(
     )
     if inv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+
+    if (body.reminder_phone is not None or body.clear_reminder_phone) and not has_whatsapp(user.plan):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="WhatsApp is available on Pro+ and Team plans only",
+        )
 
     inv = update_invoice_contacts(
         db,

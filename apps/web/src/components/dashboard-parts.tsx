@@ -140,7 +140,7 @@ function InvoiceRowActionButtons({
       </Link>
       {addWhatsapp && (
         <Link
-          href={`/dashboard/invoices/${inv.id}#reminder-contacts`}
+          href={`/dashboard/invoices/${inv.id}#whatsapp-contacts`}
           className="rounded-full bg-green px-2.5 py-1 text-[10px] font-semibold text-white hover:opacity-90"
         >
           Add WhatsApp number

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from gentletap.database import Client, get_db
 from gentletap.dependencies import CurrentUser
+from gentletap.plans import has_whatsapp
 from gentletap.integrations.twilio.phone import normalize_phone_e164
 from gentletap.services.clients_data import client_detail, list_clients
 
@@ -57,6 +58,11 @@ def update_client(
         client.email = email[:320]
 
     if body.phone is not None:
+        if not has_whatsapp(user.plan):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="WhatsApp is available on Pro+ and Team plans only",
+            )
         stripped = body.phone.strip()
         if not stripped:
             client.phone = None

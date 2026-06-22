@@ -117,8 +117,12 @@ export default function InvoiceDetailPage() {
     try {
       await api.updateInvoiceContacts(token, invoice.id, {
         client_email: editReminderEmail.trim() || undefined,
-        reminder_phone: editReminderPhone.trim() || undefined,
-        clear_reminder_phone: !editReminderPhone.trim(),
+        ...(hasWhatsapp(user.plan)
+          ? {
+              reminder_phone: editReminderPhone.trim() || undefined,
+              clear_reminder_phone: !editReminderPhone.trim(),
+            }
+          : {}),
       });
       setContactsSaved(true);
       await load();
@@ -157,6 +161,7 @@ export default function InvoiceDetailPage() {
 
   const isUpload = (invoice?.source ?? "quickbooks") === "upload";
   const hasEmail = Boolean(invoice?.reminder_email || invoice?.client.email);
+  const whatsappPlan = hasWhatsapp(user.plan);
 
   return (
     <DashboardShell>
@@ -332,10 +337,7 @@ export default function InvoiceDetailPage() {
               {/* Contacts */}
               <div id="reminder-contacts" className="card scroll-mt-20 !p-4">
                 <h2 className="text-sm font-semibold">Reminder contacts</h2>
-                <p className="mt-0.5 text-xs text-muted">
-                  Email for reminders. Add the <span className="font-medium">client&apos;s</span> mobile for
-                  WhatsApp follow-ups — GentleTap does not use QuickBooks phone numbers.
-                </p>
+                <p className="mt-0.5 text-xs text-muted">Where email reminders for this invoice are sent.</p>
                 <form onSubmit={saveContacts} className="mt-4 space-y-3">
                   <div>
                     <label className="mb-1 block text-xs font-medium text-muted">Client email</label>
@@ -348,45 +350,76 @@ export default function InvoiceDetailPage() {
                       required
                     />
                   </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-muted">
-                      Client WhatsApp number
-                      {!hasWhatsapp(user.plan) && (
-                        <span className="font-normal text-muted"> · sends on Pro+</span>
-                      )}
-                    </label>
-                    <input
-                      type="tel"
-                      className="input"
-                      placeholder="+1 555 123 4567 — add client's mobile"
-                      value={editReminderPhone}
-                      onChange={(e) => setEditReminderPhone(e.target.value)}
-                    />
-                    {editReminderPhone ? (
-                      <p className="mt-1 text-[11px] text-muted">
-                        {hasWhatsapp(user.plan)
-                          ? "WhatsApp follow-ups send after each email on steps 1–3."
-                          : "Saved for this invoice. Upgrade to Pro+ to send WhatsApp follow-ups."}
-                      </p>
-                    ) : (
-                      <p className="mt-1 text-[11px] text-muted">
-                        No number yet — add the person who should get WhatsApp nudges for this invoice.
-                      </p>
-                    )}
-                    {!hasWhatsapp(user.plan) && (
-                      <p className="mt-1 text-[11px] text-muted">
-                        <Link href="/settings/profile" className="text-accent underline">
-                          View Pro+ plans
-                        </Link>
-                      </p>
-                    )}
-                  </div>
                   <button type="submit" className="btn-primary py-2 px-4 text-xs" disabled={contactsBusy}>
-                    {contactsBusy ? "Saving…" : "Save contacts"}
+                    {contactsBusy ? "Saving…" : "Save email"}
                   </button>
                   {contactsSaved && <span className="ml-2 text-xs text-green">Saved</span>}
                 </form>
               </div>
+
+              {whatsappPlan ? (
+                <div id="whatsapp-contacts" className="card scroll-mt-20 !p-4">
+                  <h2 className="text-sm font-semibold">WhatsApp follow-up</h2>
+                  <p className="mt-0.5 text-xs text-muted">
+                    Add the <span className="font-medium">client&apos;s</span> mobile for quick follow-ups after
+                    email (steps 1–3). Not pulled from QuickBooks.
+                  </p>
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const token = getToken();
+                      if (!token || !invoice) return;
+                      setContactsBusy(true);
+                      setError(null);
+                      setContactsSaved(false);
+                      try {
+                        await api.updateInvoiceContacts(token, invoice.id, {
+                          reminder_phone: editReminderPhone.trim() || undefined,
+                          clear_reminder_phone: !editReminderPhone.trim(),
+                        });
+                        setContactsSaved(true);
+                        await load();
+                        setTimeout(() => setContactsSaved(false), 3000);
+                      } catch (err) {
+                        setError(err instanceof Error ? err.message : "Could not save WhatsApp number");
+                      } finally {
+                        setContactsBusy(false);
+                      }
+                    }}
+                    className="mt-4 space-y-3"
+                  >
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-muted">Client WhatsApp number</label>
+                      <input
+                        type="tel"
+                        className="input"
+                        placeholder="+1 555 123 4567"
+                        value={editReminderPhone}
+                        onChange={(e) => setEditReminderPhone(e.target.value)}
+                      />
+                      <p className="mt-1 text-[11px] text-muted">
+                        {editReminderPhone
+                          ? "Follow-ups send after each email on steps 1–3."
+                          : "No number yet — WhatsApp nudges are skipped until you add one."}
+                      </p>
+                    </div>
+                    <button type="submit" className="btn-primary py-2 px-4 text-xs" disabled={contactsBusy}>
+                      {contactsBusy ? "Saving…" : "Save WhatsApp number"}
+                    </button>
+                    {contactsSaved && <span className="ml-2 text-xs text-green">Saved</span>}
+                  </form>
+                </div>
+              ) : (
+                <div className="card !p-4">
+                  <h2 className="text-sm font-semibold">WhatsApp follow-up</h2>
+                  <p className="mt-2 text-sm text-muted">
+                    Pro+ and Team can add a client mobile number per invoice for WhatsApp nudges after email.
+                  </p>
+                  <Link href="/settings/profile" className="btn-primary mt-4 inline-flex py-2 px-4 text-xs">
+                    Upgrade to Pro+
+                  </Link>
+                </div>
+              )}
 
               {/* Details */}
               <div className="card !p-4">

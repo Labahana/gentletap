@@ -14,6 +14,7 @@ import { api, getToken, type AnalyticsData } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { formatAvgDaysSub, formatMomPct } from "@/lib/dashboard-ui";
 import { formatMoney, isOnboardingComplete } from "@/lib/onboarding";
+import { hasWhatsapp } from "@/lib/pricing";
 
 export default function AnalyticsPage() {
   const { user, loading } = useAuth();
@@ -60,7 +61,13 @@ export default function AnalyticsPage() {
   const currency = data?.currency ?? "USD";
   const emailReminders = data?.reminders_by_channel?.email ?? 0;
   const waReminders = data?.reminders_by_channel?.whatsapp ?? 0;
-  const totalReminders = emailReminders + waReminders;
+  const totalReminders = emailReminders + (hasWhatsapp(user.plan) ? waReminders : 0);
+  const channelItems = [
+    { label: "Email", value: emailReminders, className: "bg-accent" },
+    ...(hasWhatsapp(user.plan)
+      ? [{ label: "WhatsApp (Pro+)", value: waReminders, className: "bg-green" as const }]
+      : []),
+  ];
   const collectedThisMonth = data?.collection_trend?.[data.collection_trend.length - 1]?.collected ?? 0;
 
   return (
@@ -112,10 +119,7 @@ export default function AnalyticsPage() {
                 <h2 className="text-xs font-medium text-muted">Reminders by channel</h2>
                 <div className="mt-4">
                   <HorizontalBars
-                    items={[
-                      { label: "Email", value: emailReminders, className: "bg-accent" },
-                      { label: "WhatsApp", value: waReminders, className: "bg-green" },
-                    ]}
+                    items={channelItems}
                     formatValue={(v) =>
                       totalReminders > 0 ? `${v} (${Math.round((v / totalReminders) * 100)}%)` : String(v)
                     }

@@ -8,6 +8,7 @@ import { api, getToken, type ClientDetail } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { riskBadgeClass } from "@/lib/dashboard-ui";
 import { formatMoney, isOnboardingComplete } from "@/lib/onboarding";
+import { hasWhatsapp } from "@/lib/pricing";
 
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -53,7 +54,7 @@ export default function ClientDetailPage() {
     try {
       await api.updateClient(token, client.id, {
         email: editEmail.trim() || undefined,
-        phone: editPhone.trim() || undefined,
+        ...(hasWhatsapp(user.plan) ? { phone: editPhone.trim() || undefined } : {}),
       });
       setSaved(true);
       await load();
@@ -131,17 +132,27 @@ export default function ClientDetailPage() {
         <div className="card mt-5">
           <h2 className="text-sm font-semibold">Contact details</h2>
           <p className="mt-1 text-xs text-muted">
-            Default email and phone for this client. Override WhatsApp per invoice on the invoice page.
+            {hasWhatsapp(user.plan)
+              ? "Default client email. Add WhatsApp numbers per invoice on the invoice page."
+              : "Default client email for reminders."}
           </p>
           <form onSubmit={saveContact} className="mt-3 grid gap-3 sm:grid-cols-2">
-            <div>
+            <div className={hasWhatsapp(user.plan) ? "" : "sm:col-span-2"}>
               <label className="mb-1 block text-xs text-muted">Email</label>
               <input type="email" className="input" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
             </div>
-            <div>
-              <label className="mb-1 block text-xs text-muted">Phone (WhatsApp)</label>
-              <input type="tel" className="input" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} placeholder="+1 555 123 4567" />
-            </div>
+            {hasWhatsapp(user.plan) && (
+              <div>
+                <label className="mb-1 block text-xs text-muted">Phone (optional)</label>
+                <input
+                  type="tel"
+                  className="input"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  placeholder="+1 555 123 4567"
+                />
+              </div>
+            )}
             <div className="flex items-center gap-2 sm:col-span-2">
               <button type="submit" className="btn-primary py-1.5 text-xs" disabled={saveBusy}>
                 {saveBusy ? "Saving…" : "Save contact"}
@@ -173,7 +184,9 @@ export default function ClientDetailPage() {
             {client.email_suppressed && (
               <div className="sm:col-span-2">
                 <p className="rounded-lg bg-yellow/10 px-3 py-2 text-xs text-yellow-900">
-                  Email suppressed — reminders will use WhatsApp or skip email.
+                  {hasWhatsapp(user.plan)
+                    ? "Email suppressed — reminders will use WhatsApp or skip email."
+                    : "Email suppressed — reminders may be skipped until email is restored."}
                 </p>
               </div>
             )}
