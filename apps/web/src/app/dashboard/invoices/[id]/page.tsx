@@ -110,7 +110,7 @@ export default function InvoiceDetailPage() {
   async function saveContacts(e: React.FormEvent) {
     e.preventDefault();
     const token = getToken();
-    if (!token || !invoice) return;
+    if (!token || !invoice || !user) return;
     setContactsBusy(true);
     setError(null);
     setContactsSaved(false);

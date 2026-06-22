@@ -47,7 +47,7 @@ export default function ClientDetailPage() {
   async function saveContact(e: React.FormEvent) {
     e.preventDefault();
     const token = getToken();
-    if (!token || !client) return;
+    if (!token || !client || !user) return;
     setSaveBusy(true);
     setError(null);
     setSaved(false);
