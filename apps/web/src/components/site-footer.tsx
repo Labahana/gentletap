@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/logo";
+import { LEGAL } from "@/lib/legal";
 
 const LEGAL_LINKS = [
   { href: "/privacy", label: "Privacy Policy" },
@@ -25,7 +26,9 @@ export function SiteFooter({ className = "" }: { className?: string }) {
           </span>
         ))}
       </nav>
-      <p className="mt-4">© {new Date().getFullYear()} GentleTap</p>
+      <p className="mt-4">
+        © {new Date().getFullYear()} {LEGAL.legalName} · {LEGAL.productName}
+      </p>
     </footer>
   );
 }

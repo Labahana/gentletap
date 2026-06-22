@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LegalLinks } from "@/components/legal-links";
 
 const TABS: Array<{ href: string; label: string; danger?: boolean }> = [
   { href: "/settings/profile", label: "Profile" },
+  { href: "/settings/billing", label: "Billing" },
   { href: "/settings/security", label: "Security" },
   { href: "/settings/notifications", label: "Notifications" },
   { href: "/settings/email", label: "Email Settings" },
@@ -43,6 +45,8 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
       </nav>
 
       <div className="mt-6">{children}</div>
+
+      <LegalLinks className="mt-10 border-t border-border pt-6" />
     </div>
   );
 }

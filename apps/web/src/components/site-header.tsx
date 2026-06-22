@@ -7,6 +7,9 @@ export function SiteHeader() {
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <Logo height={28} />
         <nav className="flex items-center gap-4 text-sm font-medium">
+          <Link href="/#pricing" className="hidden text-muted hover:text-foreground sm:inline">
+            Pricing
+          </Link>
           <Link href="/login" className="text-muted hover:text-foreground">
             Log in
           </Link>

@@ -107,6 +107,9 @@ services:
     build:
       context: ./apps/web
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_LEGAL_ENTITY_NAME: ${NEXT_PUBLIC_LEGAL_ENTITY_NAME:-GentleTap}
+        NEXT_PUBLIC_LEGAL_ENTITY_ADDRESS: ${NEXT_PUBLIC_LEGAL_ENTITY_ADDRESS:-United States}
     container_name: gentletap-web
     restart: unless-stopped
     environment:

@@ -144,7 +144,7 @@ export default function HomePage() {
           </dl>
         </section>
 
-        <section className="mx-auto max-w-6xl px-6 pb-24">
+        <section id="pricing" className="mx-auto max-w-6xl px-6 pb-24 scroll-mt-20">
           <div className="text-center">
             <h2 className="text-2xl font-bold">Simple, transparent pricing</h2>
             <p className="mt-2 text-muted">

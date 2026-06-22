@@ -1,17 +1,16 @@
+import { LegalEntityBlock } from "@/components/legal-entity-block";
 import { LegalLayout } from "@/components/legal-layout";
+import { LEGAL, operatorIntro } from "@/lib/legal";
 
 export default function PrivacyPage() {
   return (
     <LegalLayout title="Privacy Policy" updated="June 18, 2026">
       <p>
-        GentleTap (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) operates the GentleTap payment-reminder
-        service at{" "}
-        <a href="https://gentletap.co" target="_blank" rel="noopener noreferrer">
-          gentletap.co
-        </a>
-        . This Privacy Policy explains what we collect, why we collect it, who we share it with, and
-        the choices you have.
+        {operatorIntro()} This Privacy Policy explains what we collect, why we collect it, who we share
+        it with, and the choices you have.
       </p>
+
+      <LegalEntityBlock />
 
       <h2>Information we collect</h2>
       <h3>Account information</h3>
@@ -166,7 +165,7 @@ export default function PrivacyPage() {
       </ul>
       <p>
         To exercise rights not available in the app, email{" "}
-        <a href="mailto:privacy@gentletap.co">privacy@gentletap.co</a>. We respond within 30 days.
+        <a href={`mailto:${LEGAL.privacyEmail}`}>{LEGAL.privacyEmail}</a>. We respond within 30 days.
       </p>
 
       <h2>Security</h2>
@@ -190,10 +189,10 @@ export default function PrivacyPage() {
       <h2>Contact</h2>
       <p>
         Privacy questions:{" "}
-        <a href="mailto:privacy@gentletap.co">privacy@gentletap.co</a>
+        <a href={`mailto:${LEGAL.privacyEmail}`}>{LEGAL.privacyEmail}</a>
         <br />
         General support:{" "}
-        <a href="mailto:support@gentletap.co">support@gentletap.co</a>
+        <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a>
         <br />
         See also our <a href="/contact">Contact page</a>.
       </p>

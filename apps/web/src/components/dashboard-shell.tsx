@@ -15,6 +15,7 @@ import {
   IconBell,
 } from "@tabler/icons-react";
 import { DashIcon, type IconProps } from "@/components/dashboard-icons";
+import { LegalLinks } from "@/components/legal-links";
 import { Logo } from "@/components/logo";
 import { MobileUpgradeStrip, SidebarUpgradeNote } from "@/components/upgrade-prompt";
 import { useAuth } from "@/lib/auth-context";
@@ -217,6 +218,9 @@ export function DashboardShell({
         </nav>
 
         <SidebarUpgradeNote monthlyLimit={monthlyLimit} />
+        <div className="hidden px-3 pb-2 lg:block">
+          <LegalLinks className="justify-center" />
+        </div>
         <SidebarFooter monthlyUsed={monthlyUsed} monthlyLimit={monthlyLimit} />
       </aside>
 

@@ -1,4 +1,6 @@
+import { LegalEntityBlock } from "@/components/legal-entity-block";
 import { LegalLayout } from "@/components/legal-layout";
+import { LEGAL } from "@/lib/legal";
 
 export default function ContactPage() {
   return (
@@ -8,19 +10,22 @@ export default function ContactPage() {
         support.
       </p>
 
+      <h2>Business</h2>
+      <LegalEntityBlock />
+
       <h2>Email</h2>
       <ul>
         <li>
           <strong>General support:</strong>{" "}
-          <a href="mailto:support@gentletap.co">support@gentletap.co</a>
+          <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a>
         </li>
         <li>
           <strong>Privacy &amp; data requests:</strong>{" "}
-          <a href="mailto:privacy@gentletap.co">privacy@gentletap.co</a>
+          <a href={`mailto:${LEGAL.privacyEmail}`}>{LEGAL.privacyEmail}</a>
         </li>
         <li>
           <strong>Legal &amp; terms:</strong>{" "}
-          <a href="mailto:legal@gentletap.co">legal@gentletap.co</a>
+          <a href={`mailto:${LEGAL.legalEmail}`}>{LEGAL.legalEmail}</a>
         </li>
       </ul>
 
@@ -30,18 +35,11 @@ export default function ContactPage() {
         are handled within 30 days as required by applicable law.
       </p>
 
-      <h2>Business</h2>
+      <h2>Billing</h2>
       <p>
-        GentleTap
-        <br />
-        Website:{" "}
-        <a href="https://gentletap.co" target="_blank" rel="noopener noreferrer">
-          https://gentletap.co
-        </a>
-      </p>
-      <p className="text-sm">
-        For billing receipts and tax invoices, refer to emails from Paddle (Merchant of Record) or
-        open the billing portal from your GentleTap account settings.
+        Paid subscriptions are sold by {LEGAL.paddleMoR} (Merchant of Record). For receipts and tax
+        invoices, refer to emails from Paddle or open the billing portal from your GentleTap account
+        settings.
       </p>
 
       <h2>Self-service</h2>
