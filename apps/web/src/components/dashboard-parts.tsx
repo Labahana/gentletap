@@ -116,6 +116,34 @@ export function InvoiceSourceBadge({ inv }: { inv: InvoiceItem }) {
   );
 }
 
+function showAddWhatsappButton(inv: InvoiceItem) {
+  if (inv.balance <= 0) return false;
+  if (inv.whatsapp_phone_missing !== undefined) return inv.whatsapp_phone_missing;
+  return !inv.reminder_phone && !inv.effective_reminder_phone;
+}
+
+function InvoiceRowActionButtons({ inv }: { inv: InvoiceItem }) {
+  const addWhatsapp = showAddWhatsappButton(inv);
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-1.5">
+      <Link
+        href={`/dashboard/invoices/${inv.id}`}
+        className="rounded-full border border-border bg-background px-2.5 py-1 text-[10px] font-medium hover:border-accent/40 hover:text-accent"
+      >
+        Manage invoice
+      </Link>
+      {addWhatsapp && (
+        <Link
+          href={`/dashboard/invoices/${inv.id}#reminder-contacts`}
+          className="rounded-full bg-green px-2.5 py-1 text-[10px] font-semibold text-white hover:opacity-90"
+        >
+          Add WhatsApp number
+        </Link>
+      )}
+    </div>
+  );
+}
+
 export function InvoiceOverviewRow({
   inv,
   onMarkPaid,
@@ -137,8 +165,6 @@ export function InvoiceOverviewRow({
   const statusClass = STATUS_COLOR[label] ?? "text-muted";
   const showMarkPaid =
     invoiceSourceOf(inv) === "upload" && inv.balance > 0 && onMarkPaid;
-  const showWhatsapp =
-    showWhatsappHints && inv.balance > 0 && inv.whatsapp_phone_missing;
 
   return (
     <div className="flex items-center gap-2 border-b border-border/60 py-2.5 last:border-0">
@@ -169,10 +195,7 @@ export function InvoiceOverviewRow({
               </span>
             )}
           </div>
-          <p className="truncate text-[11px] text-muted">
-            {invoiceMetaLine(inv)}
-            {showWhatsapp ? " · Add WhatsApp" : ""}
-          </p>
+          <p className="truncate text-[11px] text-muted">{invoiceMetaLine(inv)}</p>
         </div>
       </Link>
       <div className="flex shrink-0 flex-col items-end gap-1.5">
@@ -180,12 +203,7 @@ export function InvoiceOverviewRow({
           <p className="text-[13px] font-semibold tabular-nums">{formatMoney(inv.balance, inv.currency)}</p>
           <p className={`text-[11px] ${statusClass}`}>{invoiceStatusText(inv)}</p>
         </div>
-        <Link
-          href={`/dashboard/invoices/${inv.id}`}
-          className="rounded-full border border-border bg-background px-2.5 py-1 text-[10px] font-medium hover:border-accent/40 hover:text-accent"
-        >
-          Manage invoice
-        </Link>
+        <InvoiceRowActionButtons inv={inv} />
       </div>
       {showMarkPaid && (
         <button
@@ -222,8 +240,6 @@ export function InvoiceMobileCard({
   const badge = CHASE_BADGE[label];
   const showMarkPaid =
     invoiceSourceOf(inv) === "upload" && inv.balance > 0 && onMarkPaid;
-  const showWhatsapp =
-    showWhatsappHints && inv.balance > 0 && inv.whatsapp_phone_missing;
 
   return (
     <div className="border-b border-border/60 py-3 last:border-0">
@@ -252,31 +268,25 @@ export function InvoiceMobileCard({
             <div className="mt-1 flex items-center justify-between gap-2">
               <p className="truncate text-[10px] text-muted">
                 INV #{inv.doc_number ?? "—"} · {invoiceStatusText(inv).toLowerCase()}
-                {showWhatsapp ? " · Add WhatsApp" : ""}
               </p>
               <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${badge.className}`}>
                 {badge.label}
               </span>
             </div>
           </Link>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Link
-              href={`/dashboard/invoices/${inv.id}`}
-              className="rounded-full border border-border bg-background px-2.5 py-1 text-[10px] font-medium hover:border-accent/40 hover:text-accent"
-            >
-              Manage invoice
-            </Link>
-            {showMarkPaid && (
-              <button
-                type="button"
-                disabled={markPaidBusy === inv.id}
-                onClick={() => onMarkPaid(inv.id)}
-                className="rounded-full border border-border px-2.5 py-1 text-[10px] font-medium hover:bg-background disabled:opacity-50"
-              >
-                {markPaidBusy === inv.id ? "Marking paid…" : "Mark paid"}
-              </button>
-            )}
+          <div className="mt-2">
+            <InvoiceRowActionButtons inv={inv} />
           </div>
+          {showMarkPaid && (
+            <button
+              type="button"
+              disabled={markPaidBusy === inv.id}
+              onClick={() => onMarkPaid(inv.id)}
+              className="mt-2 rounded-full border border-border px-2.5 py-1 text-[10px] font-medium hover:bg-background disabled:opacity-50"
+            >
+              {markPaidBusy === inv.id ? "Marking paid…" : "Mark paid"}
+            </button>
+          )}
         </div>
       </div>
     </div>

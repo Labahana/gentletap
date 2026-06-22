@@ -330,7 +330,7 @@ export default function InvoiceDetailPage() {
 
             <div className="grid gap-4 lg:grid-cols-2">
               {/* Contacts */}
-              <div id="reminder-contacts" className="card !p-4">
+              <div id="reminder-contacts" className="card scroll-mt-20 !p-4">
                 <h2 className="text-sm font-semibold">Reminder contacts</h2>
                 <p className="mt-0.5 text-xs text-muted">
                   Email for reminders. Add the <span className="font-medium">client&apos;s</span> mobile for
