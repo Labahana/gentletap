@@ -15,6 +15,7 @@ import {
 import { DashIcon } from "@/components/dashboard-icons";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { DashboardUpgradeCard } from "@/components/upgrade-prompt";
+import { InvoiceDataSources } from "@/components/invoice-data-sources";
 import { api, getToken, type DashboardSummary, type InvoiceItem } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -44,6 +45,8 @@ export default function DashboardPage() {
   } | null>(null);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [escDismissed, setEscDismissed] = useState(false);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [uploadNote, setUploadNote] = useState<string | null>(null);
 
   useEffect(() => {
     const note = sessionStorage.getItem("onboarding_note");
@@ -107,6 +110,24 @@ export default function DashboardPage() {
       document.removeEventListener("visibilitychange", tick);
     };
   }, [user, load]);
+
+  async function handleUpload(file: File) {
+    const token = getToken();
+    if (!token) return;
+    setUploadBusy(true);
+    setUploadNote(null);
+    try {
+      const result = await api.importInvoicesCsv(token, file);
+      setUploadNote(
+        `Imported ${result.imported} invoice${result.imported === 1 ? "" : "s"} from spreadsheet.`,
+      );
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploadBusy(false);
+    }
+  }
 
   if (loading || !user) {
     return (
@@ -199,6 +220,10 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        <div className="mb-5">
+          <InvoiceDataSources onUpload={handleUpload} uploadBusy={uploadBusy} uploadNote={uploadNote} />
+        </div>
+
         {/* Metrics */}
         <div className="mb-5 lg:hidden">
           <MetricTile
@@ -288,10 +313,7 @@ export default function DashboardPage() {
               <p className="py-8 text-center text-sm text-muted">
                 {invoices.length === 0 ? (
                   <>
-                    No invoices yet.{" "}
-                    <Link href="/settings/integrations" className="text-accent underline">
-                      Connect QuickBooks
-                    </Link>
+                    No invoices yet. Connect QuickBooks or upload a spreadsheet using the options above.
                   </>
                 ) : (
                   "All caught up."

@@ -141,7 +141,7 @@ export function InvoiceOverviewRow({
     showWhatsappHints && inv.balance > 0 && inv.whatsapp_phone_missing;
 
   return (
-    <div className="flex items-center gap-2 border-b border-border/60 py-2 last:border-0">
+    <div className="flex items-center gap-2 border-b border-border/60 py-2.5 last:border-0">
       {selectable && onToggleSelect && inv.balance > 0 && invoiceSourceOf(inv) === "upload" && (
         <input
           type="checkbox"
@@ -153,7 +153,7 @@ export function InvoiceOverviewRow({
       )}
       <Link
         href={`/dashboard/invoices/${inv.id}`}
-        className="flex min-w-0 flex-1 items-center gap-2.5 hover:bg-background/40"
+        className="flex min-w-0 flex-1 items-center gap-2.5 hover:opacity-80"
       >
         <span className={`h-2 w-2 shrink-0 rounded-full ${DOT_COLOR[label]}`} aria-hidden />
         <div className="min-w-0 flex-1">
@@ -161,27 +161,38 @@ export function InvoiceOverviewRow({
             <p className="truncate text-[13px] font-medium">{inv.client_name}</p>
             <InvoiceSourceBadge inv={inv} />
             {inv.needs_attention && (
-              <span className="shrink-0 text-[10px] font-medium text-amber-700 dark:text-amber-300" title={inv.attention_label ?? ""}>
+              <span
+                className="shrink-0 text-[10px] font-medium text-amber-700 dark:text-amber-300"
+                title={inv.attention_label ?? ""}
+              >
                 ⚠
               </span>
             )}
-            {showWhatsapp && (
-              <span className="shrink-0 text-[10px] font-medium text-accent">Add WhatsApp</span>
-            )}
           </div>
-          <p className="truncate text-[11px] text-muted">{invoiceMetaLine(inv)}</p>
-        </div>
-        <div className="shrink-0 text-right">
-          <p className="text-[13px] font-medium tabular-nums">{formatMoney(inv.balance, inv.currency)}</p>
-          <p className={`text-[11px] ${statusClass}`}>{invoiceStatusText(inv)}</p>
+          <p className="truncate text-[11px] text-muted">
+            {invoiceMetaLine(inv)}
+            {showWhatsapp ? " · Add WhatsApp" : ""}
+          </p>
         </div>
       </Link>
+      <div className="flex shrink-0 flex-col items-end gap-1.5">
+        <div className="text-right">
+          <p className="text-[13px] font-semibold tabular-nums">{formatMoney(inv.balance, inv.currency)}</p>
+          <p className={`text-[11px] ${statusClass}`}>{invoiceStatusText(inv)}</p>
+        </div>
+        <Link
+          href={`/dashboard/invoices/${inv.id}`}
+          className="rounded-full border border-border bg-background px-2.5 py-1 text-[10px] font-medium hover:border-accent/40 hover:text-accent"
+        >
+          Manage invoice
+        </Link>
+      </div>
       {showMarkPaid && (
         <button
           type="button"
           disabled={markPaidBusy === inv.id}
           onClick={() => onMarkPaid(inv.id)}
-          className="shrink-0 rounded-lg border border-border px-2 py-1 text-[10px] font-medium hover:bg-background disabled:opacity-50"
+          className="shrink-0 rounded-full border border-border px-2 py-1 text-[10px] font-medium hover:bg-background disabled:opacity-50"
         >
           {markPaidBusy === inv.id ? "…" : "Mark paid"}
         </button>
@@ -215,7 +226,7 @@ export function InvoiceMobileCard({
     showWhatsappHints && inv.balance > 0 && inv.whatsapp_phone_missing;
 
   return (
-    <div className="border-b border-border/60 py-2.5 last:border-0">
+    <div className="border-b border-border/60 py-3 last:border-0">
       <div className="flex items-start gap-2">
         {selectable && onToggleSelect && inv.balance > 0 && invoiceSourceOf(inv) === "upload" && (
           <input
@@ -226,38 +237,48 @@ export function InvoiceMobileCard({
             aria-label={`Select invoice ${inv.doc_number ?? inv.id}`}
           />
         )}
-        <Link href={`/dashboard/invoices/${inv.id}`} className="block min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <p className="truncate text-[13px] font-medium">{inv.client_name}</p>
-              <InvoiceSourceBadge inv={inv} />
-              {inv.needs_attention && <span className="text-[10px] text-amber-700">⚠</span>}
+        <div className="min-w-0 flex-1">
+          <Link href={`/dashboard/invoices/${inv.id}`} className="block">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <p className="truncate text-[13px] font-medium">{inv.client_name}</p>
+                <InvoiceSourceBadge inv={inv} />
+                {inv.needs_attention && <span className="text-[10px] text-amber-700">⚠</span>}
+              </div>
+              <p className="shrink-0 text-[13px] font-semibold tabular-nums">
+                {formatMoney(inv.balance, inv.currency)}
+              </p>
             </div>
-            <p className="shrink-0 text-[13px] font-medium tabular-nums">{formatMoney(inv.balance, inv.currency)}</p>
+            <div className="mt-1 flex items-center justify-between gap-2">
+              <p className="truncate text-[10px] text-muted">
+                INV #{inv.doc_number ?? "—"} · {invoiceStatusText(inv).toLowerCase()}
+                {showWhatsapp ? " · Add WhatsApp" : ""}
+              </p>
+              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${badge.className}`}>
+                {badge.label}
+              </span>
+            </div>
+          </Link>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Link
+              href={`/dashboard/invoices/${inv.id}`}
+              className="rounded-full border border-border bg-background px-2.5 py-1 text-[10px] font-medium hover:border-accent/40 hover:text-accent"
+            >
+              Manage invoice
+            </Link>
+            {showMarkPaid && (
+              <button
+                type="button"
+                disabled={markPaidBusy === inv.id}
+                onClick={() => onMarkPaid(inv.id)}
+                className="rounded-full border border-border px-2.5 py-1 text-[10px] font-medium hover:bg-background disabled:opacity-50"
+              >
+                {markPaidBusy === inv.id ? "Marking paid…" : "Mark paid"}
+              </button>
+            )}
           </div>
-          <div className="mt-1 flex items-center justify-between gap-2">
-            <p className="truncate text-[10px] text-muted">
-              INV #{inv.doc_number ?? "—"} · {invoiceStatusText(inv).toLowerCase()}
-            </p>
-            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${badge.className}`}>
-              {badge.label}
-            </span>
-          </div>
-          {showWhatsapp && (
-            <p className="mt-1 text-[10px] font-medium text-accent">Add WhatsApp number →</p>
-          )}
-        </Link>
+        </div>
       </div>
-      {showMarkPaid && (
-        <button
-          type="button"
-          disabled={markPaidBusy === inv.id}
-          onClick={() => onMarkPaid(inv.id)}
-          className="mt-2 rounded-lg border border-border px-2.5 py-1 text-[10px] font-medium hover:bg-background disabled:opacity-50"
-        >
-          {markPaidBusy === inv.id ? "Marking paid…" : "Mark paid"}
-        </button>
-      )}
     </div>
   );
 }

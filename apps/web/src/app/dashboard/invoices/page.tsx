@@ -297,53 +297,47 @@ export default function InvoicesPage() {
           <div>
             <h1 className="text-base font-medium lg:text-[16px]">Invoices</h1>
             <p className="mt-0.5 text-[11px] text-muted">
-              QuickBooks invoices sync automatically. Uploaded spreadsheets need manual updates.
+              {invoices.length} invoice{invoices.length === 1 ? "" : "s"} ·{" "}
+              <Link href="/dashboard" className="text-accent hover:underline">
+                Add more on Overview
+              </Link>
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".csv,.xlsx,.xls"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) void handleUpload(file);
-              }}
-            />
-            <button
-              type="button"
-              className="btn-secondary py-1.5 text-xs"
-              disabled={uploadBusy}
-              onClick={() => fileRef.current?.click()}
-            >
-              {uploadBusy ? "Uploading…" : "Upload CSV"}
-            </button>
-            {uploadUnpaid.length > 0 && (
-              <button
-                type="button"
-                className="btn-secondary py-1.5 text-xs"
-                onClick={() => {
-                  setBulkMode((v) => !v);
-                  setSelectedIds(new Set());
+          {(uploadUnpaid.length > 0 || importHistory.length > 0) && (
+            <div className="flex flex-wrap gap-2">
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void handleUpload(file);
                 }}
-              >
-                {bulkMode ? "Cancel bulk" : "Bulk mark paid"}
-              </button>
-            )}
-            {importHistory.length > 0 && (
-              <button
-                type="button"
-                className="btn-secondary py-1.5 text-xs"
-                onClick={() => setShowImportHistory((v) => !v)}
-              >
-                {showImportHistory ? "Hide uploads" : "Upload history"}
-              </button>
-            )}
-            <Link href="/settings/integrations" className="btn-primary py-1.5 text-xs">
-              Connect QuickBooks
-            </Link>
-          </div>
+              />
+              {uploadUnpaid.length > 0 && (
+                <button
+                  type="button"
+                  className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium hover:bg-background"
+                  onClick={() => {
+                    setBulkMode((v) => !v);
+                    setSelectedIds(new Set());
+                  }}
+                >
+                  {bulkMode ? "Cancel bulk" : "Bulk mark paid"}
+                </button>
+              )}
+              {importHistory.length > 0 && (
+                <button
+                  type="button"
+                  className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium hover:bg-background"
+                  onClick={() => setShowImportHistory((v) => !v)}
+                >
+                  {showImportHistory ? "Hide history" : "Upload history"}
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {showImportHistory && importHistory.length > 0 && (
@@ -430,10 +424,10 @@ export default function InvoicesPage() {
                 {invoices.length === 0 ? (
                   <>
                     No invoices yet.{" "}
-                    <Link href="/settings/integrations" className="text-accent underline">
-                      Connect QuickBooks
-                    </Link>{" "}
-                    or upload a CSV.
+                    <Link href="/dashboard" className="text-accent underline">
+                      Add invoices on Overview
+                    </Link>
+                    .
                   </>
                 ) : (
                   "No invoices match this filter."
