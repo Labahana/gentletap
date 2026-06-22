@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from gentletap.database import Client, Invoice, QuickBooksConnection, SyncLog
 from gentletap.integrations.quickbooks import client as qb_client
+from gentletap.integrations.quickbooks.invoice_fields import payment_link_from_qb
 from gentletap.utils.redis_client import set_json
 
 
@@ -141,6 +142,7 @@ def sync_unpaid_invoices(db: Session, user_id: UUID) -> dict:
             qb_last_updated = None
             if meta.get("LastUpdatedTime"):
                 qb_last_updated = datetime.fromisoformat(meta["LastUpdatedTime"].replace("Z", "+00:00"))
+            payment_link = payment_link_from_qb(qb_invoice)
 
             if invoice_row is None:
                 invoice_row = Invoice(
@@ -155,6 +157,7 @@ def sync_unpaid_invoices(db: Session, user_id: UUID) -> dict:
                     due_date=due_date,
                     days_overdue=days_overdue,
                     status=status,
+                    payment_link=payment_link,
                     qb_last_updated=qb_last_updated,
                 )
                 db.add(invoice_row)
@@ -167,6 +170,7 @@ def sync_unpaid_invoices(db: Session, user_id: UUID) -> dict:
                 invoice_row.due_date = due_date
                 invoice_row.days_overdue = days_overdue
                 invoice_row.status = status
+                invoice_row.payment_link = payment_link
                 invoice_row.qb_last_updated = qb_last_updated
 
             synced += 1

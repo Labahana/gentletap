@@ -24,6 +24,12 @@ def _contains_banned(text: str) -> bool:
     return any(phrase in lower for phrase in BANNED_PHRASES)
 
 
+def _payment_link_line(payment_link: str | None) -> str:
+    if not payment_link:
+        return ""
+    return f"\n\nPay online: {payment_link}"
+
+
 def _fallback_message(ctx: ReminderContext, tone: Tone) -> GeneratedMessage:
     inv = ctx.invoice
     due_str = inv.due_date.strftime("%B %d, %Y") if inv.due_date else "the due date"
@@ -36,7 +42,8 @@ def _fallback_message(ctx: ReminderContext, tone: Tone) -> GeneratedMessage:
         f"This is a reminder that invoice #{inv.doc_number} for ${inv.balance:,.2f} "
         f"was due on {due_str}{overdue}.\n\n"
         f"{_tone_instruction(tone).capitalize()}.\n\n"
-        f"Please let me know if you have any questions.\n\nBest regards"
+        f"Please let me know if you have any questions."
+        f"{_payment_link_line(inv.payment_link)}\n\nBest regards"
     )
     return GeneratedMessage(subject=subject, body=body)
 
@@ -83,8 +90,13 @@ def generate_message(
         f"Late payment rate: {profile.late_payment_rate:.0%}\n"
         f"Client tenure: {profile.tenure_months} months\n"
         f"Tone: {_tone_instruction(tone)}\n"
-        "Write the reminder email."
     )
+    if inv.payment_link:
+        user += (
+            f"Payment link (include this URL in the email so the client can pay online): "
+            f"{inv.payment_link}\n"
+        )
+    user += "Write the reminder email."
 
     for _ in range(2):
         model = (

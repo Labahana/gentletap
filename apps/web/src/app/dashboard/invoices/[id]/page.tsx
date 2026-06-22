@@ -100,6 +100,22 @@ export default function InvoiceDetailPage() {
                 <p className="text-xs uppercase text-muted">Due date</p>
                 <p>{invoice.due_date ?? "—"}</p>
               </div>
+              {invoice.payment_link && invoice.balance > 0 && (
+                <div className="sm:col-span-2">
+                  <p className="text-xs uppercase text-muted">QuickBooks pay link</p>
+                  <a
+                    href={invoice.payment_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 inline-block text-sm font-medium text-accent hover:underline"
+                  >
+                    Open payment page →
+                  </a>
+                  <p className="mt-1 text-xs text-muted">
+                    Included in reminder emails when available from QuickBooks.
+                  </p>
+                </div>
+              )}
             </div>
 
             {invoice.client_claimed_paid_at && invoice.balance > 0 && (

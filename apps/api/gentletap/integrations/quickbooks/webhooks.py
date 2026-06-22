@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from gentletap.config import get_settings
 from gentletap.database import IntegrationWebhookEvent, QuickBooksConnection
 from gentletap.integrations.quickbooks import client as qb_client
+from gentletap.integrations.quickbooks.invoice_fields import payment_link_from_qb
 from gentletap.services.payments import apply_invoice_balance_update
 
 
@@ -113,6 +114,8 @@ def _handle_invoice_event(db: Session, connection: QuickBooksConnection, invoice
         qb_invoice_id=str(invoice_id),
         balance=balance,
         notify=balance <= 0,
+        payment_link=payment_link_from_qb(row),
+        sync_payment_link=True,
     )
 
 

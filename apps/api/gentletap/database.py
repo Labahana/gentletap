@@ -260,6 +260,7 @@ class Invoice(Base, TimestampMixin):
     client_claimed_paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_reminder_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    payment_link: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     qb_last_updated: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     client: Mapped["Client"] = relationship("Client", lazy="joined")

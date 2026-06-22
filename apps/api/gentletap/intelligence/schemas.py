@@ -55,6 +55,7 @@ class InvoiceContext(BaseModel):
     dispute_flag: bool = False
     sequence_paused: bool = False
     approved: bool = False
+    payment_link: str | None = None
 
 
 class ReminderContext(BaseModel):

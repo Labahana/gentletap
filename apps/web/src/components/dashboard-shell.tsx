@@ -16,6 +16,7 @@ import {
 } from "@tabler/icons-react";
 import { DashIcon, type IconProps } from "@/components/dashboard-icons";
 import { Logo } from "@/components/logo";
+import { MobileUpgradeStrip, SidebarUpgradeNote } from "@/components/upgrade-prompt";
 import { useAuth } from "@/lib/auth-context";
 import { planLabel } from "@/lib/pricing";
 
@@ -155,15 +156,6 @@ function SidebarFooter({
         </div>
       </button>
 
-      {user.plan === "free" && (
-        <Link
-          href="/settings/billing"
-          className="mt-2 block w-full rounded-lg border border-border py-1.5 text-center text-[11px] hover:bg-background"
-        >
-          Upgrade to Pro $19/mo
-        </Link>
-      )}
-
       {open && (
         <div className="absolute bottom-full left-3 right-3 z-50 mb-1 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
           <Link href="/settings/profile" onClick={() => setOpen(false)} className="block px-4 py-2 text-sm hover:bg-background">
@@ -198,6 +190,9 @@ export function DashboardShell({
   monthlyUsed?: number;
   monthlyLimit?: number;
 }) {
+  const { user } = useAuth();
+  const showMobileUpgrade = user?.plan === "free";
+
   return (
     <div className="flex min-h-screen bg-background">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[196px] flex-col border-r border-border bg-card lg:flex">
@@ -221,23 +216,27 @@ export function DashboardShell({
           ))}
         </nav>
 
+        <SidebarUpgradeNote monthlyLimit={monthlyLimit} />
         <SidebarFooter monthlyUsed={monthlyUsed} monthlyLimit={monthlyLimit} />
       </aside>
 
       <main className="min-w-0 flex-1 lg:ml-[196px]">
-        <div className="pb-[72px] lg:pb-0">{children}</div>
+        <div className={showMobileUpgrade ? "pb-[118px] lg:pb-0" : "pb-[72px] lg:pb-0"}>{children}</div>
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-card px-0.5 pb-[env(safe-area-inset-bottom)] pt-1.5 lg:hidden">
-        {MOBILE.map((item) => (
-          <NavLink
-            key={item.href}
-            item={item}
-            variant="bottom"
-            badge={item.href === "/dashboard/alerts" ? alertCount : undefined}
-          />
-        ))}
-      </nav>
+      <div className="fixed inset-x-0 bottom-0 z-40 lg:hidden">
+        <MobileUpgradeStrip monthlyUsed={monthlyUsed} monthlyLimit={monthlyLimit} />
+        <nav className="flex border-t border-border bg-card px-0.5 pb-[env(safe-area-inset-bottom)] pt-1.5">
+          {MOBILE.map((item) => (
+            <NavLink
+              key={item.href}
+              item={item}
+              variant="bottom"
+              badge={item.href === "/dashboard/alerts" ? alertCount : undefined}
+            />
+          ))}
+        </nav>
+      </div>
     </div>
   );
 }

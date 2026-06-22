@@ -141,6 +141,7 @@ def preview_overdue_invoices(db: Session, user_id: UUID, limit: int = 10) -> lis
                     "tone": draft.tone,
                     "channel": draft.channel,
                     "whatsapp_followup": wa_followup,
+                    "payment_link": inv.payment_link,
                 }
             )
         except ValueError as exc:

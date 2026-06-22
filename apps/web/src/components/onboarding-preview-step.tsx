@@ -142,8 +142,14 @@ type Props = {
   previews: ReminderPreviewItem[];
   senderLabel: string;
   loading?: boolean;
+  activating?: boolean;
+  busyPlan?: string | null;
+  checkoutAvailable?: boolean;
+  freeMonthlyLimit?: number;
+  error?: string | null;
   onBack: () => void;
-  onContinue: () => void;
+  onGoLive: () => void;
+  onUpgrade?: () => void;
 };
 
 export function OnboardingPreviewStep({
@@ -153,14 +159,26 @@ export function OnboardingPreviewStep({
   previews,
   senderLabel,
   loading,
+  activating,
+  busyPlan,
+  freeMonthlyLimit = 5,
+  error,
   onBack,
-  onContinue,
+  onGoLive,
+  onUpgrade,
 }: Props) {
   const [showAll, setShowAll] = useState(false);
   const featured = pickFeaturedPreview(previews);
   const display = featured ?? EXAMPLE_PREVIEW;
   const note = toneNote(display);
   const moreCount = Math.max(invoiceCount - 1, 0);
+
+  const goLiveLabel =
+    invoiceCount > freeMonthlyLimit
+      ? `Turn on autopilot — ${freeMonthlyLimit} of ${invoiceCount} invoices`
+      : invoiceCount > 0
+        ? `Turn on autopilot — all ${invoiceCount} invoices`
+        : "Turn on autopilot";
 
   return (
     <div className="space-y-6">
@@ -216,13 +234,38 @@ export function OnboardingPreviewStep({
 
       <SequenceTimeline />
 
-      <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-between">
-        <button type="button" className="btn-secondary w-full sm:w-auto" onClick={onBack}>
-          Back
-        </button>
-        <button type="button" className="btn-primary w-full sm:w-auto" disabled={loading} onClick={onContinue}>
-          {loading ? "Loading…" : "Continue to plans"}
-        </button>
+      {error && (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+      )}
+
+      <div className="space-y-3 pt-2">
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+          <button type="button" className="btn-secondary w-full sm:w-auto" onClick={onBack} disabled={activating || Boolean(busyPlan)}>
+            Back
+          </button>
+          <button
+            type="button"
+            className="btn-primary w-full sm:w-auto"
+            disabled={loading || activating || Boolean(busyPlan)}
+            onClick={onGoLive}
+          >
+            {activating ? "Turning on autopilot…" : goLiveLabel}
+          </button>
+        </div>
+        {onUpgrade && (
+          <p className="text-center text-sm text-muted">
+            {busyPlan ? (
+              <span className="animate-pulse">Redirecting to checkout…</span>
+            ) : (
+              <>
+                On the free plan — up to {freeMonthlyLimit} invoices/month.{" "}
+                <button type="button" className="font-medium text-accent hover:underline" onClick={onUpgrade}>
+                  Upgrade
+                </button>
+              </>
+            )}
+          </p>
+        )}
       </div>
     </div>
   );

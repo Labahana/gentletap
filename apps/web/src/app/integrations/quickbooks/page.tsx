@@ -17,6 +17,7 @@ export default function QuickBooksIntegrationPage() {
       <ul>
         <li>Read invoices, balances, due dates, and payment status</li>
         <li>Read customer names, email addresses, and phone numbers for reminders</li>
+        <li>Read QuickBooks hosted payment links when your invoices have online payments enabled</li>
         <li>Detect when an invoice is paid so follow-ups stop</li>
       </ul>
       <p>

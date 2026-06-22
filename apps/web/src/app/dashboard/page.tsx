@@ -14,6 +14,7 @@ import {
 } from "@/components/dashboard-parts";
 import { DashIcon } from "@/components/dashboard-icons";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { DashboardUpgradeCard } from "@/components/upgrade-prompt";
 import { api, getToken, type DashboardSummary, type InvoiceItem } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -153,6 +154,11 @@ export default function DashboardPage() {
           </div>
           <NotifBell href="/dashboard/alerts" unread={unreadAlerts} />
         </div>
+
+        <DashboardUpgradeCard
+          monthlyUsed={summary?.monthly_collections?.monthly_used}
+          monthlyLimit={summary?.monthly_collections?.monthly_limit}
+        />
 
         {onboardingWelcome && (
           <div className="mb-4 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-4">

@@ -222,17 +222,17 @@ export function OnboardingEmailStep({ userEmail, onBack, onContinue, onConnectGm
   let primaryDisabled = !choice || busy;
 
   if (choice === "platform") {
-    primaryLabel = busy ? "Saving…" : "Continue to preview";
+    primaryLabel = busy ? "Saving…" : "Continue to go live";
     primaryDisabled = busy || !setup?.platform_available;
-  } else   if (choice === "google") {
-    primaryLabel = setup?.google_connected ? (busy ? "Continuing…" : "Continue to preview") : "Connect Gmail";
+  } else if (choice === "google") {
+    primaryLabel = setup?.google_connected ? (busy ? "Continuing…" : "Continue to go live") : "Connect Gmail";
     primaryDisabled = busy;
   } else if (choice === "domain") {
     if (domainPhase === "input") {
       primaryLabel = busy ? "Setting up…" : "Continue to DNS setup";
       primaryDisabled = busy || !domainInput.trim();
     } else if (domainPhase === "dns") {
-      primaryLabel = busy ? "Continuing…" : "Continue to preview";
+      primaryLabel = busy ? "Continuing…" : "Continue to go live";
       primaryDisabled = busy;
     }
   }

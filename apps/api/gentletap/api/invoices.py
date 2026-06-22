@@ -195,6 +195,7 @@ def invoice_detail(invoice_id: UUID, user: CurrentUser, db: Session = Depends(ge
         "sequence_step": inv.sequence_step,
         "dispute_flag": inv.dispute_flag,
         "due_date": inv.due_date.isoformat() if inv.due_date else None,
+        "payment_link": inv.payment_link,
         "client_claimed_paid_at": inv.client_claimed_paid_at.isoformat() if inv.client_claimed_paid_at else None,
         "reminders": [
             {

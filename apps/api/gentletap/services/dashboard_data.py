@@ -120,6 +120,7 @@ def enrich_invoice_row(inv: Invoice, last_msg: ReminderMessage | None) -> dict:
         "sequence_step": inv.sequence_step,
         "dispute_flag": inv.dispute_flag,
         "due_date": inv.due_date.isoformat() if inv.due_date else None,
+        "payment_link": inv.payment_link,
         "chase_label": invoice_chase_label(inv),
         "status_text": invoice_status_text(inv),
         "meta_line": invoice_meta_line(inv, last_msg),

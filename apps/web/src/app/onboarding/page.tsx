@@ -6,18 +6,14 @@ import { OnboardingEmailStep } from "@/components/onboarding-email-step";
 import { OnboardingImportStep } from "@/components/onboarding-import-step";
 import { OnboardingPreviewStep } from "@/components/onboarding-preview-step";
 import { OnboardingInfoBox, OnboardingLoadingOverlay, OnboardingShell } from "@/components/onboarding-shell";
-import { PricingGrid } from "@/components/pricing-grid";
 import { api, getToken, type ReminderPreviewItem } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { formatMoney } from "@/lib/onboarding";
-import type { PlanFeature } from "@/lib/pricing";
 
 const STEPS = [
   { id: "profile", label: "Your Profile", subtitle: "Name, company & logo" },
   { id: "import", label: "Import Invoices", subtitle: "QuickBooks or spreadsheet" },
   { id: "email", label: "Email Setup", subtitle: "Send from your inbox" },
-  { id: "preview", label: "Preview", subtitle: "See your first reminder" },
-  { id: "invoice", label: "Go Live", subtitle: "Pick a plan & turn on autopilot" },
+  { id: "invoice", label: "Go Live", subtitle: "Turn on autopilot" },
 ];
 
 function backendToView(onboardingStep: string): { macro: number } {
@@ -32,9 +28,8 @@ function backendToView(onboardingStep: string): { macro: number } {
       return { macro: 2 };
     case "preview":
     case "import":
-      return { macro: 3 };
     case "pricing":
-      return { macro: 4 };
+      return { macro: 3 };
     default:
       return { macro: 0 };
   }
@@ -60,14 +55,11 @@ function stepHeading(macro: number): { title: string; description: string } {
   }
   if (macro === 3) {
     return {
-      title: "Preview",
+      title: "Go Live",
       description: "",
     };
   }
-  return {
-    title: "Go Live",
-    description: "Pick a plan and turn on autopilot — sequences stop when invoices are marked paid.",
-  };
+  return { title: "Go Live", description: "" };
 }
 
 const FREE_MONTHLY_LIMIT = 5;
@@ -152,6 +144,8 @@ function OnboardingContent() {
   const [senderEmail, setSenderEmail] = useState<string | null>(null);
   const [activating, setActivating] = useState(false);
   const [previewsLoading, setPreviewsLoading] = useState(false);
+  const [checkoutAvailable, setCheckoutAvailable] = useState(false);
+  const [busyPlan, setBusyPlan] = useState<string | null>(null);
   const [importSummary, setImportSummary] = useState<ImportSummary>({
     count: 0,
     total: 0,
@@ -160,10 +154,6 @@ function OnboardingContent() {
     oldestDays: 0,
     avgDays: 0,
   });
-  const [plans, setPlans] = useState<PlanFeature[]>([]);
-  const [checkoutAvailable, setCheckoutAvailable] = useState(false);
-  const [annual, setAnnual] = useState(false);
-  const [busyPlan, setBusyPlan] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) router.replace("/signup");
@@ -224,8 +214,8 @@ function OnboardingContent() {
     } else if (paid === "1") {
       router.replace("/onboarding");
     } else if (checkout === "cancelled") {
-      setMacroStep(4);
-      setEmailError("Checkout cancelled — pick a plan or start free.");
+      setMacroStep(3);
+      setEmailError("Checkout cancelled — you can turn on autopilot free or upgrade anytime.");
       router.replace("/onboarding");
     }
   }, [searchParams, router, refresh]);
@@ -242,7 +232,7 @@ function OnboardingContent() {
         await new Promise((r) => setTimeout(r, 2000));
       }
       await refresh();
-      setMacroStep(4);
+      setMacroStep(3);
       try {
         const result = await api.onboardingActivate(token);
         await refresh();
@@ -343,18 +333,12 @@ function OnboardingContent() {
   useEffect(() => {
     if (macroStep !== 3) return;
     void loadPreviewDrafts();
-  }, [macroStep, loadPreviewDrafts]);
-
-  useEffect(() => {
-    if (macroStep !== 4) return;
     const token = getToken();
     if (!token) return;
     api.billingStatus(token).then((s) => {
-      setPlans(s.plans);
       setCheckoutAvailable(s.checkout_available);
-    });
-    pollImportStatus();
-  }, [macroStep, pollImportStatus]);
+    }).catch(() => {});
+  }, [macroStep, loadPreviewDrafts]);
 
   function storeWelcome(result: {
     activated: number;
@@ -426,13 +410,35 @@ function OnboardingContent() {
     setMacroStep(3);
   }
 
-  async function continueToGoLive() {
+  async function goLive() {
     const token = getToken();
-    if (token) {
+    if (!token) return;
+    setActivating(true);
+    setEmailError(null);
+    try {
       await api.advanceOnboardingPricing(token);
+      const result = await api.onboardingActivate(token);
       await refresh();
+      storeWelcome(result);
+      router.push("/dashboard");
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : "Could not activate reminders");
+      setActivating(false);
     }
-    setMacroStep(4);
+  }
+
+  async function upgradeFromOnboarding() {
+    const token = getToken();
+    if (!token) return;
+    setEmailError(null);
+    setBusyPlan("pro");
+    try {
+      const { checkout_url } = await api.billingCheckout(token, "pro", "month", "onboarding");
+      window.location.href = checkout_url;
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : "Checkout failed");
+      setBusyPlan(null);
+    }
   }
 
   async function saveProfile(e: React.FormEvent) {
@@ -490,36 +496,6 @@ function OnboardingContent() {
     reader.readAsDataURL(file);
   }
 
-  async function activateFree() {
-    const token = getToken();
-    if (!token) return;
-    setActivating(true);
-    setEmailError(null);
-    try {
-      const result = await api.onboardingActivate(token);
-      await refresh();
-      storeWelcome(result);
-      router.push("/dashboard");
-    } catch (err) {
-      setEmailError(err instanceof Error ? err.message : "Could not activate reminders");
-      setActivating(false);
-    }
-  }
-
-  async function checkoutPaid(plan: "pro" | "pro_plus" | "team") {
-    const token = getToken();
-    if (!token) return;
-    setEmailError(null);
-    setBusyPlan(plan);
-    try {
-      const { checkout_url } = await api.billingCheckout(token, plan, annual ? "year" : "month", "onboarding");
-      window.location.href = checkout_url;
-    } catch (err) {
-      setEmailError(err instanceof Error ? err.message : "Checkout failed");
-      setBusyPlan(null);
-    }
-  }
-
   if (loading || !user) {
     return <OnboardingLoadingOverlay />;
   }
@@ -533,10 +509,6 @@ function OnboardingContent() {
   }
 
   function goBack() {
-    if (macroStep === 4) {
-      setMacroStep(3);
-      return;
-    }
     if (macroStep === 3) {
       setMacroStep(2);
       return;
@@ -545,7 +517,6 @@ function OnboardingContent() {
   }
 
   const invoiceCount = importSummary.count;
-  const showProHighlight = invoiceCount > FREE_MONTHLY_LIMIT;
   const senderLabel = (() => {
     if (senderEmail && senderEmail.includes("<")) return senderEmail;
     const name = emailDisplayName || user.full_name || user.email.split("@")[0];
@@ -569,7 +540,7 @@ function OnboardingContent() {
       onStepSelect={goToStep}
       title={content.title}
       description={content.description}
-      wide={macroStep === 3 || macroStep === 4}
+      wide={macroStep === 3}
     >
         {macroStep === 0 && (
           <form className="space-y-5" onSubmit={saveProfile}>
@@ -679,74 +650,20 @@ function OnboardingContent() {
 
         {macroStep === 3 && (
           <OnboardingPreviewStep
-            invoiceCount={invoiceCount}
-            totalOutstanding={importSummary.total}
-            avgDays={importSummary.avgDays}
-            previews={previews}
-            senderLabel={senderLabel}
-            loading={previewsLoading}
-            onBack={goBack}
-            onContinue={continueToGoLive}
-          />
-        )}
-
-        {macroStep === 4 && (
-          <div className="space-y-6">
-            {invoiceCount > 0 && (
-              <div className="rounded-xl border border-border bg-background p-6 text-center">
-                <p className="text-lg font-semibold">
-                  Turn on autopilot for {formatMoney(importSummary.total)} outstanding
-                </p>
-                <p className="mt-1 text-sm text-muted">
-                  {invoiceCount} invoice{invoiceCount === 1 ? "" : "s"} · sequences stop automatically when invoices are
-                  marked paid
-                </p>
-              </div>
-            )}
-
-            {emailError && (
-              <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{emailError}</p>
-            )}
-            {!checkoutAvailable && (
-              <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                Paid checkout isn&apos;t configured yet — start free to activate up to {FREE_MONTHLY_LIMIT} invoices.
-              </p>
-            )}
-
-            <div className="text-center">
-              <h3 className="text-2xl font-bold">Simple, transparent pricing</h3>
-              <p className="mt-2 text-muted">
-                Start free. One recovered invoice pays for months of GentleTap.
-              </p>
-            </div>
-
-            <PricingGrid
-              plans={plans}
-              currentPlan="free"
-              annual={annual}
-              onToggleAnnual={() => setAnnual((v) => !v)}
-              onSelectFree={activateFree}
-              freeCta={
-                invoiceCount > FREE_MONTHLY_LIMIT
-                  ? `Start free — ${FREE_MONTHLY_LIMIT} of ${invoiceCount} invoices this month`
-                  : invoiceCount > 0
-                    ? `Turn on autopilot — all ${invoiceCount} invoices`
-                    : "Turn on autopilot"
-              }
-              onSelectPlan={checkoutAvailable ? checkoutPaid : undefined}
-              highlightPlan={showProHighlight ? "pro" : "pro_plus"}
               invoiceCount={invoiceCount}
-            />
-
-            {activating && (
-              <p className="text-center text-sm text-muted animate-pulse">Turning on autopilot…</p>
-            )}
-            {busyPlan && (
-              <p className="text-center text-sm text-muted animate-pulse">Redirecting to checkout…</p>
-            )}
-
-            <OnboardingNavFooter onBack={goBack} />
-          </div>
+              totalOutstanding={importSummary.total}
+              avgDays={importSummary.avgDays}
+              previews={previews}
+              senderLabel={senderLabel}
+              loading={previewsLoading}
+              activating={activating}
+              busyPlan={busyPlan}
+              error={emailError}
+              freeMonthlyLimit={FREE_MONTHLY_LIMIT}
+              onBack={goBack}
+              onGoLive={goLive}
+              onUpgrade={checkoutAvailable ? upgradeFromOnboarding : undefined}
+          />
         )}
     </OnboardingShell>
   );

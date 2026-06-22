@@ -69,6 +69,7 @@ export type InvoiceItem = {
   meta_line?: string;
   last_reminder_at?: string | null;
   last_reminder_channel?: string | null;
+  payment_link?: string | null;
 };
 
 export type DashboardActivity = {

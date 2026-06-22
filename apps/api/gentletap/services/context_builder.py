@@ -53,6 +53,7 @@ def invoice_context_from_row(invoice: Invoice) -> InvoiceContext:
         dispute_flag=invoice.dispute_flag,
         sequence_paused=invoice.sequence_paused,
         approved=invoice.sequence_approved,
+        payment_link=invoice.payment_link,
     )
 
 

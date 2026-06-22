@@ -17,6 +17,8 @@ def apply_invoice_balance_update(
     qb_invoice_id: str,
     balance: Decimal,
     notify: bool = True,
+    payment_link: str | None = None,
+    sync_payment_link: bool = False,
 ) -> Invoice | None:
     invoice = (
         db.query(Invoice)
@@ -28,6 +30,8 @@ def apply_invoice_balance_update(
 
     was_unpaid = float(invoice.balance) > 0
     invoice.balance = balance
+    if sync_payment_link:
+        invoice.payment_link = payment_link
     recalculate_invoice_status(invoice)
 
     if balance <= 0 and was_unpaid:

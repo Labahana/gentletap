@@ -159,7 +159,7 @@ export function OnboardingImportStep({
   let primaryDisabled = !choice;
 
   if (phase === "results") {
-    primaryLabel = importSyncing ? "Syncing…" : "Continue to email setup";
+    primaryLabel = importSyncing ? "Syncing…" : "Connect email to send reminders";
     primaryDisabled = Boolean(importSyncing);
   } else if (choice === "quickbooks") {
     if (importSyncing) {
