@@ -70,6 +70,14 @@ export type InvoiceItem = {
   last_reminder_at?: string | null;
   last_reminder_channel?: string | null;
   payment_link?: string | null;
+  source?: "quickbooks" | "upload";
+  source_label?: string;
+  needs_attention?: boolean;
+  attention_reason?: string | null;
+  attention_label?: string | null;
+  reminder_phone?: string | null;
+  effective_reminder_phone?: string | null;
+  whatsapp_phone_missing?: boolean;
 };
 
 export type DashboardActivity = {
@@ -136,6 +144,11 @@ export type DashboardSummary = {
   collected_last_month?: number;
   avg_days_delta?: number | null;
   avg_days_last_month?: number | null;
+  sources?: {
+    quickbooks_count: number;
+    upload_count: number;
+    upload_needs_attention: number;
+  };
 };
 
 export type ClientListItem = {
@@ -506,11 +519,66 @@ export const api = {
   resumeInvoice: (token: string, id: string) =>
     request<{ status: string }>(`/invoices/${id}/resume`, { method: "POST" }, token),
 
+  markInvoicePaid: (token: string, id: string) =>
+    request<{ status: string; balance: number }>(`/invoices/${id}/mark-paid`, { method: "POST" }, token),
+
+  updateInvoice: (
+    token: string,
+    id: string,
+    body: { balance?: number; due_date?: string; payment_link?: string; clear_payment_link?: boolean },
+  ) =>
+    request<{ status: string; balance: number; due_date: string | null; payment_link: string | null }>(
+      `/invoices/${id}`,
+      { method: "PATCH", body: JSON.stringify(body) },
+      token,
+    ),
+
+  updateInvoiceContacts: (
+    token: string,
+    id: string,
+    body: { reminder_phone?: string; clear_reminder_phone?: boolean; client_email?: string },
+  ) =>
+    request<{
+      status: string;
+      reminder_email: string | null;
+      reminder_phone: string | null;
+      effective_reminder_phone: string | null;
+      whatsapp_phone_missing: boolean;
+      client: { email: string | null; phone: string | null };
+    }>(`/invoices/${id}/contacts`, { method: "PATCH", body: JSON.stringify(body) }, token),
+
+  bulkMarkInvoicesPaid: (token: string, invoiceIds: string[]) =>
+    request<{ paid_count: number; paid: string[]; errors: Array<{ invoice_id: string; error: string }> }>(
+      "/invoices/bulk-mark-paid",
+      { method: "POST", body: JSON.stringify({ invoice_ids: invoiceIds }) },
+      token,
+    ),
+
+  importHistory: (token: string) =>
+    request<{
+      items: Array<{
+        id: string;
+        filename: string;
+        imported_count: number;
+        skipped_count: number;
+        total_outstanding: number;
+        columns_found: string[];
+        created_at: string;
+      }>;
+    }>("/invoices/import-history", {}, token),
+
+  updateClient: (token: string, id: string, body: { email?: string; phone?: string }) =>
+    request<ClientDetail>(`/clients/${id}`, { method: "PATCH", body: JSON.stringify(body) }, token),
+
   invoiceDetail: (token: string, id: string) =>
     request<{
       id: string;
       doc_number: string | null;
-      client: { name: string; email: string | null; phone: string | null };
+      client: { id: string | null; name: string; email: string | null; phone: string | null };
+      reminder_email: string | null;
+      reminder_phone: string | null;
+      effective_reminder_phone: string | null;
+      whatsapp_phone_missing: boolean;
       amount: number;
       balance: number;
       currency: string;
@@ -522,6 +590,13 @@ export const api = {
       dispute_flag: boolean;
       due_date: string | null;
       payment_link: string | null;
+      source: "quickbooks" | "upload";
+      source_label: string;
+      needs_attention: boolean;
+      attention_reason: string | null;
+      attention_label: string | null;
+      imported_at: string | null;
+      last_manual_update_at: string | null;
       client_claimed_paid_at: string | null;
       reminders: Array<{
         id: string;

@@ -261,9 +261,28 @@ class Invoice(Base, TimestampMixin):
     last_reminder_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     payment_link: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    source: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    imported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_manual_update_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     qb_last_updated: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reminder_phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     client: Mapped["Client"] = relationship("Client", lazy="joined")
+
+
+class InvoiceImportBatch(Base):
+    __tablename__ = "invoice_import_batches"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    imported_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    skipped_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    total_outstanding: Mapped[float] = mapped_column(Numeric(12, 2), default=0, nullable=False)
+    columns_found: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
 
 class ReminderMessage(Base, TimestampMixin):

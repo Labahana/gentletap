@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const TABS = [
+const TABS: Array<{ href: string; label: string; danger?: boolean }> = [
   { href: "/settings/profile", label: "Profile" },
   { href: "/settings/security", label: "Security" },
   { href: "/settings/notifications", label: "Notifications" },
   { href: "/settings/email", label: "Email Settings" },
   { href: "/settings/integrations", label: "Integrations" },
   { href: "/settings/delete", label: "Delete Account", danger: true },
-] as const;
+];
 
 export function SettingsShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

@@ -11,6 +11,7 @@ from gentletap.intelligence.engine import engine
 from gentletap.intelligence.escalation import needs_human
 from gentletap.intelligence.schemas import Action
 from gentletap.services.context_builder import build_reminder_context
+from gentletap.services.reminder_contacts import effective_reminder_phone
 from gentletap.services.email_router import send_whatsapp_reminder
 from gentletap.services.whatsapp_usage import (
     can_consume_whatsapp_quota,
@@ -31,7 +32,8 @@ def process_whatsapp_followup(db: Session, job_id: UUID) -> None:
         return
 
     user = db.query(Profile).filter(Profile.id == job.user_id).one()
-    if not invoice.client or not invoice.client.phone:
+    to_phone = effective_reminder_phone(invoice)
+    if not to_phone:
         job.status = "skipped_no_phone"
         db.commit()
         return
@@ -118,7 +120,7 @@ def process_whatsapp_followup(db: Session, job_id: UUID) -> None:
             db,
             user.id,
             message,
-            to_phone=invoice.client.phone,
+            to_phone=to_phone,
             sequence_step=job.sequence_step,
             tone=tone,
         )

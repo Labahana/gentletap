@@ -3,6 +3,7 @@ import { formatLastSync } from "./onboarding";
 
 export type ChaseLabel = NonNullable<InvoiceItem["chase_label"]>;
 export type InvoiceFilter = "all" | "chasing" | "overdue" | "paid";
+export type InvoiceSourceFilter = "all" | "quickbooks" | "upload";
 
 export function greetingName(fullName: string | null | undefined, email: string): string {
   if (fullName?.trim()) return fullName.trim().split(/\s+/)[0]!;
@@ -149,6 +150,26 @@ export function filterCounts(items: InvoiceItem[]): Record<InvoiceFilter, number
     paid: filterInvoices(items, "paid").length,
   };
 }
+
+export function invoiceSourceOf(inv: InvoiceItem): "quickbooks" | "upload" {
+  return inv.source ?? "quickbooks";
+}
+
+export function filterBySource(items: InvoiceItem[], source: InvoiceSourceFilter): InvoiceItem[] {
+  if (source === "all") return items;
+  return items.filter((i) => invoiceSourceOf(i) === source);
+}
+
+export function sourceFilterCounts(items: InvoiceItem[]): Record<InvoiceSourceFilter, number> {
+  const quickbooks = items.filter((i) => invoiceSourceOf(i) === "quickbooks").length;
+  const upload = items.filter((i) => invoiceSourceOf(i) === "upload").length;
+  return { all: items.length, quickbooks, upload };
+}
+
+export const SOURCE_BADGE: Record<"quickbooks" | "upload", { label: string; className: string }> = {
+  quickbooks: { label: "QB", className: "bg-green/15 text-green" },
+  upload: { label: "Upload", className: "bg-amber-500/15 text-amber-900 dark:text-amber-100" },
+};
 
 export function formatMomPct(pct: number | null | undefined): string {
   if (pct == null) return "this month";

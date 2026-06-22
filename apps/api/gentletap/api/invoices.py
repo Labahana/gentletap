@@ -1,10 +1,13 @@
 from uuid import UUID
+from decimal import Decimal
+import json
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from gentletap.database import Invoice, ReminderMessage, get_db
+from gentletap.database import Invoice, InvoiceImportBatch, ReminderMessage, get_db
 from gentletap.dependencies import CurrentUser
 from gentletap.services.csv_import import import_invoices_from_file
 from gentletap.services.dashboard_data import (
@@ -13,7 +16,25 @@ from gentletap.services.dashboard_data import (
     enrich_invoice_row,
     last_sent_reminders_by_invoice,
 )
+from gentletap.services.invoice_source import (
+    attention_reason_label,
+    invoice_needs_attention,
+    invoice_source,
+    invoice_source_label,
+    source_counts_for_user,
+)
 from gentletap.services.email_router import has_delivery_capability
+from gentletap.services.manual_invoices import (
+    bulk_mark_upload_invoices_paid,
+    mark_upload_invoice_paid,
+    update_upload_invoice,
+)
+from gentletap.services.reminder_contacts import (
+    effective_reminder_email,
+    effective_reminder_phone,
+    reminder_contact_payload,
+    update_invoice_contacts,
+)
 from gentletap.services.plan_limits import ensure_can_activate, free_plan_collection_usage, mark_collection_started
 from gentletap.services.sequences import (
     cancel_invoice_jobs,
@@ -22,6 +43,23 @@ from gentletap.services.sequences import (
 )
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
+
+
+class InvoiceManualUpdateBody(BaseModel):
+    balance: float | None = Field(default=None, ge=0)
+    due_date: str | None = None
+    payment_link: str | None = None
+    clear_payment_link: bool = False
+
+
+class InvoiceContactsBody(BaseModel):
+    reminder_phone: str | None = None
+    clear_reminder_phone: bool = False
+    client_email: str | None = None
+
+
+class BulkMarkPaidBody(BaseModel):
+    invoice_ids: list[UUID] = Field(min_length=1, max_length=100)
 
 
 @router.post("/import")
@@ -40,6 +78,44 @@ async def import_invoices_csv(
         return import_invoices_from_file(db, user.id, content, filename)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.get("/import-history")
+def import_history(
+    user: CurrentUser,
+    db: Session = Depends(get_db),
+    limit: int = Query(10, le=50),
+) -> dict:
+    rows = (
+        db.query(InvoiceImportBatch)
+        .filter(InvoiceImportBatch.user_id == user.id)
+        .order_by(InvoiceImportBatch.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return {
+        "items": [
+            {
+                "id": str(row.id),
+                "filename": row.filename,
+                "imported_count": row.imported_count,
+                "skipped_count": row.skipped_count,
+                "total_outstanding": float(row.total_outstanding),
+                "columns_found": json.loads(row.columns_found) if row.columns_found else [],
+                "created_at": row.created_at.isoformat(),
+            }
+            for row in rows
+        ]
+    }
+
+
+@router.post("/bulk-mark-paid")
+def bulk_mark_invoices_paid(
+    body: BulkMarkPaidBody,
+    user: CurrentUser,
+    db: Session = Depends(get_db),
+) -> dict:
+    return bulk_mark_upload_invoices_paid(db, user.id, body.invoice_ids)
 
 
 @router.get("")
@@ -158,6 +234,7 @@ def invoices_summary(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
         },
         **extras,
         "activity": build_activity_feed(db, user.id, limit=10),
+        "sources": source_counts_for_user(db, user.id),
     }
 
 
@@ -177,14 +254,25 @@ def invoice_detail(invoice_id: UUID, user: CurrentUser, db: Session = Depends(ge
         .order_by(ReminderMessage.created_at.desc())
         .all()
     )
+    source = invoice_source(inv)
+    needs_attention, attention_reason = invoice_needs_attention(inv)
+    contacts = reminder_contact_payload(inv)
     return {
         "id": str(inv.id),
         "doc_number": inv.doc_number,
+        "source": source,
+        "source_label": invoice_source_label(source),
+        "needs_attention": needs_attention,
+        "attention_reason": attention_reason,
+        "attention_label": attention_reason_label(attention_reason),
         "client": {
+            "id": str(inv.client.id) if inv.client else None,
             "name": inv.client.name if inv.client else "",
             "email": inv.client.email if inv.client else None,
             "phone": inv.client.phone if inv.client else None,
         },
+        "reminder_email": effective_reminder_email(inv),
+        **contacts,
         "amount": float(inv.amount),
         "balance": float(inv.balance),
         "currency": inv.currency,
@@ -196,6 +284,8 @@ def invoice_detail(invoice_id: UUID, user: CurrentUser, db: Session = Depends(ge
         "dispute_flag": inv.dispute_flag,
         "due_date": inv.due_date.isoformat() if inv.due_date else None,
         "payment_link": inv.payment_link,
+        "imported_at": inv.imported_at.isoformat() if inv.imported_at else None,
+        "last_manual_update_at": inv.last_manual_update_at.isoformat() if inv.last_manual_update_at else None,
         "client_claimed_paid_at": inv.client_claimed_paid_at.isoformat() if inv.client_claimed_paid_at else None,
         "reminders": [
             {
@@ -299,3 +389,90 @@ def clear_dispute(invoice_id: UUID, user: CurrentUser, db: Session = Depends(get
         schedule_next_job(db, inv, scheduled_for=scheduled_for_current_step(db, inv))
     db.commit()
     return {"status": "cleared"}
+
+
+@router.post("/{invoice_id}/mark-paid")
+def mark_invoice_paid_manual(invoice_id: UUID, user: CurrentUser, db: Session = Depends(get_db)) -> dict:
+    inv = (
+        db.query(Invoice)
+        .filter(Invoice.id == invoice_id, Invoice.user_id == user.id)
+        .one_or_none()
+    )
+    if inv is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+    mark_upload_invoice_paid(db, inv, user_id=user.id)
+    return {"status": "paid", "balance": 0.0}
+
+
+@router.patch("/{invoice_id}/contacts")
+def update_invoice_contacts_endpoint(
+    invoice_id: UUID,
+    body: InvoiceContactsBody,
+    user: CurrentUser,
+    db: Session = Depends(get_db),
+) -> dict:
+    inv = (
+        db.query(Invoice)
+        .filter(Invoice.id == invoice_id, Invoice.user_id == user.id)
+        .one_or_none()
+    )
+    if inv is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+
+    inv = update_invoice_contacts(
+        db,
+        inv,
+        reminder_phone=body.reminder_phone,
+        clear_reminder_phone=body.clear_reminder_phone,
+        client_email=body.client_email,
+    )
+    return {
+        "status": "updated",
+        "reminder_email": effective_reminder_email(inv),
+        **reminder_contact_payload(inv),
+        "client": {
+            "email": inv.client.email if inv.client else None,
+            "phone": inv.client.phone if inv.client else None,
+        },
+    }
+
+
+@router.patch("/{invoice_id}")
+def update_invoice_manual(
+    invoice_id: UUID,
+    body: InvoiceManualUpdateBody,
+    user: CurrentUser,
+    db: Session = Depends(get_db),
+) -> dict:
+    inv = (
+        db.query(Invoice)
+        .filter(Invoice.id == invoice_id, Invoice.user_id == user.id)
+        .one_or_none()
+    )
+    if inv is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+
+    due = None
+    if body.due_date is not None:
+        try:
+            from datetime import date
+
+            due = date.fromisoformat(body.due_date)
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid due_date") from exc
+
+    balance = Decimal(str(body.balance)) if body.balance is not None else None
+    inv = update_upload_invoice(
+        db,
+        inv,
+        balance=balance,
+        due_date=due,
+        payment_link=body.payment_link,
+        clear_payment_link=body.clear_payment_link,
+    )
+    return {
+        "status": "updated",
+        "balance": float(inv.balance),
+        "due_date": inv.due_date.isoformat() if inv.due_date else None,
+        "payment_link": inv.payment_link,
+    }

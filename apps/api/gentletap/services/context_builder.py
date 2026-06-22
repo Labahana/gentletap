@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from gentletap.database import Client, Invoice, Profile
 from gentletap.intelligence.schemas import ClientProfile, InvoiceContext, ReminderContext, RiskLevel
+from gentletap.services.reminder_contacts import effective_reminder_email, effective_reminder_phone
 
 
 def _client_responded_recently(invoice: Invoice) -> bool:
@@ -73,8 +74,8 @@ def build_reminder_context(db: Session, invoice_id: UUID, user_id: UUID) -> Remi
     return ReminderContext(
         client_id=str(client.id),
         client_name=client.name,
-        client_email=client.email,
-        client_phone=client.phone,
+        client_email=effective_reminder_email(invoice, client),
+        client_phone=effective_reminder_phone(invoice, client),
         email_suppressed=bool(client.email_suppressed),
         user_plan=user.plan,
         sender_name=sender_name,

@@ -35,6 +35,10 @@ export function isUpgrade(from: string, to: PlanId): boolean {
   return b > a;
 }
 
+export function hasWhatsapp(plan: string): boolean {
+  return plan === "pro_plus" || plan === "team";
+}
+
 export const PRICING_PLANS: Omit<
   PlanFeature,
   "checkout_monthly_available" | "checkout_annual_available"

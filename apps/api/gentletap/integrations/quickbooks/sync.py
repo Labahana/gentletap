@@ -158,6 +158,7 @@ def sync_unpaid_invoices(db: Session, user_id: UUID) -> dict:
                     days_overdue=days_overdue,
                     status=status,
                     payment_link=payment_link,
+                    source="quickbooks",
                     qb_last_updated=qb_last_updated,
                 )
                 db.add(invoice_row)
@@ -171,6 +172,7 @@ def sync_unpaid_invoices(db: Session, user_id: UUID) -> dict:
                 invoice_row.days_overdue = days_overdue
                 invoice_row.status = status
                 invoice_row.payment_link = payment_link
+                invoice_row.source = "quickbooks"
                 invoice_row.qb_last_updated = qb_last_updated
 
             synced += 1

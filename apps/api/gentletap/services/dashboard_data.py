@@ -7,6 +7,13 @@ from sqlalchemy.orm import Session
 
 from gentletap.database import Client, Invoice, ReminderMessage, SyncLog, UserNotification
 from gentletap.services.analytics_data import build_mom_metrics
+from gentletap.services.invoice_source import (
+    attention_reason_label,
+    invoice_needs_attention,
+    invoice_source,
+    invoice_source_label,
+)
+from gentletap.services.reminder_contacts import effective_reminder_email, reminder_contact_payload
 from gentletap.services.plan_limits import month_start
 
 
@@ -60,6 +67,8 @@ def invoice_meta_line(inv: Invoice, last_msg: ReminderMessage | None) -> str:
     if inv.sequence_active and inv.sequence_step > 0:
         return f"{doc} · Reminder scheduled"
     if inv.days_overdue > 0:
+        if invoice_source(inv) == "upload":
+            return f"{doc} · Manual — update when paid"
         return f"{doc} · Starts on next sync"
     if inv.due_date:
         days = (inv.due_date - date.today()).days
@@ -105,11 +114,14 @@ def last_sent_reminders_by_invoice(db: Session, invoice_ids: list) -> dict:
 
 
 def enrich_invoice_row(inv: Invoice, last_msg: ReminderMessage | None) -> dict:
+    source = invoice_source(inv)
+    needs_attention, attention_reason = invoice_needs_attention(inv)
     return {
         "id": str(inv.id),
         "doc_number": inv.doc_number,
         "client_name": inv.client.name if inv.client else "",
-        "client_email": inv.client.email if inv.client else None,
+        "client_email": effective_reminder_email(inv),
+        "client_phone": inv.client.phone if inv.client else None,
         "amount": float(inv.amount),
         "balance": float(inv.balance),
         "currency": inv.currency,
@@ -121,11 +133,19 @@ def enrich_invoice_row(inv: Invoice, last_msg: ReminderMessage | None) -> dict:
         "dispute_flag": inv.dispute_flag,
         "due_date": inv.due_date.isoformat() if inv.due_date else None,
         "payment_link": inv.payment_link,
+        "source": source,
+        "source_label": invoice_source_label(source),
+        "needs_attention": needs_attention,
+        "attention_reason": attention_reason,
+        "attention_label": attention_reason_label(attention_reason),
+        "imported_at": inv.imported_at.isoformat() if inv.imported_at else None,
+        "last_manual_update_at": inv.last_manual_update_at.isoformat() if inv.last_manual_update_at else None,
         "chase_label": invoice_chase_label(inv),
         "status_text": invoice_status_text(inv),
         "meta_line": invoice_meta_line(inv, last_msg),
         "last_reminder_at": last_msg.sent_at.isoformat() if last_msg and last_msg.sent_at else None,
         "last_reminder_channel": last_msg.channel if last_msg else None,
+        **reminder_contact_payload(inv),
     }
 
 

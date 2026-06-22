@@ -1,18 +1,22 @@
 import io
+import json
 import re
 import uuid
+from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from uuid import UUID
 
 import pandas as pd
 from sqlalchemy.orm import Session
 
-from gentletap.database import Client, Invoice
+from gentletap.database import Client, Invoice, InvoiceImportBatch
 from gentletap.integrations.quickbooks.sync import _invoice_status, _parse_date
+from gentletap.integrations.twilio.phone import normalize_phone_e164
 
 COLUMN_ALIASES: dict[str, list[str]] = {
     "client_name": ["client_name", "customer", "customer_name", "client", "name"],
     "client_email": ["client_email", "email", "customer_email", "e-mail"],
+    "client_phone": ["client_phone", "phone", "mobile", "whatsapp", "cell", "customer_phone"],
     "invoice_number": ["invoice_number", "doc_number", "invoice_no", "invoice", "number", "invoice_#"],
     "amount": ["amount", "total", "invoice_amount", "total_amount"],
     "balance": ["balance", "outstanding", "amount_due"],
@@ -93,6 +97,8 @@ def import_invoices_from_file(db: Session, user_id: UUID, content: bytes, filena
     if not email_col:
         raise ValueError("Missing client email column — use client_email, email, or customer_email")
 
+    phone_col = _resolve_column(headers, "client_phone")
+
     number_col = _resolve_column(headers, "invoice_number")
     amount_col = _resolve_column(headers, "amount")
     balance_col = _resolve_column(headers, "balance")
@@ -123,6 +129,12 @@ def import_invoices_from_file(db: Session, user_id: UUID, content: bytes, filena
         if not email or "@" not in email:
             skipped += 1
             continue
+
+        phone = None
+        if phone_col and pd.notna(row[phone_col]):
+            raw_phone = str(row[phone_col]).strip()
+            if raw_phone and raw_phone.lower() != "nan":
+                phone = normalize_phone_e164(raw_phone) or raw_phone
 
         amount = _parse_decimal(row[amount_col]) if amount_col else None
         balance = _parse_decimal(row[balance_col]) if balance_col else None
@@ -169,6 +181,8 @@ def import_invoices_from_file(db: Session, user_id: UUID, content: bytes, filena
             else:
                 client_row.name = name
                 client_row.email = email
+                if phone and not client_row.phone:
+                    client_row.phone = phone
             client_cache[customer_id] = client_row
 
         if doc_number:
@@ -191,6 +205,7 @@ def import_invoices_from_file(db: Session, user_id: UUID, content: bytes, filena
 
         days_overdue, status = _invoice_status(due_date, balance)
         total_outstanding += balance
+        now = datetime.now(UTC)
 
         if existing is None:
             invoice_row = Invoice(
@@ -205,6 +220,9 @@ def import_invoices_from_file(db: Session, user_id: UUID, content: bytes, filena
                 due_date=due_date,
                 days_overdue=days_overdue,
                 status=status,
+                source="upload",
+                imported_at=now,
+                reminder_phone=phone,
             )
             db.add(invoice_row)
         else:
@@ -217,9 +235,23 @@ def import_invoices_from_file(db: Session, user_id: UUID, content: bytes, filena
             existing.due_date = due_date
             existing.days_overdue = days_overdue
             existing.status = status
+            existing.source = "upload"
+            existing.imported_at = now
+            if phone:
+                existing.reminder_phone = phone
 
         imported += 1
 
+    db.add(
+        InvoiceImportBatch(
+            user_id=user_id,
+            filename=filename[:255],
+            imported_count=imported,
+            skipped_count=skipped,
+            total_outstanding=float(total_outstanding),
+            columns_found=json.dumps(list(raw_headers.values())),
+        )
+    )
     db.commit()
 
     return {

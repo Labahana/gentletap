@@ -21,6 +21,7 @@ from gentletap.intelligence.engine import engine
 from gentletap.intelligence.escalation import escalation_recommendation
 from gentletap.intelligence.schemas import Action, Channel
 from gentletap.services.context_builder import build_reminder_context
+from gentletap.services.reminder_contacts import effective_reminder_email, effective_reminder_phone
 from gentletap.services.email_router import (
     get_send_provider,
     has_delivery_capability,
@@ -220,7 +221,8 @@ def approve_all_overdue(db: Session, user: Profile) -> dict:
         skip = False
         skip_reason = ""
         if inv.client and (
-            inv.client.email or (has_whatsapp(user.plan) and inv.client.phone)
+            effective_reminder_email(inv)
+            or (has_whatsapp(user.plan) and effective_reminder_phone(inv))
         ):
             try:
                 generate_draft(db, inv)
@@ -325,7 +327,10 @@ def auto_activate_new_invoices(db: Session, user: Profile) -> int:
     activated = 0
     activated_snippets: list[str] = []
     for inv in to_activate:
-        if not inv.client or (not inv.client.email and not (has_whatsapp(user.plan) and inv.client.phone)):
+        if not inv.client or (
+            not effective_reminder_email(inv)
+            and not (has_whatsapp(user.plan) and effective_reminder_phone(inv))
+        ):
             continue
         inv.sequence_approved = True
         try:
@@ -439,8 +444,8 @@ def process_due_job(db: Session, job_id: UUID) -> None:
         db.commit()
         return
 
-    client_email = invoice.client.email if invoice.client else None
-    client_phone = invoice.client.phone if invoice.client else None
+    client_email = effective_reminder_email(invoice) if invoice.client else None
+    client_phone = effective_reminder_phone(invoice) if invoice.client else None
     step = job.sequence_step
 
     email_required = step == 0 or step >= 4

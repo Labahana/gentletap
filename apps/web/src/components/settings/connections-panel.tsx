@@ -217,7 +217,7 @@ function ConnectionsPanelContent({ mode }: { mode: ConnectionsPanelMode }) {
       <p className="mt-1 text-sm text-muted">
         {mode === "email"
           ? "Connect Gmail or verify a domain email so GentleTap can send payment reminders on your behalf."
-          : "Connect QuickBooks and WhatsApp — GentleTap syncs invoices every 30 minutes and detects payments automatically."}
+          : "Connect QuickBooks and WhatsApp — GentleTap syncs invoices every 30 minutes. Spreadsheet uploads are managed manually on the Invoices page."}
       </p>
 
       {purchaseNote && (

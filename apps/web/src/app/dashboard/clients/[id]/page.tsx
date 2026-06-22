@@ -15,12 +15,19 @@ export default function ClientDetailPage() {
   const router = useRouter();
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const load = useCallback(async () => {
     const token = getToken();
     if (!token || !id) return;
     try {
-      setClient(await api.clientDetail(token, id));
+      const row = await api.clientDetail(token, id);
+      setClient(row);
+      setEditEmail(row.email ?? "");
+      setEditPhone(row.phone ?? "");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Client not found");
     }
@@ -35,6 +42,28 @@ export default function ClientDetailPage() {
   useEffect(() => {
     if (user) load();
   }, [user, load]);
+
+  async function saveContact(e: React.FormEvent) {
+    e.preventDefault();
+    const token = getToken();
+    if (!token || !client) return;
+    setSaveBusy(true);
+    setError(null);
+    setSaved(false);
+    try {
+      await api.updateClient(token, client.id, {
+        email: editEmail.trim() || undefined,
+        phone: editPhone.trim() || undefined,
+      });
+      setSaved(true);
+      await load();
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save");
+    } finally {
+      setSaveBusy(false);
+    }
+  }
 
   if (loading || !user) {
     return (
@@ -97,6 +126,29 @@ export default function ClientDetailPage() {
             <p className="text-[11px] text-muted">Late payment rate</p>
             <p className="mt-1 text-xl font-bold">{Math.round(client.late_payment_rate * 100)}%</p>
           </div>
+        </div>
+
+        <div className="card mt-5">
+          <h2 className="text-sm font-semibold">Contact details</h2>
+          <p className="mt-1 text-xs text-muted">
+            Default email and phone for this client. Override WhatsApp per invoice on the invoice page.
+          </p>
+          <form onSubmit={saveContact} className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs text-muted">Email</label>
+              <input type="email" className="input" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-muted">Phone (WhatsApp)</label>
+              <input type="tel" className="input" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} placeholder="+1 555 123 4567" />
+            </div>
+            <div className="flex items-center gap-2 sm:col-span-2">
+              <button type="submit" className="btn-primary py-1.5 text-xs" disabled={saveBusy}>
+                {saveBusy ? "Saving…" : "Save contact"}
+              </button>
+              {saved && <span className="text-xs text-green">✓ Saved</span>}
+            </div>
+          </form>
         </div>
 
         <div className="card mt-5">
