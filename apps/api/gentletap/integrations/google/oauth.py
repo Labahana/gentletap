@@ -1,8 +1,10 @@
 """Gmail OAuth — send-only scope."""
 
 import base64
+import html as html_lib
 import secrets
 from datetime import UTC, datetime, timedelta
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from urllib.parse import urlencode
 from uuid import UUID
@@ -167,6 +169,17 @@ def _ensure_access_token(db: Session, connection: GoogleConnection) -> str:
     return decrypt_token(connection.access_token_enc)
 
 
+def _body_to_html(body: str) -> str:
+    """Wrap a plain-text reminder in minimal, inbox-friendly HTML."""
+    escaped = html_lib.escape(body).replace("\n", "<br>")
+    return (
+        '<html><body style="font-family:Arial,Helvetica,sans-serif;'
+        'font-size:14px;line-height:1.6;color:#1a1a1a;">'
+        f"{escaped}"
+        "</body></html>"
+    )
+
+
 def send_email(
     db: Session,
     connection: GoogleConnection,
@@ -174,12 +187,23 @@ def send_email(
     to: str,
     subject: str,
     body: str,
+    from_name: str | None = None,
+    reply_to: str | None = None,
 ) -> str:
     access_token = _ensure_access_token(db, connection)
-    msg = MIMEText(body)
+    sender_email = connection.google_email
+    # multipart/alternative (plain + HTML) reads as a real person's email, not a bot,
+    # which materially improves inbox placement vs bare plain text.
+    msg = MIMEMultipart("alternative")
     msg["to"] = to
-    msg["from"] = connection.google_email
+    msg["from"] = f"{from_name} <{sender_email}>" if from_name else sender_email
     msg["subject"] = subject
+    if reply_to:
+        msg["reply-to"] = reply_to
+    # Gmail rewards a valid List-Unsubscribe header — reduces spam foldering.
+    msg["List-Unsubscribe"] = f"<mailto:{reply_to or sender_email}?subject=unsubscribe>"
+    msg.attach(MIMEText(body, "plain"))
+    msg.attach(MIMEText(_body_to_html(body), "html"))
     raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
 
     with httpx.Client(timeout=30.0) as client:

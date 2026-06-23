@@ -87,7 +87,24 @@ def send_reminder_message(
         )
         if connection is None:
             raise ValueError("Gmail not connected")
-        external_id = google_oauth.send_email(db, connection, to=to_email, subject=subject, body=body)
+        sender = db.query(Profile).filter(Profile.id == user_id).one_or_none()
+        from_name = None
+        reply_to = None
+        if sender:
+            from_name = (
+                (sender.email_display_name or sender.company_name or sender.full_name or "").strip()
+                or None
+            )
+            reply_to = sender.email
+        external_id = google_oauth.send_email(
+            db,
+            connection,
+            to=to_email,
+            subject=subject,
+            body=body,
+            from_name=from_name,
+            reply_to=reply_to,
+        )
         message.send_provider = "google"
         message.channel = "email"
         return external_id
