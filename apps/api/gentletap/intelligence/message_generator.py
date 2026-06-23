@@ -5,7 +5,7 @@ import re
 from gentletap.config import get_settings
 from gentletap.integrations.twilio import templates as wa_templates
 from gentletap.plans import has_priority_ai
-from gentletap.integrations.openai.client import get_openai_client
+from gentletap.integrations.openai.client import get_openai_client, get_zai_client
 from gentletap.intelligence.schemas import BANNED_PHRASES, Channel, GeneratedMessage, ReminderContext, Tone
 
 logger = logging.getLogger(__name__)
@@ -61,6 +61,47 @@ def generate_whatsapp_message(ctx: ReminderContext, tone: Tone) -> GeneratedMess
     )
 
 
+def _parse_generated(raw: str) -> GeneratedMessage | None:
+    """Extract a clean subject/body from a model response, or None if unusable."""
+    candidates = [raw]
+    match = re.search(r"\{.*\}", raw, re.DOTALL)
+    if match:
+        candidates.append(match.group())
+    for candidate in candidates:
+        try:
+            data = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        subject = str(data.get("subject", "")).strip()
+        body = str(data.get("body", "")).strip()
+        if subject and body and not _contains_banned(subject + body):
+            return GeneratedMessage(subject=subject, body=body)
+    return None
+
+
+def _try_provider(client, model: str, system: str, user: str) -> GeneratedMessage | None:
+    """Attempt generation with one provider, retrying once on a bad response."""
+    for _ in range(2):
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.7,
+            )
+        except Exception:
+            # Provider down / bad key / wrong model — let the caller try the next one.
+            logger.exception("AI provider %s failed during generation", model)
+            return None
+        result = _parse_generated(response.choices[0].message.content or "{}")
+        if result is not None:
+            return result
+    return None
+
+
 def generate_message(
     ctx: ReminderContext,
     tone: Tone,
@@ -71,9 +112,6 @@ def generate_message(
         return generate_whatsapp_message(ctx, tone)
 
     settings = get_settings()
-    client = get_openai_client()
-    if client is None:
-        return _fallback_message(ctx, tone)
 
     inv = ctx.invoice
     profile = ctx.profile
@@ -101,44 +139,24 @@ def generate_message(
         )
     user += "Write the reminder email."
 
-    for _ in range(2):
-        model = (
-            settings.kimi_model_priority
-            if has_priority_ai(ctx.user_plan)
-            else settings.kimi_model
-        )
-        try:
-            response = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user},
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.7,
-            )
-        except Exception:
-            # AI provider down / bad key / wrong model — never block the reminder.
-            # Fall back to a templated message so the email still goes out.
-            logger.exception("AI message generation failed; using fallback template")
-            break
-        raw = response.choices[0].message.content or "{}"
-        try:
-            data = json.loads(raw)
-            subject = str(data.get("subject", "")).strip()
-            body = str(data.get("body", "")).strip()
-            if subject and body and not _contains_banned(subject + body):
-                return GeneratedMessage(subject=subject, body=body)
-        except json.JSONDecodeError:
-            match = re.search(r"\{.*\}", raw, re.DOTALL)
-            if match:
-                try:
-                    data = json.loads(match.group())
-                    subject = str(data.get("subject", "")).strip()
-                    body = str(data.get("body", "")).strip()
-                    if subject and body and not _contains_banned(subject + body):
-                        return GeneratedMessage(subject=subject, body=body)
-                except json.JSONDecodeError:
-                    pass
+    # Try providers in order: Kimi first, then z.ai (GLM), then a templated fallback.
+    # Any provider being down, mis-keyed, or returning junk silently rolls to the next.
+    kimi_model = (
+        settings.kimi_model_priority
+        if has_priority_ai(ctx.user_plan)
+        else settings.kimi_model
+    )
+    providers: list[tuple[object, str]] = []
+    kimi_client = get_openai_client()
+    if kimi_client is not None:
+        providers.append((kimi_client, kimi_model))
+    zai_client = get_zai_client()
+    if zai_client is not None:
+        providers.append((zai_client, settings.zai_model))
+
+    for client, model in providers:
+        result = _try_provider(client, model, system, user)
+        if result is not None:
+            return result
 
     return _fallback_message(ctx, tone)

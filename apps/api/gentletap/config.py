@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     kimi_api_key: str = ""
     kimi_model: str = "kimi-k2.6"
 
+    # z.ai (Zhipu / GLM) — OpenAI-compatible fallback when Kimi is unavailable.
+    zai_api_key: str = ""
+    zai_model: str = "glm-4.6"
+    zai_base_url: str = "https://api.z.ai/api/paas/v4/"
+
     paddle_api_key: str = ""
     paddle_webhook_secret: str = ""
     paddle_environment: str = "sandbox"
