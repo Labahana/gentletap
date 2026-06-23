@@ -35,7 +35,7 @@ def _invoice_status(due_date: date | None, balance: Decimal) -> tuple[int, str]:
 
 
 def _update_sync_status(user_id: UUID, **fields) -> None:
-    set_json(sync_status_key(user_id), fields)
+    set_json(sync_status_key(user_id), fields, ttl_seconds=86400)
 
 
 def sync_unpaid_invoices(db: Session, user_id: UUID) -> dict:

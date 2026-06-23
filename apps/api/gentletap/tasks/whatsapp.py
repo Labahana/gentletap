@@ -1,8 +1,11 @@
+import logging
 from datetime import UTC, datetime
 
 from gentletap.database import SessionLocal, WhatsappFollowupJob
 from gentletap.services.whatsapp_followup import process_whatsapp_followup
 from gentletap.tasks.celery_app import celery_app
+
+logger = logging.getLogger(__name__)
 
 
 @celery_app.task(name="gentletap.tasks.whatsapp.evaluate_followups")
@@ -29,6 +32,7 @@ def evaluate_whatsapp_followups() -> dict:
                 process_whatsapp_followup(job_db, job_id)
                 processed += 1
             except Exception:
+                logger.exception("WhatsApp follow-up job failed: %s", job_id)
                 stuck = job_db.query(WhatsappFollowupJob).filter(WhatsappFollowupJob.id == job_id).one_or_none()
                 if stuck and stuck.status == "processing":
                     stuck.status = "pending"

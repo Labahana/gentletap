@@ -18,6 +18,8 @@ COPY alembic.ini ./
 RUN pip install --upgrade pip \
     && pip install .
 
+RUN mkdir -p /var/lib/celery
+
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 

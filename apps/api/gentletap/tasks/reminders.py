@@ -1,9 +1,11 @@
+import logging
 from datetime import UTC, datetime
 
-from gentletap.database import ReminderJob, SessionLocal, WhatsappFollowupJob
+from gentletap.database import ReminderJob, SessionLocal
 from gentletap.services.reminders import process_due_job
-from gentletap.services.whatsapp_followup import process_whatsapp_followup
 from gentletap.tasks.celery_app import celery_app
+
+logger = logging.getLogger(__name__)
 
 
 @celery_app.task(name="gentletap.tasks.reminders.evaluate_due_reminders")
@@ -30,13 +32,16 @@ def evaluate_due_reminders() -> dict:
                 process_due_job(job_db, job_id)
                 processed += 1
             except Exception:
+                logger.exception("Reminder job failed: %s", job_id)
                 stuck = job_db.query(ReminderJob).filter(ReminderJob.id == job_id).one_or_none()
                 if stuck and stuck.status == "processing":
                     stuck.status = "pending"
                     job_db.commit()
             finally:
                 job_db.close()
-        return {"processed": processed}
+        if job_ids:
+            logger.info("evaluate_due_reminders processed %s/%s jobs", processed, len(job_ids))
+        return {"processed": processed, "due": len(job_ids)}
     finally:
         db.close()
 

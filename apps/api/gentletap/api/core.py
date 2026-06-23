@@ -6,6 +6,7 @@ from gentletap.config import get_settings
 from gentletap.database import get_db
 from gentletap.dependencies import CurrentUser
 from gentletap.schemas.auth import HealthResponse, OnboardingPersonaRequest, OnboardingProfileRequest, UserResponse
+from gentletap.utils.celery_health import celery_worker_status
 from gentletap.utils.redis_client import get_redis
 
 router = APIRouter(tags=["core"])
@@ -25,7 +26,9 @@ def health(db: Session = Depends(get_db)) -> HealthResponse:
             checks["redis"] = "ok"
     except Exception:
         checks["redis"] = "error"
-    status = "ok" if all(v == "ok" for v in checks.values()) else "degraded"
+    checks["celery_workers"] = celery_worker_status()
+    required = ("database", "redis")
+    status = "ok" if all(checks.get(k) == "ok" for k in required) else "degraded"
     return HealthResponse(status=status, environment=settings.environment, checks=checks)
 
 

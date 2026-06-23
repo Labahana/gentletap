@@ -1,8 +1,11 @@
+import logging
 from uuid import UUID
 
 from gentletap.database import SessionLocal
 from gentletap.integrations.quickbooks.sync import sync_unpaid_invoices
 from gentletap.tasks.celery_app import celery_app
+
+logger = logging.getLogger(__name__)
 
 
 @celery_app.task(name="gentletap.tasks.sync.sync_user_invoices")
@@ -26,9 +29,16 @@ def sync_all_users() -> dict:
             .all()
         )
         count = 0
+        errors = 0
         for conn in connections:
-            sync_unpaid_invoices(db, conn.user_id)
-            count += 1
-        return {"synced_users": count}
+            try:
+                sync_unpaid_invoices(db, conn.user_id)
+                count += 1
+            except Exception:
+                logger.exception("QB sync failed for user %s", conn.user_id)
+                errors += 1
+        result = {"synced_users": count, "errors": errors, "total_connections": len(connections)}
+        logger.info("sync_all_users complete: %s", result)
+        return result
     finally:
         db.close()

@@ -103,12 +103,16 @@ def advance_sequence_after_send(db: Session, invoice: Invoice) -> None:
 
 
 def scheduled_for_current_step(db: Session, invoice: Invoice) -> datetime:
-    """Earliest send time for the invoice's current sequence step (respects intelligence send window)."""
+    """Earliest send time for the invoice's current sequence step."""
+    now = datetime.now(UTC)
+    # First reminder after activation: send immediately (any time, per account).
+    if invoice.sequence_step == 0:
+        return now
+
     from gentletap.intelligence.engine import engine
     from gentletap.intelligence.schemas import Action
     from gentletap.services.context_builder import build_reminder_context
 
-    now = datetime.now(UTC)
     ctx = build_reminder_context(db, invoice.id, invoice.user_id)
     if ctx is None:
         return now
@@ -120,22 +124,9 @@ def scheduled_for_current_step(db: Session, invoice: Invoice) -> datetime:
 
 
 def _scheduled_for_next_step(db: Session, invoice: Invoice) -> datetime:
-    from gentletap.intelligence.engine import engine
-    from gentletap.intelligence.schemas import Action
-    from gentletap.services.context_builder import build_reminder_context
-
+    """Schedule follow-up reminders using overdue-day spacing only (not a global send window)."""
     now = datetime.now(UTC)
-    delay = _days_until_next_step(invoice)
-    earliest = now + timedelta(days=delay)
-
-    ctx = build_reminder_context(db, invoice.id, invoice.user_id)
-    if ctx is None:
-        return earliest
-    ctx.invoice.approved = invoice.sequence_approved
-    result = engine.decide(ctx)
-    if result.action == Action.SEND and result.send_at and result.send_at > earliest:
-        return result.send_at
-    return earliest
+    return now + timedelta(days=_days_until_next_step(invoice))
 
 
 def _days_until_next_step(invoice: Invoice) -> int:

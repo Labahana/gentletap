@@ -27,6 +27,7 @@ celery_app.conf.update(
     worker_prefetch_multiplier=1,
     result_expires=3600,
     broker_connection_retry_on_startup=True,
+    beat_schedule_filename="/var/lib/celery/celerybeat-schedule",
     beat_schedule={
         "refresh-qb-tokens": {
             "task": "gentletap.tasks.tokens.refresh_qb_tokens",
