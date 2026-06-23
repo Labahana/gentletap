@@ -260,9 +260,14 @@ def import_invoices_from_file(db: Session, user_id: UUID, content: bytes, filena
     )
     db.commit()
 
+    from gentletap.services.reminders import auto_activate_new_invoices
+
+    auto_activated = auto_activate_new_invoices(db, user)
+
     return {
         "imported": imported,
         "skipped": skipped,
         "total_outstanding": float(total_outstanding),
         "columns_found": list(raw_headers.values()),
+        "auto_activated": auto_activated,
     }

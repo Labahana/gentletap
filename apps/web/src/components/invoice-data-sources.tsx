@@ -47,7 +47,7 @@ export function InvoiceDataSources({
         <div>
           <h2 className="text-sm font-semibold">Add invoices</h2>
           <p className="mt-0.5 text-xs text-muted">
-            QuickBooks syncs automatically. Upload a CSV or spreadsheet to add invoices manually.
+            QuickBooks syncs automatically. Uploaded invoices get reminders on autopilot too — re-upload when balances change.
           </p>
           {uploadNote && (
             <p className="mt-2 text-xs font-medium text-green">{uploadNote}</p>

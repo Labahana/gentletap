@@ -352,6 +352,7 @@ export const api = {
       skipped: number;
       total_outstanding: number;
       columns_found: string[];
+      auto_activated?: number;
     }>("/invoices/import", { method: "POST", body: form }, token);
   },
 

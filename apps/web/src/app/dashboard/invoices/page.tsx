@@ -17,6 +17,7 @@ import {
   filterBySource,
   filterCounts,
   filterInvoices,
+  importSuccessNote,
   invoiceSourceOf,
   sourceFilterCounts,
   type InvoiceFilter,
@@ -258,7 +259,7 @@ export default function InvoicesPage() {
     setError(null);
     try {
       const result = await api.importInvoicesCsv(token, file);
-      setUploadNote(`Imported ${result.imported} invoice${result.imported === 1 ? "" : "s"} from spreadsheet.`);
+      setUploadNote(importSuccessNote(result));
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
@@ -387,8 +388,8 @@ export default function InvoicesPage() {
                 : `${uploadCount} uploaded invoice${uploadCount === 1 ? "" : "s"}`}
             </p>
             <p className="mt-1 text-xs opacity-90">
-              Balances don&apos;t sync from QuickBooks. Re-upload your spreadsheet when amounts change, or open an
-              invoice to review.
+              Reminders run on autopilot like QuickBooks invoices. Re-upload your spreadsheet when balances change, or
+              mark paid from the invoice page.
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               <button

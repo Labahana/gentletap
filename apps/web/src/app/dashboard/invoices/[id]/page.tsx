@@ -326,7 +326,9 @@ export default function InvoiceDetailPage() {
                   {!hasEmail ? (
                     <span>Add a reminder email below to start chasing this invoice.</span>
                   ) : isUpload ? (
-                    <span>Review balance and contacts, then start reminders below.</span>
+                    <span>
+                      Re-upload your spreadsheet to start reminders automatically, or approve this invoice below.
+                    </span>
                   ) : (
                     <span>QuickBooks sync will start reminders automatically on the next sync.</span>
                   )}
@@ -455,7 +457,7 @@ export default function InvoiceDetailPage() {
                 </dl>
                 <p className="mt-4 text-[11px] leading-relaxed text-muted">
                   {isUpload
-                    ? "Uploaded invoices are updated manually when paid or amounts change."
+                    ? "Reminders run on autopilot. Update balance here when paid — QuickBooks won’t sync uploaded rows."
                     : "QuickBooks balances sync every 30 minutes. Reminders stop when QB shows paid."}
                 </p>
               </div>

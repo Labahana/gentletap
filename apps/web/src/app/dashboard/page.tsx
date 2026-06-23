@@ -26,6 +26,7 @@ import {
   timeOfDayGreeting,
   formatMomPct,
   formatAvgDaysSub,
+  importSuccessNote,
 } from "@/lib/dashboard-ui";
 import { formatMoney, isOnboardingComplete } from "@/lib/onboarding";
 import { hasWhatsapp } from "@/lib/pricing";
@@ -119,9 +120,7 @@ export default function DashboardPage() {
     setUploadNote(null);
     try {
       const result = await api.importInvoicesCsv(token, file);
-      setUploadNote(
-        `Imported ${result.imported} invoice${result.imported === 1 ? "" : "s"} from spreadsheet.`,
-      );
+      setUploadNote(importSuccessNote(result));
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");

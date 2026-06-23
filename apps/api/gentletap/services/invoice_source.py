@@ -31,7 +31,7 @@ def attention_reason_label(reason: str | None) -> str | None:
     if reason == "client_claimed_paid":
         return "Client says paid — confirm manually"
     if reason == "not_on_autopilot":
-        return "Not on autopilot yet"
+        return "Reminders not started — go live or re-upload"
     return None
 
 

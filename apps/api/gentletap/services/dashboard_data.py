@@ -64,12 +64,12 @@ def invoice_meta_line(inv: Invoice, last_msg: ReminderMessage | None) -> str:
             return f"{doc} · Final notice sent {when}"
         channel = "WhatsApp" if last_msg.channel == "whatsapp" else "Email"
         return f"{doc} · {channel} sent {when}"
-    if inv.sequence_active and inv.sequence_step > 0:
-        return f"{doc} · Reminder scheduled"
+    if inv.sequence_active:
+        if inv.sequence_step > 0:
+            return f"{doc} · Reminder scheduled"
+        return f"{doc} · First reminder sending soon"
     if inv.days_overdue > 0:
-        if invoice_source(inv) == "upload":
-            return f"{doc} · Manual — update when paid"
-        return f"{doc} · Starts on next sync"
+        return f"{doc} · Queued for reminders"
     if inv.due_date:
         days = (inv.due_date - date.today()).days
         if days > 0:

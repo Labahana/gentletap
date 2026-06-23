@@ -212,3 +212,11 @@ export function alertCardStyle(kind: string, source?: string): {
   }
   return { card: "border-border bg-card", text: "text-foreground", icon: "◉" };
 }
+
+export function importSuccessNote(result: { imported: number; auto_activated?: number }): string {
+  const base = `Imported ${result.imported} invoice${result.imported === 1 ? "" : "s"} from spreadsheet.`;
+  if (result.auto_activated && result.auto_activated > 0) {
+    return `${base} ${result.auto_activated} reminder sequence${result.auto_activated === 1 ? "" : "s"} started.`;
+  }
+  return base;
+}
