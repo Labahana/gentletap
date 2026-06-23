@@ -37,6 +37,18 @@ def mark_invoice_paid(db: Session, invoice: Invoice) -> None:
     cancel_invoice_jobs(db, invoice.id)
 
 
+def _dispatch_immediate(job: ReminderJob, scheduled: datetime) -> None:
+    now = datetime.now(UTC)
+    if scheduled <= now + timedelta(minutes=2):
+        try:
+            from gentletap.tasks.reminders import send_reminder_job
+
+            send_reminder_job.delay(str(job.id))
+            job.celery_task_id = str(job.id)
+        except Exception:
+            pass
+
+
 def schedule_next_job(
     db: Session,
     invoice: Invoice,
@@ -51,18 +63,6 @@ def schedule_next_job(
     if next_step > MAX_SEQUENCE_STEP:
         return None
 
-    existing = (
-        db.query(ReminderJob)
-        .filter(
-            ReminderJob.invoice_id == invoice.id,
-            ReminderJob.sequence_step == next_step,
-            ReminderJob.status == "pending",
-        )
-        .one_or_none()
-    )
-    if existing:
-        return existing
-
     now = datetime.now(UTC)
     if scheduled_for is not None:
         scheduled = scheduled_for
@@ -70,6 +70,26 @@ def schedule_next_job(
         scheduled = now + timedelta(days=delay_days)
     else:
         scheduled = now + timedelta(hours=1)
+
+    existing = (
+        db.query(ReminderJob)
+        .filter(
+            ReminderJob.invoice_id == invoice.id,
+            ReminderJob.sequence_step == next_step,
+        )
+        .one_or_none()
+    )
+    if existing:
+        if existing.status == "pending":
+            return existing
+        if existing.status in ("cancelled", "failed"):
+            existing.status = "pending"
+            existing.scheduled_for = scheduled
+            existing.celery_task_id = None
+            db.flush()
+            _dispatch_immediate(existing, scheduled)
+            return existing
+        return existing
 
     job = ReminderJob(
         invoice_id=invoice.id,
@@ -79,16 +99,7 @@ def schedule_next_job(
     )
     db.add(job)
     db.flush()
-
-    if scheduled <= now + timedelta(minutes=2):
-        try:
-            from gentletap.tasks.reminders import send_reminder_job
-
-            send_reminder_job.delay(str(job.id))
-            job.celery_task_id = str(job.id)
-        except Exception:
-            pass
-
+    _dispatch_immediate(job, scheduled)
     return job
 
 
