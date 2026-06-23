@@ -55,7 +55,7 @@ class Settings(BaseSettings):
 
     # z.ai (Zhipu / GLM) — OpenAI-compatible fallback when Kimi is unavailable.
     zai_api_key: str = ""
-    zai_model: str = "glm-4.6"
+    zai_model: str = "glm-4.7-flash"
     zai_base_url: str = "https://api.z.ai/api/paas/v4/"
 
     paddle_api_key: str = ""
