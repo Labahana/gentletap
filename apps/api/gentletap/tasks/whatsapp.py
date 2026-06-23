@@ -1,5 +1,7 @@
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+
+from sqlalchemy import update
 
 from gentletap.database import SessionLocal, WhatsappFollowupJob
 from gentletap.services.whatsapp_followup import process_whatsapp_followup
@@ -7,11 +9,27 @@ from gentletap.tasks.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
 
+STUCK_JOB_TIMEOUT = timedelta(minutes=30)
+
+
+def _requeue_stuck_jobs(db) -> int:
+    cutoff = datetime.now(UTC) - STUCK_JOB_TIMEOUT
+    result = db.execute(
+        update(WhatsappFollowupJob)
+        .where(WhatsappFollowupJob.status == "processing", WhatsappFollowupJob.updated_at < cutoff)
+        .values(status="pending")
+    )
+    db.commit()
+    return result.rowcount or 0
+
 
 @celery_app.task(name="gentletap.tasks.whatsapp.evaluate_followups")
 def evaluate_whatsapp_followups() -> dict:
     db = SessionLocal()
     try:
+        requeued = _requeue_stuck_jobs(db)
+        if requeued:
+            logger.warning("Requeued %s stuck WhatsApp job(s)", requeued)
         now = datetime.now(UTC)
         jobs = (
             db.query(WhatsappFollowupJob)

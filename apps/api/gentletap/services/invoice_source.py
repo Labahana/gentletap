@@ -47,6 +47,8 @@ def source_counts_for_user(db, user_id) -> dict:
     upload_count = 0
     upload_needs_attention = 0
     for inv in rows:
+        if float(inv.balance) <= 0:
+            continue
         if invoice_source(inv) == "upload":
             upload_count += 1
             if invoice_needs_attention(inv)[0]:

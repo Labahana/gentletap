@@ -13,6 +13,7 @@ from gentletap.database import Client, Invoice, InvoiceImportBatch, Profile
 from gentletap.integrations.quickbooks.sync import _invoice_status, _parse_date
 from gentletap.integrations.twilio.phone import normalize_phone_e164
 from gentletap.plans import has_whatsapp
+from gentletap.services.sequences import reopen_invoice
 
 COLUMN_ALIASES: dict[str, list[str]] = {
     "client_name": ["client_name", "customer", "customer_name", "client", "name"],
@@ -245,6 +246,8 @@ def import_invoices_from_file(db: Session, user_id: UUID, content: bytes, filena
             existing.imported_at = now
             if invoice_phone:
                 existing.reminder_phone = invoice_phone
+            # If a previously-paid invoice now carries a balance, start a fresh chase cycle.
+            reopen_invoice(existing)
 
         imported += 1
 

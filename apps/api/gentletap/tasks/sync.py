@@ -23,22 +23,29 @@ def sync_all_users() -> dict:
 
     db = SessionLocal()
     try:
-        connections = (
-            db.query(QuickBooksConnection)
+        user_ids = [
+            row[0]
+            for row in db.query(QuickBooksConnection.user_id)
             .filter(QuickBooksConnection.disconnected_at.is_(None))
             .all()
-        )
-        count = 0
-        errors = 0
-        for conn in connections:
-            try:
-                sync_unpaid_invoices(db, conn.user_id)
-                count += 1
-            except Exception:
-                logger.exception("QB sync failed for user %s", conn.user_id)
-                errors += 1
-        result = {"synced_users": count, "errors": errors, "total_connections": len(connections)}
-        logger.info("sync_all_users complete: %s", result)
-        return result
+        ]
     finally:
         db.close()
+
+    count = 0
+    errors = 0
+    for user_id in user_ids:
+        # Isolated session per user so one failure can't poison the others' transactions.
+        user_db = SessionLocal()
+        try:
+            sync_unpaid_invoices(user_db, user_id)
+            count += 1
+        except Exception:
+            logger.exception("QB sync failed for user %s", user_id)
+            errors += 1
+        finally:
+            user_db.close()
+
+    result = {"synced_users": count, "errors": errors, "total_connections": len(user_ids)}
+    logger.info("sync_all_users complete: %s", result)
+    return result

@@ -11,6 +11,8 @@ from gentletap.database import Invoice, ReminderJob
 # Day overdue thresholds per sequence step (0–4)
 SEQUENCE_DAY_THRESHOLDS = [0, 3, 7, 14, 21]
 MAX_SEQUENCE_STEP = 4
+# Minimum days between consecutive reminders, regardless of how overdue an invoice is.
+MIN_STEP_GAP_DAYS = 2
 
 
 def cancel_invoice_jobs(db: Session, invoice_id: UUID) -> int:
@@ -37,14 +39,32 @@ def mark_invoice_paid(db: Session, invoice: Invoice) -> None:
     cancel_invoice_jobs(db, invoice.id)
 
 
+def reopen_invoice(invoice: Invoice) -> bool:
+    """Clear paid state when a previously-paid invoice has a balance again.
+
+    Resets the sequence to a fresh cycle so auto-activation can pick it up.
+    Returns True if the invoice was reopened. Does not touch disputes or
+    invoices paused for reasons other than payment.
+    """
+    if float(invoice.balance) <= 0 or invoice.paid_at is None:
+        return False
+    invoice.paid_at = None
+    invoice.sequence_paused = False
+    invoice.sequence_approved = False
+    invoice.sequence_active = False
+    invoice.sequence_step = 0
+    recalculate_invoice_status(invoice)
+    return True
+
+
 def _dispatch_immediate(job: ReminderJob, scheduled: datetime) -> None:
     now = datetime.now(UTC)
     if scheduled <= now + timedelta(minutes=2):
         try:
             from gentletap.tasks.reminders import send_reminder_job
 
-            send_reminder_job.delay(str(job.id))
-            job.celery_task_id = str(job.id)
+            async_result = send_reminder_job.delay(str(job.id))
+            job.celery_task_id = getattr(async_result, "id", None)
         except Exception:
             pass
 
@@ -141,12 +161,18 @@ def _scheduled_for_next_step(db: Session, invoice: Invoice) -> datetime:
 
 
 def _days_until_next_step(invoice: Invoice) -> int:
+    """Spacing to the next reminder using the natural gap between sequence thresholds.
+
+    Each invoice follows its own timeline: the cadence between follow-ups is fixed
+    (3, 4, 7, 7 days) no matter how overdue the invoice was when it entered the
+    sequence — so a long-overdue invoice is never blasted on consecutive days.
+    """
     step = invoice.sequence_step
     if step >= len(SEQUENCE_DAY_THRESHOLDS):
         return 7
-    current_threshold = SEQUENCE_DAY_THRESHOLDS[step - 1] if step > 0 else 0
+    prev_threshold = SEQUENCE_DAY_THRESHOLDS[step - 1] if step > 0 else 0
     next_threshold = SEQUENCE_DAY_THRESHOLDS[step]
-    return max(1, next_threshold - max(invoice.days_overdue, current_threshold))
+    return max(MIN_STEP_GAP_DAYS, next_threshold - prev_threshold)
 
 
 def recalculate_invoice_status(invoice: Invoice) -> None:

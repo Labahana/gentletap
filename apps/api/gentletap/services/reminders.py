@@ -270,6 +270,40 @@ def approve_all_overdue(db: Session, user: Profile) -> dict:
     }
 
 
+def _notify_escalation(db: Session, invoice: Invoice, user_id: UUID) -> None:
+    """Surface an invoice that the engine flagged for human handoff (e.g. 21+ days overdue).
+
+    De-duplicated: skips if an unread escalation notification already exists for this invoice.
+    """
+    existing = (
+        db.query(UserNotification)
+        .filter(
+            UserNotification.user_id == user_id,
+            UserNotification.invoice_id == invoice.id,
+            UserNotification.kind == "escalation",
+            UserNotification.read_at.is_(None),
+        )
+        .first()
+    )
+    if existing is not None:
+        return
+    ctx = build_reminder_context(db, invoice.id, user_id)
+    body = (
+        escalation_recommendation(ctx)
+        if ctx is not None
+        else f"Invoice #{invoice.doc_number or invoice.qb_invoice_id} needs a personal touch."
+    )
+    db.add(
+        UserNotification(
+            user_id=user_id,
+            kind="escalation",
+            title=f"Invoice #{invoice.doc_number or '—'} needs you",
+            body=body,
+            invoice_id=invoice.id,
+        )
+    )
+
+
 def auto_activate_new_invoices(db: Session, user: Profile) -> int:
     """Auto-activate genuinely new overdue invoices for users who have completed onboarding.
 
@@ -335,8 +369,10 @@ def auto_activate_new_invoices(db: Session, user: Profile) -> int:
         inv.sequence_approved = True
         try:
             generate_draft(db, inv)
-        except ValueError:
+        except ValueError as exc:
             inv.sequence_approved = False
+            if str(exc) == "escalation_recommended":
+                _notify_escalation(db, inv, user.id)
             continue
         mark_collection_started(inv)
         inv.sequence_active = True
@@ -358,7 +394,9 @@ def auto_activate_new_invoices(db: Session, user: Profile) -> int:
                 invoice_id=to_activate[0].id if to_activate else None,
             )
         )
-        db.commit()
+
+    # Commit activations AND any escalation notifications queued during the loop.
+    db.commit()
 
     return activated
 

@@ -7,7 +7,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from gentletap.database import Invoice, Profile, UserNotification
-from gentletap.services.sequences import mark_invoice_paid, recalculate_invoice_status
+from gentletap.services.sequences import mark_invoice_paid, recalculate_invoice_status, reopen_invoice
 
 
 def apply_invoice_balance_update(
@@ -34,6 +34,10 @@ def apply_invoice_balance_update(
         invoice.payment_link = payment_link
     recalculate_invoice_status(invoice)
 
+    # Reopen a previously-paid invoice that now carries a balance again.
+    if balance > 0 and not was_unpaid:
+        reopen_invoice(invoice)
+
     if balance <= 0 and was_unpaid:
         mark_invoice_paid(db, invoice)
         if notify:
@@ -51,11 +55,3 @@ def apply_invoice_balance_update(
     db.commit()
     db.refresh(invoice)
     return invoice
-
-
-def reconcile_zero_balance_invoices(db: Session, user_id: UUID) -> int:
-    """Mark local invoices paid if QB sync removed them from unpaid set."""
-    from gentletap.integrations.quickbooks.sync import sync_unpaid_invoices
-
-    sync_unpaid_invoices(db, user_id)
-    return 0

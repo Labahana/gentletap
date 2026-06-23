@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from gentletap.database import Client, Invoice, QuickBooksConnection, SyncLog
 from gentletap.integrations.quickbooks import client as qb_client
 from gentletap.integrations.quickbooks.invoice_fields import payment_link_from_qb
+from gentletap.services.sequences import reopen_invoice
 from gentletap.utils.redis_client import set_json
 
 
@@ -170,6 +171,8 @@ def sync_unpaid_invoices(db: Session, user_id: UUID) -> dict:
                 invoice_row.payment_link = payment_link
                 invoice_row.source = "quickbooks"
                 invoice_row.qb_last_updated = qb_last_updated
+                # QB shows a balance again on a previously-paid invoice → fresh chase cycle.
+                reopen_invoice(invoice_row)
 
             synced += 1
             progress = 40 + int((synced / max(len(qb_invoices), 1)) * 50)

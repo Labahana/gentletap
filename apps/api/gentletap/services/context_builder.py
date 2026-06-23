@@ -1,6 +1,6 @@
 """Build ReminderContext from database rows."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -41,13 +41,15 @@ def client_profile_from_row(client: Client) -> ClientProfile:
 def invoice_context_from_row(invoice: Invoice) -> InvoiceContext:
     due = invoice.due_date
     due_dt = datetime.combine(due, datetime.min.time(), tzinfo=UTC) if due else datetime.now(UTC)
+    # Recompute days overdue live so escalation (21+) and tone reflect today, not the last sync.
+    live_days_overdue = max((date.today() - due).days, 0) if due else invoice.days_overdue
     return InvoiceContext(
         invoice_id=str(invoice.id),
         doc_number=invoice.doc_number or str(invoice.qb_invoice_id),
         amount=float(invoice.amount),
         balance=float(invoice.balance),
         currency=invoice.currency,
-        days_overdue=invoice.days_overdue,
+        days_overdue=live_days_overdue,
         due_date=due_dt,
         sequence_step=invoice.sequence_step,
         client_responded_recently=_client_responded_recently(invoice),
