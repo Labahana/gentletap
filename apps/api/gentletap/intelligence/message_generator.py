@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 
 from gentletap.config import get_settings
@@ -6,6 +7,8 @@ from gentletap.integrations.twilio import templates as wa_templates
 from gentletap.plans import has_priority_ai
 from gentletap.integrations.openai.client import get_openai_client
 from gentletap.intelligence.schemas import BANNED_PHRASES, Channel, GeneratedMessage, ReminderContext, Tone
+
+logger = logging.getLogger(__name__)
 
 
 def _tone_instruction(tone: Tone) -> str:
@@ -104,15 +107,21 @@ def generate_message(
             if has_priority_ai(ctx.user_plan)
             else settings.kimi_model
         )
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.7,
-        )
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.7,
+            )
+        except Exception:
+            # AI provider down / bad key / wrong model — never block the reminder.
+            # Fall back to a templated message so the email still goes out.
+            logger.exception("AI message generation failed; using fallback template")
+            break
         raw = response.choices[0].message.content or "{}"
         try:
             data = json.loads(raw)
