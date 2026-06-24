@@ -45,7 +45,7 @@ class IntelligenceEngine:
             return False, "no_client_contact"
         return True, None
 
-    def decide(self, ctx: ReminderContext) -> DecideResult:
+    def decide(self, ctx: ReminderContext, *, generate_message: bool = True) -> DecideResult:
         should, reason = self.should_send(ctx)
         if not should:
             return DecideResult(action=Action.WAIT, reason=reason)
@@ -64,7 +64,7 @@ class IntelligenceEngine:
 
         risk = score_risk(ctx)
         tone = select_tone(ctx, risk)
-        message = _generate_outbound_message(ctx, tone, channel)
+        message = _generate_outbound_message(ctx, tone, channel) if generate_message else None
 
         return DecideResult(
             action=Action.SEND,

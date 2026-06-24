@@ -1,12 +1,16 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from gentletap.database import Invoice, ReminderMessage, get_db
 from gentletap.dependencies import CurrentUser
-from gentletap.services.reminders import approve_all_overdue, preview_overdue_invoices
+from gentletap.rate_limit import limiter
+from gentletap.services.email_router import has_delivery_capability
+from gentletap.services.reminders import preview_overdue_invoices
+from gentletap.services.activation_status import get_activation_status
+from gentletap.tasks.activation import queue_activation
 
 router = APIRouter(prefix="/reminders", tags=["reminders"])
 
@@ -17,7 +21,8 @@ class ReminderUpdate(BaseModel):
 
 
 @router.get("/preview")
-def get_preview(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
+@limiter.limit("20/minute")
+def get_preview(request: Request, user: CurrentUser, db: Session = Depends(get_db)) -> dict:
     from sqlalchemy import func
 
     overdue_q = db.query(Invoice).filter(
@@ -72,6 +77,17 @@ def update_draft(
     return {"id": str(message.id), "subject": message.subject, "body": message.body}
 
 
-@router.post("/approve-all")
+@router.get("/activate-status")
+def activation_status(user: CurrentUser) -> dict:
+    return get_activation_status(user.id)
+
+
+@router.post("/approve-all", status_code=status.HTTP_202_ACCEPTED)
 def approve_all(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
-    return approve_all_overdue(db, user)
+    if not has_delivery_capability(db, user.id, plan=user.plan):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Connect Gmail, verify an email sender, or connect WhatsApp before going live",
+        )
+    queue_activation(user.id)
+    return {"status": "queued"}

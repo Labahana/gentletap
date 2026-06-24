@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from gentletap.database import Client, Invoice, QuickBooksConnection, SyncLog
 from gentletap.integrations.quickbooks import client as qb_client
 from gentletap.integrations.quickbooks.invoice_fields import payment_link_from_qb
+from gentletap.scale_limits import QB_SYNC_REDIS_EVERY_N
 from gentletap.services.sequences import reopen_invoice
 from gentletap.utils.redis_client import set_json
 
@@ -70,7 +71,7 @@ def sync_unpaid_invoices(db: Session, user_id: UUID) -> dict:
     )
 
     try:
-        qb_invoices = qb_client.query(
+        qb_invoices = qb_client.query_all(
             db,
             connection,
             "SELECT * FROM Invoice WHERE Balance > '0'",
@@ -116,10 +117,14 @@ def sync_unpaid_invoices(db: Session, user_id: UUID) -> dict:
                     db.add(client_row)
                     db.flush()
                 else:
-                    qb_customer = qb_client.get_customer(db, connection, qb_customer_id)
-                    if qb_customer:
-                        client_row.email = qb_customer.get("PrimaryEmailAddr", {}).get("Address") or client_row.email
-                        client_row.name = qb_customer.get("DisplayName", client_row.name)
+                    # Existing client — skip QB customer fetch unless name/email missing.
+                    if not client_row.email or client_row.name in ("Unknown", ""):
+                        qb_customer = qb_client.get_customer(db, connection, qb_customer_id)
+                        if qb_customer:
+                            client_row.email = (
+                                qb_customer.get("PrimaryEmailAddr", {}).get("Address") or client_row.email
+                            )
+                            client_row.name = qb_customer.get("DisplayName", client_row.name)
                 customer_cache[qb_customer_id] = client_row
 
             balance = Decimal(str(qb_invoice.get("Balance", 0)))
@@ -175,22 +180,23 @@ def sync_unpaid_invoices(db: Session, user_id: UUID) -> dict:
                 reopen_invoice(invoice_row)
 
             synced += 1
-            progress = 40 + int((synced / max(len(qb_invoices), 1)) * 50)
-            _update_sync_status(
-                user_id,
-                status="syncing",
-                progress=progress,
-                message=f"Synced {synced} of {len(qb_invoices)} invoices…",
-                unpaid_count=len(qb_invoices),
-                total_outstanding=float(total_outstanding),
-            )
+            if synced == 1 or synced % QB_SYNC_REDIS_EVERY_N == 0 or synced == len(qb_invoices):
+                progress = 40 + int((synced / max(len(qb_invoices), 1)) * 50)
+                _update_sync_status(
+                    user_id,
+                    status="syncing",
+                    progress=progress,
+                    message=f"Synced {synced} of {len(qb_invoices)} invoices…",
+                    unpaid_count=len(qb_invoices),
+                    total_outstanding=float(total_outstanding),
+                )
 
         connection.last_sync_at = datetime.now(UTC)
         db.commit()
 
-        from gentletap.intelligence.profiler import reprofile_user_clients
+        from gentletap.tasks.profiler import reprofile_user_clients
 
-        reprofile_user_clients(db, user_id)
+        reprofile_user_clients.delay(str(user_id))
 
         # Mark invoices paid if no longer returned by QB unpaid query
         from decimal import Decimal as D

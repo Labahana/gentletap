@@ -22,6 +22,10 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg2://gentletap:gentletap@localhost:5433/gentletap"
     database_migrations_url: str = ""
+    db_pool_size: int = 5
+    db_max_overflow: int = 10
+    db_pool_recycle: int = 1800
+    ai_rate_limit_per_minute: int = 60
     redis_url: str = "redis://localhost:6379/0"
     celery_broker_url: str = "redis://localhost:6379/0"
     celery_result_backend: str = "redis://localhost:6379/1"

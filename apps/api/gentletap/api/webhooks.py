@@ -30,20 +30,38 @@ def _twilio_auth_for_inbound(db: Session, to_phone: str) -> str:
 
     normalized_to = normalize_phone_e164(to_phone.replace("whatsapp:", ""))
     if normalized_to:
-        conns = (
+        matches = (
             db.query(WhatsappConnection)
             .filter(
                 WhatsappConnection.disconnected_at.is_(None),
-                WhatsappConnection.phone_e164.isnot(None),
+                WhatsappConnection.phone_e164 == normalized_to,
                 WhatsappConnection.twilio_subaccount_token_enc.isnot(None),
             )
+            .limit(1)
             .all()
         )
-        for conn in conns:
-            if conn.phone_e164 and phones_match(conn.phone_e164, normalized_to):
-                token = decrypt_token(conn.twilio_subaccount_token_enc or "")
-                if token:
-                    return token
+        if not matches:
+            # Fallback: format variants stored without strict normalization.
+            digits = normalized_to.lstrip("+")
+            matches = (
+                db.query(WhatsappConnection)
+                .filter(
+                    WhatsappConnection.disconnected_at.is_(None),
+                    WhatsappConnection.phone_e164.isnot(None),
+                    WhatsappConnection.twilio_subaccount_token_enc.isnot(None),
+                )
+                .limit(50)
+                .all()
+            )
+            for conn in matches:
+                if conn.phone_e164 and phones_match(conn.phone_e164, normalized_to):
+                    token = decrypt_token(conn.twilio_subaccount_token_enc or "")
+                    if token:
+                        return token
+        else:
+            token = decrypt_token(matches[0].twilio_subaccount_token_enc or "")
+            if token:
+                return token
     return settings.twilio_auth_token
 
 

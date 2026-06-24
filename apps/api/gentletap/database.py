@@ -24,8 +24,9 @@ settings = get_settings()
 
 _engine_kwargs: dict = {
     "pool_pre_ping": True,
-    "pool_size": 5,
-    "max_overflow": 10,
+    "pool_size": settings.db_pool_size,
+    "max_overflow": settings.db_max_overflow,
+    "pool_recycle": settings.db_pool_recycle,
 }
 if settings.database_url.startswith("postgresql") and "sslmode=" not in settings.database_url:
     if "supabase.com" in settings.database_url:

@@ -1,25 +1,17 @@
 import json
 import logging
 import re
+import time
 
 from gentletap.config import get_settings
 from gentletap.integrations.twilio import templates as wa_templates
 from gentletap.plans import has_priority_ai
 from gentletap.integrations.openai.client import get_openai_client, get_zai_client
+from gentletap.intelligence.prompt_builder import build_reminder_prompts
 from gentletap.intelligence.schemas import BANNED_PHRASES, Channel, GeneratedMessage, ReminderContext, Tone
+from gentletap.utils.ai_rate_limit import acquire_ai_slot
 
 logger = logging.getLogger(__name__)
-
-
-def _tone_instruction(tone: Tone) -> str:
-    mapping = {
-        Tone.WARM: "warm and light — like a friendly heads-up",
-        Tone.FRIENDLY: "friendly and helpful — assume they forgot",
-        Tone.PROFESSIONAL: "professional and direct — clear about the overdue status",
-        Tone.FIRM: "firm but respectful — include a clear deadline",
-        Tone.URGENT: "urgent and human — suggest personal follow-up may be needed soon",
-    }
-    return mapping[tone]
 
 
 def _contains_banned(text: str) -> bool:
@@ -35,19 +27,48 @@ def _payment_link_line(payment_link: str | None) -> str:
 
 def _fallback_message(ctx: ReminderContext, tone: Tone) -> GeneratedMessage:
     inv = ctx.invoice
+    step = min(inv.sequence_step, 4)
     due_str = inv.due_date.strftime("%B %d, %Y") if inv.due_date else "the due date"
-    overdue = f" ({inv.days_overdue} days overdue)" if inv.days_overdue > 0 else ""
-    subject = f"Invoice #{inv.doc_number} — payment reminder"
-    if tone in (Tone.FIRM, Tone.URGENT):
-        subject = f"Action needed: invoice #{inv.doc_number}"
-    body = (
-        f"Hi {ctx.client_name},\n\n"
-        f"This is a reminder that invoice #{inv.doc_number} for ${inv.balance:,.2f} "
-        f"was due on {due_str}{overdue}.\n\n"
-        f"{_tone_instruction(tone).capitalize()}.\n\n"
-        f"Please let me know if you have any questions."
-        f"{_payment_link_line(inv.payment_link)}\n\nBest regards,\n{ctx.sender_name}"
-    )
+    amount = f"${inv.balance:,.2f}"
+
+    subjects = {
+        0: f"Quick check-in: invoice #{inv.doc_number}",
+        1: f"Following up on invoice #{inv.doc_number}",
+        2: f"Invoice #{inv.doc_number} — payment status",
+        3: f"Invoice #{inv.doc_number} — action needed",
+        4: f"Invoice #{inv.doc_number} — please reply",
+    }
+    subject = subjects.get(step, f"Invoice #{inv.doc_number}")
+
+    if step == 0:
+        opener = (
+            f"Hi {ctx.client_name},\n\n"
+            f"Hope you're doing well. I'm checking in on invoice #{inv.doc_number} "
+            f"for {amount}, which was due {due_str}."
+        )
+        ask = (
+            "When you have a moment, could you confirm it's been scheduled "
+            "or let me know if anything's holding it up?"
+        )
+    elif step <= 2:
+        opener = (
+            f"Hi {ctx.client_name},\n\n"
+            f"Following up on invoice #{inv.doc_number} for {amount} "
+            f"(due {due_str}, now {inv.days_overdue} days past due)."
+        )
+        ask = "Could you let me know when you expect this to be processed?"
+    else:
+        opener = (
+            f"Hi {ctx.client_name},\n\n"
+            f"I wanted to reach out again about invoice #{inv.doc_number} "
+            f"for {amount}, due {due_str}."
+        )
+        ask = (
+            "I'd appreciate a quick reply with an ETA or any issue on your end — "
+            "happy to help if something needs sorting."
+        )
+
+    body = f"{opener}\n\n{ask}{_payment_link_line(inv.payment_link)}\n\nBest regards,\n{ctx.sender_name}"
     return GeneratedMessage(subject=subject, body=body)
 
 
@@ -102,6 +123,11 @@ def _parse_generated(raw: str) -> GeneratedMessage | None:
 def _try_provider(client, model: str, system: str, user: str) -> GeneratedMessage | None:
     """Attempt generation with one provider, retrying once on a bad response."""
     for _ in range(2):
+        if not acquire_ai_slot():
+            time.sleep(1.0)
+            if not acquire_ai_slot():
+                logger.warning("AI rate limit exceeded; skipping provider %s", model)
+                return None
         try:
             response = client.chat.completions.create(
                 model=model,
@@ -133,34 +159,7 @@ def generate_message(
 
     settings = get_settings()
 
-    inv = ctx.invoice
-    profile = ctx.profile
-    due_str = inv.due_date.strftime("%B %d, %Y")
-    system = (
-        "You write payment reminder emails for freelancers. "
-        "Never use words like collections, debt collector, demand notice, overdue notice, or legal action. "
-        "Keep emails concise, human, and relationship-preserving. "
-        "Sign off with the sender's real name provided below — "
-        "never use placeholders like [Your Name], [Name], or {name}. "
-        "Respond with JSON only: {\"subject\": \"...\", \"body\": \"...\"}"
-    )
-    user = (
-        f"Sender (sign the email with this exact name): {ctx.sender_name}\n"
-        f"Client: {ctx.client_name}\n"
-        f"Invoice #{inv.doc_number} — ${inv.balance:,.2f} {inv.currency}\n"
-        f"Due date: {due_str}\n"
-        f"Days overdue: {inv.days_overdue}\n"
-        f"Sequence step: {inv.sequence_step}\n"
-        f"Late payment rate: {profile.late_payment_rate:.0%}\n"
-        f"Client tenure: {profile.tenure_months} months\n"
-        f"Tone: {_tone_instruction(tone)}\n"
-    )
-    if inv.payment_link:
-        user += (
-            f"Payment link (include this URL in the email so the client can pay online): "
-            f"{inv.payment_link}\n"
-        )
-    user += "Write the reminder email."
+    system, user = build_reminder_prompts(ctx, tone)
 
     # Try providers in order: Kimi first, then z.ai (GLM), then a templated fallback.
     # Any provider being down, mis-keyed, or returning junk silently rolls to the next.

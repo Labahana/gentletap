@@ -11,19 +11,19 @@ def refresh_qb_tokens() -> dict:
     db = SessionLocal()
     refreshed = 0
     try:
+        cutoff = datetime.now(UTC) + timedelta(days=1)
         connections = (
             db.query(QuickBooksConnection)
-            .filter(QuickBooksConnection.disconnected_at.is_(None))
+            .filter(
+                QuickBooksConnection.disconnected_at.is_(None),
+                QuickBooksConnection.token_expires_at.isnot(None),
+                QuickBooksConnection.token_expires_at <= cutoff,
+            )
             .all()
         )
         for conn in connections:
-            if conn.token_expires_at:
-                expires = conn.token_expires_at
-                if expires.tzinfo is None:
-                    expires = expires.replace(tzinfo=UTC)
-                if expires <= datetime.now(UTC) + timedelta(days=1):
-                    refresh_connection_tokens(db, conn)
-                    refreshed += 1
+            refresh_connection_tokens(db, conn)
+            refreshed += 1
         return {"refreshed": refreshed}
     finally:
         db.close()
@@ -34,19 +34,19 @@ def refresh_google_tokens() -> dict:
     db = SessionLocal()
     refreshed = 0
     try:
+        cutoff = datetime.now(UTC) + timedelta(days=1)
         connections = (
             db.query(GoogleConnection)
-            .filter(GoogleConnection.disconnected_at.is_(None))
+            .filter(
+                GoogleConnection.disconnected_at.is_(None),
+                GoogleConnection.token_expires_at.isnot(None),
+                GoogleConnection.token_expires_at <= cutoff,
+            )
             .all()
         )
         for conn in connections:
-            if conn.token_expires_at:
-                expires = conn.token_expires_at
-                if expires.tzinfo is None:
-                    expires = expires.replace(tzinfo=UTC)
-                if expires <= datetime.now(UTC) + timedelta(days=1):
-                    google_oauth.refresh_connection_tokens(db, conn)
-                    refreshed += 1
+            google_oauth.refresh_connection_tokens(db, conn)
+            refreshed += 1
         return {"refreshed": refreshed}
     finally:
         db.close()

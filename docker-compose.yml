@@ -22,7 +22,7 @@ services:
     image: redis:7-alpine
     container_name: gentletap-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy volatile-lru
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy volatile-lru
     volumes:
       - gentletap_redis:/data
     healthcheck:
@@ -65,15 +65,16 @@ services:
     build:
       context: ./apps/api
       dockerfile: Dockerfile
-    container_name: gentletap-worker
     restart: unless-stopped
+    # Scale horizontally on VPS: docker compose up -d --scale worker=3
+    # (no container_name — required for --scale)
     env_file:
       - .env
     environment:
       REDIS_URL: "redis://redis:6379/0"
       CELERY_BROKER_URL: "redis://redis:6379/0"
       CELERY_RESULT_BACKEND: "redis://redis:6379/1"
-    entrypoint: ["celery", "-A", "gentletap.tasks.celery_app", "worker", "-l", "info", "--concurrency=2"]
+    entrypoint: ["celery", "-A", "gentletap.tasks.celery_app", "worker", "-l", "info", "--concurrency=4"]
     healthcheck:
       test:
         [

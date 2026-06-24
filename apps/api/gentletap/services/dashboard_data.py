@@ -103,14 +103,11 @@ def last_sent_reminders_by_invoice(db: Session, invoice_ids: list) -> dict:
             ReminderMessage.status == "sent",
             ReminderMessage.sent_at.isnot(None),
         )
-        .order_by(ReminderMessage.sent_at.desc())
+        .distinct(ReminderMessage.invoice_id)
+        .order_by(ReminderMessage.invoice_id, ReminderMessage.sent_at.desc())
         .all()
     )
-    out: dict = {}
-    for msg in rows:
-        if msg.invoice_id not in out:
-            out[msg.invoice_id] = msg
-    return out
+    return {msg.invoice_id: msg for msg in rows}
 
 
 def enrich_invoice_row(inv: Invoice, last_msg: ReminderMessage | None) -> dict:
@@ -426,3 +423,99 @@ def build_activity_feed(db: Session, user_id, limit: int = 10) -> list[dict]:
 
     items.sort(key=lambda x: x["at"], reverse=True)
     return items[:limit]
+
+
+def build_invoices_summary(db: Session, user_id) -> dict:
+    from gentletap.services.invoice_source import source_counts_for_user
+    from gentletap.services.plan_limits import free_plan_collection_usage
+
+    unpaid_count = (
+        db.query(func.count(Invoice.id))
+        .filter(Invoice.user_id == user_id, Invoice.balance > 0)
+        .scalar()
+        or 0
+    )
+    overdue_count = (
+        db.query(func.count(Invoice.id))
+        .filter(Invoice.user_id == user_id, Invoice.balance > 0, Invoice.days_overdue > 0)
+        .scalar()
+        or 0
+    )
+    green_count = (
+        db.query(func.count(Invoice.id))
+        .filter(Invoice.user_id == user_id, Invoice.balance > 0, Invoice.status == "green")
+        .scalar()
+        or 0
+    )
+    yellow_count = (
+        db.query(func.count(Invoice.id))
+        .filter(Invoice.user_id == user_id, Invoice.balance > 0, Invoice.status == "yellow")
+        .scalar()
+        or 0
+    )
+    red_count = (
+        db.query(func.count(Invoice.id))
+        .filter(Invoice.user_id == user_id, Invoice.balance > 0, Invoice.status == "red")
+        .scalar()
+        or 0
+    )
+    active_sequences = (
+        db.query(func.count(Invoice.id))
+        .filter(Invoice.user_id == user_id, Invoice.sequence_active.is_(True))
+        .scalar()
+        or 0
+    )
+    total_outstanding = (
+        db.query(func.coalesce(func.sum(Invoice.balance), 0))
+        .filter(Invoice.user_id == user_id, Invoice.balance > 0)
+        .scalar()
+        or 0
+    )
+    currency_row = (
+        db.query(Invoice.currency)
+        .filter(Invoice.user_id == user_id, Invoice.balance > 0)
+        .first()
+    )
+
+    def _bucket(min_days: int, max_days: int | None) -> dict:
+        q = db.query(
+            func.count(Invoice.id),
+            func.coalesce(func.sum(Invoice.balance), 0),
+        ).filter(Invoice.user_id == user_id, Invoice.balance > 0, Invoice.days_overdue >= min_days)
+        if max_days is not None:
+            q = q.filter(Invoice.days_overdue <= max_days)
+        row = q.first()
+        return {"count": row[0] or 0, "total": float(row[1] or 0)}
+
+    extras = build_summary_extras(db, user_id)
+    overdue_stats = (
+        db.query(
+            func.coalesce(func.max(Invoice.days_overdue), 0),
+            func.coalesce(func.avg(Invoice.days_overdue), 0),
+        )
+        .filter(Invoice.user_id == user_id, Invoice.balance > 0, Invoice.days_overdue > 0)
+        .one()
+    )
+    return {
+        "unpaid_count": unpaid_count,
+        "overdue_count": overdue_count,
+        "total_outstanding": float(total_outstanding),
+        "oldest_days_overdue": int(overdue_stats[0] or 0),
+        "avg_days_overdue": int(round(float(overdue_stats[1] or 0))),
+        "currency": currency_row[0] if currency_row else "USD",
+        "green_count": green_count,
+        "yellow_count": yellow_count,
+        "red_count": red_count,
+        "active_sequences": active_sequences,
+        "monthly_collections": free_plan_collection_usage(db, user_id),
+        "aging": {
+            "current": _bucket(0, 0),
+            "days_1_30": _bucket(1, 30),
+            "days_31_60": _bucket(31, 60),
+            "days_61_90": _bucket(61, 90),
+            "days_90_plus": _bucket(91, None),
+        },
+        **extras,
+        "activity": build_activity_feed(db, user_id, limit=10),
+        "sources": source_counts_for_user(db, user_id),
+    }

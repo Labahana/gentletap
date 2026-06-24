@@ -229,6 +229,29 @@ export type ReminderPreviewSummary = {
   avg_days_overdue: number;
 };
 
+type ActivationResult = {
+  activated: number;
+  message: string;
+  skipped_escalation: Array<{ invoice_id: string; doc_number: string | null; reason: string }>;
+  skipped_other: Array<{ invoice_id: string; doc_number: string | null; reason: string }>;
+  plan_cap_total: number;
+  plan_cap_remaining: number;
+};
+
+async function pollActivationResult(token: string): Promise<ActivationResult> {
+  for (let i = 0; i < 90; i++) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const status = await request<{
+      status: string;
+      result: ActivationResult | null;
+      error: string | null;
+    }>("/reminders/activate-status", {}, token);
+    if (status.status === "complete" && status.result) return status.result;
+    if (status.status === "failed") throw new Error(status.error || "Activation failed");
+  }
+  throw new Error("Activation timed out — check your dashboard in a minute");
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -362,15 +385,10 @@ export const api = {
   advanceOnboardingPricing: (token: string) =>
     request<{ current_step: string }>("/onboarding/advance-pricing", { method: "POST" }, token),
 
-  onboardingActivate: (token: string) =>
-    request<{
-      activated: number;
-      message: string;
-      skipped_escalation: Array<{ invoice_id: string; doc_number: string | null; reason: string }>;
-      skipped_other: Array<{ invoice_id: string; doc_number: string | null; reason: string }>;
-      plan_cap_total: number;
-      plan_cap_remaining: number;
-    }>("/onboarding/activate", { method: "POST" }, token),
+  onboardingActivate: async (token: string) => {
+    await request<{ status: string }>("/onboarding/activate", { method: "POST" }, token);
+    return pollActivationResult(token);
+  },
 
   qbConnectUrl: (token: string) =>
     request<{ authorization_url: string }>("/quickbooks/connect-url", {}, token),
@@ -482,15 +500,10 @@ export const api = {
       token,
     ),
 
-  approveAll: (token: string) =>
-    request<{
-      activated: number;
-      message: string;
-      skipped_escalation: Array<{ invoice_id: string; doc_number: string | null; reason: string }>;
-      skipped_other: Array<{ invoice_id: string; doc_number: string | null; reason: string }>;
-      plan_cap_total: number;
-      plan_cap_remaining: number;
-    }>("/reminders/approve-all", { method: "POST" }, token),
+  approveAll: async (token: string) => {
+    await request<{ status: string }>("/reminders/approve-all", { method: "POST" }, token);
+    return pollActivationResult(token);
+  },
 
   approveInvoice: (token: string, id: string) =>
     request<{ status: string }>(`/invoices/${id}/approve`, { method: "POST" }, token),

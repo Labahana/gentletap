@@ -19,6 +19,7 @@ def sync_user_invoices(user_id: str) -> dict:
 
 @celery_app.task(name="gentletap.tasks.sync.sync_all_users")
 def sync_all_users() -> dict:
+    """Dispatcher: enqueue one sync task per connected QuickBooks user."""
     from gentletap.database import QuickBooksConnection
 
     db = SessionLocal()
@@ -32,20 +33,9 @@ def sync_all_users() -> dict:
     finally:
         db.close()
 
-    count = 0
-    errors = 0
     for user_id in user_ids:
-        # Isolated session per user so one failure can't poison the others' transactions.
-        user_db = SessionLocal()
-        try:
-            sync_unpaid_invoices(user_db, user_id)
-            count += 1
-        except Exception:
-            logger.exception("QB sync failed for user %s", user_id)
-            errors += 1
-        finally:
-            user_db.close()
+        sync_user_invoices.delay(str(user_id))
 
-    result = {"synced_users": count, "errors": errors, "total_connections": len(user_ids)}
+    result = {"dispatched_users": len(user_ids)}
     logger.info("sync_all_users complete: %s", result)
     return result

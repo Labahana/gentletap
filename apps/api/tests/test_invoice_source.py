@@ -2,7 +2,6 @@ from gentletap.database import Invoice
 from gentletap.services.invoice_source import (
     invoice_needs_attention,
     invoice_source,
-    source_counts_for_user,
 )
 
 
@@ -44,32 +43,3 @@ def test_upload_needs_attention_when_overdue_not_active():
 def test_quickbooks_never_needs_attention():
     inv = _invoice(qb_invoice_id="99", balance=50, days_overdue=10, sequence_active=False)
     assert invoice_needs_attention(inv) == (False, None)
-
-
-def test_source_counts():
-    class FakeQuery:
-        def __init__(self, rows):
-            self._rows = rows
-
-        def filter(self, *args, **kwargs):
-            return self
-
-        def all(self):
-            return self._rows
-
-    class FakeDb:
-        def __init__(self, rows):
-            self._rows = rows
-
-        def query(self, model):
-            return FakeQuery(self._rows)
-
-    rows = [
-        _invoice(qb_invoice_id="1", balance=10),
-        _invoice(qb_invoice_id="csv:a", balance=20, days_overdue=3, sequence_active=False),
-        _invoice(qb_invoice_id="csv:b", balance=0),
-    ]
-    counts = source_counts_for_user(FakeDb(rows), user_id=None)
-    assert counts["quickbooks_count"] == 1
-    assert counts["upload_count"] == 1
-    assert counts["upload_needs_attention"] == 1

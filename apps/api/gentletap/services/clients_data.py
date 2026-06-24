@@ -6,31 +6,30 @@ from sqlalchemy.orm import Session
 from gentletap.database import Client, Invoice
 
 
-def _outstanding_by_client(db: Session, user_id) -> dict:
-    rows = (
+def _outstanding_by_client(db: Session, user_id, client_ids: list | None = None) -> dict:
+    q = (
         db.query(
             Invoice.client_id,
             func.coalesce(func.sum(Invoice.balance), 0),
             func.count(Invoice.id),
         )
         .filter(Invoice.user_id == user_id, Invoice.balance > 0)
-        .group_by(Invoice.client_id)
-        .all()
     )
+    if client_ids:
+        q = q.filter(Invoice.client_id.in_(client_ids))
+    rows = q.group_by(Invoice.client_id).all()
     return {r[0]: {"outstanding": float(r[1]), "unpaid_count": r[2]} for r in rows}
 
 
-def _active_chase_by_client(db: Session, user_id) -> dict:
-    rows = (
-        db.query(Invoice.client_id, func.count(Invoice.id))
-        .filter(
-            Invoice.user_id == user_id,
-            Invoice.sequence_active.is_(True),
-            Invoice.balance > 0,
-        )
-        .group_by(Invoice.client_id)
-        .all()
+def _active_chase_by_client(db: Session, user_id, client_ids: list | None = None) -> dict:
+    q = db.query(Invoice.client_id, func.count(Invoice.id)).filter(
+        Invoice.user_id == user_id,
+        Invoice.sequence_active.is_(True),
+        Invoice.balance > 0,
     )
+    if client_ids:
+        q = q.filter(Invoice.client_id.in_(client_ids))
+    rows = q.group_by(Invoice.client_id).all()
     return {r[0]: r[1] for r in rows}
 
 
@@ -38,8 +37,9 @@ def list_clients(db: Session, user_id, limit: int = 100, offset: int = 0) -> dic
     q = db.query(Client).filter(Client.user_id == user_id)
     total = q.count()
     clients = q.order_by(Client.name.asc()).offset(offset).limit(limit).all()
-    outstanding_map = _outstanding_by_client(db, user_id)
-    chase_map = _active_chase_by_client(db, user_id)
+    client_ids = [c.id for c in clients]
+    outstanding_map = _outstanding_by_client(db, user_id, client_ids)
+    chase_map = _active_chase_by_client(db, user_id, client_ids)
 
     items = []
     for c in clients:

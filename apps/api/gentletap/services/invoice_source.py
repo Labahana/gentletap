@@ -1,5 +1,7 @@
 """Classify invoice origin (QuickBooks sync vs spreadsheet upload)."""
 
+from sqlalchemy import case, func, or_
+
 from gentletap.database import Invoice
 
 
@@ -35,28 +37,38 @@ def attention_reason_label(reason: str | None) -> str | None:
     return None
 
 
+def _is_upload_expr():
+    return or_(
+        Invoice.source == "upload",
+        Invoice.qb_invoice_id.like("csv:%"),
+    )
+
+
 def source_counts_for_user(db, user_id) -> dict:
     from gentletap.database import Invoice
 
-    rows = (
-        db.query(Invoice)
-        .filter(Invoice.user_id == user_id, Invoice.balance > 0)
-        .all()
+    upload_expr = _is_upload_expr()
+    attention_expr = upload_expr & (
+        Invoice.client_claimed_paid_at.isnot(None)
+        | (
+            Invoice.dispute_flag.is_(False)
+            & Invoice.sequence_paused.is_(False)
+            & (Invoice.days_overdue > 0)
+            & Invoice.sequence_active.is_(False)
+        )
     )
-    quickbooks_count = 0
-    upload_count = 0
-    upload_needs_attention = 0
-    for inv in rows:
-        if float(inv.balance) <= 0:
-            continue
-        if invoice_source(inv) == "upload":
-            upload_count += 1
-            if invoice_needs_attention(inv)[0]:
-                upload_needs_attention += 1
-        else:
-            quickbooks_count += 1
+
+    row = (
+        db.query(
+            func.sum(case((upload_expr, 1), else_=0)).label("upload_count"),
+            func.sum(case((~upload_expr, 1), else_=0)).label("quickbooks_count"),
+            func.sum(case((attention_expr, 1), else_=0)).label("upload_needs_attention"),
+        )
+        .filter(Invoice.user_id == user_id, Invoice.balance > 0)
+        .one()
+    )
     return {
-        "quickbooks_count": quickbooks_count,
-        "upload_count": upload_count,
-        "upload_needs_attention": upload_needs_attention,
+        "quickbooks_count": int(row.quickbooks_count or 0),
+        "upload_count": int(row.upload_count or 0),
+        "upload_needs_attention": int(row.upload_needs_attention or 0),
     }

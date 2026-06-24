@@ -13,6 +13,7 @@ from gentletap.database import Client, Invoice, InvoiceImportBatch, Profile
 from gentletap.integrations.quickbooks.sync import _invoice_status, _parse_date
 from gentletap.integrations.twilio.phone import normalize_phone_e164
 from gentletap.plans import has_whatsapp
+from gentletap.scale_limits import CSV_IMPORT_COMMIT_EVERY, CSV_IMPORT_MAX_ROWS
 from gentletap.services.sequences import reopen_invoice
 
 COLUMN_ALIASES: dict[str, list[str]] = {
@@ -87,6 +88,8 @@ def import_invoices_from_file(db: Session, user_id: UUID, content: bytes, filena
     df = _load_dataframe(content, filename)
     if df.empty:
         raise ValueError("The file has no rows")
+    if len(df) > CSV_IMPORT_MAX_ROWS:
+        raise ValueError(f"Too many rows — maximum {CSV_IMPORT_MAX_ROWS} per upload")
 
     raw_headers = {str(col): str(col) for col in df.columns}
     headers = {_normalize_header(col): col for col in df.columns}
@@ -116,6 +119,20 @@ def import_invoices_from_file(db: Session, user_id: UUID, content: bytes, filena
 
     user = db.query(Profile).filter(Profile.id == user_id).one()
     import_whatsapp_phones = has_whatsapp(user.plan)
+
+    existing_clients = {
+        c.qb_customer_id: c
+        for c in db.query(Client).filter(Client.user_id == user_id).all()
+        if c.qb_customer_id
+    }
+    existing_invoices = {
+        i.qb_invoice_id: i
+        for i in db.query(Invoice).filter(
+            Invoice.user_id == user_id,
+            Invoice.qb_invoice_id.like("csv:%"),
+        ).all()
+        if i.qb_invoice_id
+    }
 
     client_cache: dict[str, Client] = {}
     imported = 0
@@ -169,11 +186,7 @@ def import_invoices_from_file(db: Session, user_id: UUID, content: bytes, filena
         customer_id = _customer_key(name, email)
         client_row = client_cache.get(customer_id)
         if client_row is None:
-            client_row = (
-                db.query(Client)
-                .filter(Client.user_id == user_id, Client.qb_customer_id == customer_id)
-                .one_or_none()
-            )
+            client_row = existing_clients.get(customer_id)
             if client_row is None:
                 client_row = Client(
                     user_id=user_id,
@@ -183,6 +196,7 @@ def import_invoices_from_file(db: Session, user_id: UUID, content: bytes, filena
                 )
                 db.add(client_row)
                 db.flush()
+                existing_clients[customer_id] = client_row
             else:
                 client_row.name = name
                 client_row.email = email
@@ -195,18 +209,12 @@ def import_invoices_from_file(db: Session, user_id: UUID, content: bytes, filena
         else:
             qb_invoice_id = f"csv:{uuid.uuid4()}"
 
-        existing = (
-            db.query(Invoice)
-            .filter(Invoice.user_id == user_id, Invoice.qb_invoice_id == qb_invoice_id)
-            .one_or_none()
-        )
+        existing = existing_invoices.get(qb_invoice_id)
         if existing is None and doc_number:
-            qb_invoice_id = f"csv:{doc_number}:{idx}"[:64]
-            existing = (
-                db.query(Invoice)
-                .filter(Invoice.user_id == user_id, Invoice.qb_invoice_id == qb_invoice_id)
-                .one_or_none()
-            )
+            alt_id = f"csv:{doc_number}:{idx}"[:64]
+            existing = existing_invoices.get(alt_id)
+            if existing is not None:
+                qb_invoice_id = alt_id
 
         days_overdue, status = _invoice_status(due_date, balance)
         total_outstanding += balance
@@ -232,6 +240,7 @@ def import_invoices_from_file(db: Session, user_id: UUID, content: bytes, filena
                 reminder_phone=invoice_phone,
             )
             db.add(invoice_row)
+            existing_invoices[qb_invoice_id] = invoice_row
         else:
             existing.client_id = client_row.id
             existing.doc_number = doc_number
@@ -250,6 +259,9 @@ def import_invoices_from_file(db: Session, user_id: UUID, content: bytes, filena
             reopen_invoice(existing)
 
         imported += 1
+
+        if imported % CSV_IMPORT_COMMIT_EVERY == 0:
+            db.commit()
 
     db.add(
         InvoiceImportBatch(

@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from gentletap.plans import has_whatsapp
@@ -20,6 +20,8 @@ from gentletap.intelligence.channel_selector import whatsapp_followup_planned
 from gentletap.intelligence.engine import engine
 from gentletap.intelligence.escalation import escalation_recommendation
 from gentletap.intelligence.schemas import Action, Channel
+from gentletap.intelligence.message_generator import generate_message
+from gentletap.scale_limits import ACTIVATION_BATCH, AUTO_ACTIVATE_BATCH
 from gentletap.services.context_builder import build_reminder_context
 from gentletap.services.reminder_contacts import effective_reminder_email, effective_reminder_phone
 from gentletap.services.email_router import (
@@ -167,7 +169,12 @@ def preview_overdue_invoices(db: Session, user_id: UUID, limit: int = 10) -> lis
     return previews
 
 
-def approve_all_overdue(db: Session, user: Profile) -> dict:
+def approve_all_overdue(
+    db: Session,
+    user: Profile,
+    *,
+    finalize_onboarding: bool = True,
+) -> dict:
     if not has_delivery_capability(db, user.id, plan=user.plan):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -186,6 +193,7 @@ def approve_all_overdue(db: Session, user: Profile) -> dict:
             Invoice.days_overdue > 0,
         )
         .order_by(Invoice.days_overdue.desc(), Invoice.balance.desc())
+        .limit(ACTIVATION_BATCH)
         .all()
     )
     to_activate = [inv for inv in overdue if not inv.sequence_active and float(inv.balance) > 0]
@@ -249,16 +257,29 @@ def approve_all_overdue(db: Session, user: Profile) -> dict:
         schedule_next_job(db, inv, scheduled_for=scheduled_for_current_step(db, inv))
         activated += 1
 
-    pref = db.query(EmailPreference).filter(EmailPreference.user_id == user.id).one_or_none()
-    if pref is None:
-        pref = EmailPreference(user_id=user.id)
-        db.add(pref)
-    pref.require_approval = False
-    pref.first_batch_approved_at = datetime.now(UTC)
+    if finalize_onboarding:
+        pref = db.query(EmailPreference).filter(EmailPreference.user_id == user.id).one_or_none()
+        if pref is None:
+            pref = EmailPreference(user_id=user.id)
+            db.add(pref)
+        pref.require_approval = False
+        pref.first_batch_approved_at = datetime.now(UTC)
+        user.onboarding_step = "live"
+        user.onboarding_completed_at = datetime.now(UTC)
 
-    user.onboarding_step = "live"
-    user.onboarding_completed_at = datetime.now(UTC)
     db.commit()
+
+    remaining = (
+        db.query(func.count(Invoice.id))
+        .filter(
+            Invoice.user_id == user.id,
+            Invoice.balance > 0,
+            Invoice.days_overdue > 0,
+            Invoice.sequence_active.is_(False),
+        )
+        .scalar()
+        or 0
+    )
 
     return {
         "activated": activated,
@@ -267,6 +288,7 @@ def approve_all_overdue(db: Session, user: Profile) -> dict:
         "message": f"Activated {activated} invoice sequences",
         "plan_cap_total": plan_cap_total,
         "plan_cap_remaining": plan_cap_remaining,
+        "has_more": remaining > 0,
     }
 
 
@@ -334,6 +356,7 @@ def auto_activate_new_invoices(db: Session, user: Profile) -> int:
             Invoice.dispute_flag.is_(False),
         )
         .order_by(Invoice.days_overdue.desc(), Invoice.balance.desc())
+        .limit(AUTO_ACTIVATE_BATCH)
         .all()
     )
 
@@ -420,7 +443,7 @@ def process_due_job(db: Session, job_id: UUID) -> None:
         return
 
     ctx.invoice.approved = invoice.sequence_approved
-    result = engine.decide(ctx)
+    result = engine.decide(ctx, generate_message=False)
     db.add(AgentDecision(invoice_id=invoice.id, decision=result.model_dump(mode="json")))
 
     if result.action == Action.WAIT:
@@ -478,9 +501,23 @@ def process_due_job(db: Session, job_id: UUID) -> None:
             message.status = "approved"
         db.flush()
     elif message is None:
-        job.status = "failed"
-        db.commit()
-        return
+        if result.action != Action.SEND or result.tone is None:
+            job.status = "failed"
+            db.commit()
+            return
+        channel = result.channel or Channel.EMAIL
+        generated = generate_message(ctx, result.tone, channel=channel)
+        message = ReminderMessage(
+            invoice_id=invoice.id,
+            sequence_step=job.sequence_step,
+            subject=generated.subject,
+            body=generated.body,
+            tone=result.tone.value,
+            channel="email",
+            status="approved",
+        )
+        db.add(message)
+        db.flush()
 
     client_email = effective_reminder_email(invoice) if invoice.client else None
     client_phone = effective_reminder_phone(invoice) if invoice.client else None

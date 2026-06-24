@@ -3,9 +3,10 @@
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from gentletap.database import Client, Invoice, Profile
+from gentletap.database import Client, Invoice, Profile, ReminderMessage
 from gentletap.intelligence.schemas import ClientProfile, InvoiceContext, ReminderContext, RiskLevel
 from gentletap.services.reminder_contacts import effective_reminder_email, effective_reminder_phone
 
@@ -73,6 +74,15 @@ def build_reminder_context(db: Session, invoice_id: UUID, user_id: UUID) -> Remi
     sender_name = (
         user.email_display_name or user.full_name or user.email.split("@")[0]
     ).strip()
+    prior_messages_count = (
+        db.query(func.count(ReminderMessage.id))
+        .filter(
+            ReminderMessage.invoice_id == invoice.id,
+            ReminderMessage.status == "sent",
+        )
+        .scalar()
+        or 0
+    )
     return ReminderContext(
         client_id=str(client.id),
         client_name=client.name,
@@ -81,6 +91,7 @@ def build_reminder_context(db: Session, invoice_id: UUID, user_id: UUID) -> Remi
         email_suppressed=bool(client.email_suppressed),
         user_plan=user.plan,
         sender_name=sender_name,
+        prior_messages_count=int(prior_messages_count),
         profile=client_profile_from_row(client),
         invoice=invoice_context_from_row(invoice),
     )

@@ -5,6 +5,7 @@ from uuid import UUID
 from sqlalchemy import update
 
 from gentletap.database import ReminderJob, SessionLocal
+from gentletap.scale_limits import REMINDER_DISPATCH_BATCH
 from gentletap.services.reminders import process_due_job
 from gentletap.tasks.celery_app import celery_app
 
@@ -28,6 +29,7 @@ def _requeue_stuck_jobs(db) -> int:
 
 @celery_app.task(name="gentletap.tasks.reminders.evaluate_due_reminders")
 def evaluate_due_reminders() -> dict:
+    """Lightweight scheduler: claim due jobs and fan out to worker tasks."""
     db = SessionLocal()
     try:
         requeued = _requeue_stuck_jobs(db)
@@ -38,50 +40,43 @@ def evaluate_due_reminders() -> dict:
             db.query(ReminderJob)
             .filter(ReminderJob.status == "pending", ReminderJob.scheduled_for <= now)
             .with_for_update(skip_locked=True)
-            .limit(100)
+            .limit(REMINDER_DISPATCH_BATCH)
             .all()
         )
-        job_ids = [job.id for job in jobs]
+        job_ids = [str(job.id) for job in jobs]
         for job in jobs:
             job.status = "processing"
         db.commit()
-
-        processed = 0
-        for job_id in job_ids:
-            job_db = SessionLocal()
-            try:
-                process_due_job(job_db, job_id)
-                processed += 1
-            except Exception:
-                logger.exception("Reminder job failed: %s", job_id)
-                stuck = job_db.query(ReminderJob).filter(ReminderJob.id == job_id).one_or_none()
-                if stuck and stuck.status == "processing":
-                    stuck.status = "pending"
-                    job_db.commit()
-            finally:
-                job_db.close()
-        if job_ids:
-            logger.info("evaluate_due_reminders processed %s/%s jobs", processed, len(job_ids))
-        return {"processed": processed, "due": len(job_ids)}
     finally:
         db.close()
 
+    for job_id in job_ids:
+        send_reminder_job.delay(job_id, pre_claimed=True)
+
+    if job_ids:
+        logger.info("evaluate_due_reminders dispatched %s job(s)", len(job_ids))
+    return {"dispatched": len(job_ids)}
+
 
 @celery_app.task(name="gentletap.tasks.reminders.send_reminder_job")
-def send_reminder_job(job_id: str) -> None:
+def send_reminder_job(job_id: str, *, pre_claimed: bool = False) -> None:
     jid = UUID(job_id)
     db = SessionLocal()
     try:
-        # Atomically claim the job: only one of (immediate dispatch, beat poll) may win.
-        # If rowcount != 1 the job was already claimed elsewhere — do NOT process again.
-        claimed = db.execute(
-            update(ReminderJob)
-            .where(ReminderJob.id == jid, ReminderJob.status == "pending")
-            .values(status="processing")
-        )
-        db.commit()
-        if (claimed.rowcount or 0) != 1:
-            return
+        if not pre_claimed:
+            # Atomically claim: only one of (immediate dispatch, beat poll) may win.
+            claimed = db.execute(
+                update(ReminderJob)
+                .where(ReminderJob.id == jid, ReminderJob.status == "pending")
+                .values(status="processing")
+            )
+            db.commit()
+            if (claimed.rowcount or 0) != 1:
+                return
+        else:
+            job = db.query(ReminderJob).filter(ReminderJob.id == jid).one_or_none()
+            if job is None or job.status != "processing":
+                return
         try:
             process_due_job(db, jid)
         except Exception:

@@ -129,11 +129,20 @@ def advance_to_pricing(user: CurrentUser, db: Session = Depends(get_db)) -> dict
     return {"current_step": user.onboarding_step}
 
 
-@router.post("/onboarding/activate")
+@router.post("/onboarding/activate", status_code=status.HTTP_202_ACCEPTED)
 def activate_reminders(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
-    from gentletap.services.reminders import approve_all_overdue
+    from gentletap.services.email_router import has_delivery_capability
+    from gentletap.tasks.activation import queue_activation
 
-    return approve_all_overdue(db, user)
+    if not has_delivery_capability(db, user.id, plan=user.plan):
+        from fastapi import HTTPException, status
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Connect Gmail, verify an email sender, or connect WhatsApp before going live",
+        )
+    queue_activation(user.id)
+    return {"status": "queued"}
 
 
 @router.post("/onboarding/persona", response_model=UserResponse)

@@ -4,27 +4,25 @@ import json
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field
-from sqlalchemy import func
+from sqlalchemy import func, tuple_
 from sqlalchemy.orm import Session
 
 from gentletap.database import Invoice, InvoiceImportBatch, ReminderMessage, get_db
 from gentletap.dependencies import CurrentUser
 from gentletap.plans import has_whatsapp
 from gentletap.services.csv_import import import_invoices_from_file
+from gentletap.services.dashboard_cache import get_invoices_summary_cached, invalidate_dashboard_summary
 from gentletap.services.dashboard_data import (
-    build_activity_feed,
-    build_summary_extras,
     enrich_invoice_row,
     last_sent_reminders_by_invoice,
 )
+from gentletap.utils.pagination import decode_invoice_cursor, encode_invoice_cursor
 from gentletap.services.invoice_source import (
     attention_reason_label,
     invoice_needs_attention,
     invoice_source,
     invoice_source_label,
-    source_counts_for_user,
 )
-from gentletap.services.email_router import has_delivery_capability
 from gentletap.services.manual_invoices import (
     bulk_mark_upload_invoices_paid,
     mark_upload_invoice_paid,
@@ -76,7 +74,9 @@ async def import_invoices_csv(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File is too large — max 5 MB")
     filename = file.filename or "upload.csv"
     try:
-        return import_invoices_from_file(db, user.id, content, filename)
+        result = import_invoices_from_file(db, user.id, content, filename)
+        invalidate_dashboard_summary(user.id)
+        return result
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
@@ -116,7 +116,9 @@ def bulk_mark_invoices_paid(
     user: CurrentUser,
     db: Session = Depends(get_db),
 ) -> dict:
-    return bulk_mark_upload_invoices_paid(db, user.id, body.invoice_ids)
+    result = bulk_mark_upload_invoices_paid(db, user.id, body.invoice_ids)
+    invalidate_dashboard_summary(user.id)
+    return result
 
 
 @router.get("")
@@ -126,117 +128,58 @@ def list_invoices(
     status_filter: str | None = Query(None, alias="status"),
     limit: int = Query(50, le=200),
     offset: int = Query(0, ge=0),
+    cursor: str | None = Query(None),
 ) -> dict:
     q = db.query(Invoice).filter(Invoice.user_id == user.id)
     if status_filter:
         q = q.filter(Invoice.status == status_filter)
-    total = q.count()
-    rows = q.order_by(Invoice.days_overdue.desc(), Invoice.balance.desc()).offset(offset).limit(limit).all()
+
+    if offset > 0 and cursor is None:
+        total = q.count()
+        rows = q.order_by(Invoice.days_overdue.desc(), Invoice.balance.desc()).offset(offset).limit(limit).all()
+        last_by_inv = last_sent_reminders_by_invoice(db, [inv.id for inv in rows])
+        return {
+            "items": [enrich_invoice_row(inv, last_by_inv.get(inv.id)) for inv in rows],
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "next_cursor": None,
+        }
+
+    if cursor:
+            days_overdue, balance, invoice_id = decode_invoice_cursor(cursor)
+            q = q.filter(
+                tuple_(Invoice.days_overdue, Invoice.balance, Invoice.id)
+                < tuple_(days_overdue, balance, invoice_id)
+            )
+    rows = (
+            q.order_by(Invoice.days_overdue.desc(), Invoice.balance.desc(), Invoice.id.desc())
+            .limit(limit + 1)
+            .all()
+    )
+    has_more = len(rows) > limit
+    if has_more:
+        rows = rows[:limit]
     last_by_inv = last_sent_reminders_by_invoice(db, [inv.id for inv in rows])
+    next_cursor = encode_invoice_cursor(rows[-1]) if has_more and rows else None
+    total = None
+    if not cursor:
+        count_q = db.query(func.count(Invoice.id)).filter(Invoice.user_id == user.id)
+        if status_filter:
+            count_q = count_q.filter(Invoice.status == status_filter)
+        total = count_q.scalar()
     return {
-        "items": [
-            enrich_invoice_row(inv, last_by_inv.get(inv.id))
-            for inv in rows
-        ],
+        "items": [enrich_invoice_row(inv, last_by_inv.get(inv.id)) for inv in rows],
         "total": total,
         "limit": limit,
         "offset": offset,
+        "next_cursor": next_cursor,
     }
 
 
 @router.get("/summary")
 def invoices_summary(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
-    unpaid_count = (
-        db.query(func.count(Invoice.id))
-        .filter(Invoice.user_id == user.id, Invoice.balance > 0)
-        .scalar()
-        or 0
-    )
-    overdue_count = (
-        db.query(func.count(Invoice.id))
-        .filter(Invoice.user_id == user.id, Invoice.balance > 0, Invoice.days_overdue > 0)
-        .scalar()
-        or 0
-    )
-    green_count = (
-        db.query(func.count(Invoice.id))
-        .filter(Invoice.user_id == user.id, Invoice.balance > 0, Invoice.status == "green")
-        .scalar()
-        or 0
-    )
-    yellow_count = (
-        db.query(func.count(Invoice.id))
-        .filter(Invoice.user_id == user.id, Invoice.balance > 0, Invoice.status == "yellow")
-        .scalar()
-        or 0
-    )
-    red_count = (
-        db.query(func.count(Invoice.id))
-        .filter(Invoice.user_id == user.id, Invoice.balance > 0, Invoice.status == "red")
-        .scalar()
-        or 0
-    )
-    active_sequences = (
-        db.query(func.count(Invoice.id))
-        .filter(Invoice.user_id == user.id, Invoice.sequence_active.is_(True))
-        .scalar()
-        or 0
-    )
-    total_outstanding = (
-        db.query(func.coalesce(func.sum(Invoice.balance), 0))
-        .filter(Invoice.user_id == user.id, Invoice.balance > 0)
-        .scalar()
-        or 0
-    )
-    currency_row = (
-        db.query(Invoice.currency)
-        .filter(Invoice.user_id == user.id, Invoice.balance > 0)
-        .first()
-    )
-
-    # Aging buckets by days_overdue
-    def _bucket(min_days: int, max_days: int | None) -> dict:
-        q = db.query(
-            func.count(Invoice.id),
-            func.coalesce(func.sum(Invoice.balance), 0),
-        ).filter(Invoice.user_id == user.id, Invoice.balance > 0, Invoice.days_overdue >= min_days)
-        if max_days is not None:
-            q = q.filter(Invoice.days_overdue <= max_days)
-        row = q.first()
-        return {"count": row[0] or 0, "total": float(row[1] or 0)}
-
-    extras = build_summary_extras(db, user.id)
-    overdue_stats = (
-        db.query(
-            func.coalesce(func.max(Invoice.days_overdue), 0),
-            func.coalesce(func.avg(Invoice.days_overdue), 0),
-        )
-        .filter(Invoice.user_id == user.id, Invoice.balance > 0, Invoice.days_overdue > 0)
-        .one()
-    )
-    return {
-        "unpaid_count": unpaid_count,
-        "overdue_count": overdue_count,
-        "total_outstanding": float(total_outstanding),
-        "oldest_days_overdue": int(overdue_stats[0] or 0),
-        "avg_days_overdue": int(round(float(overdue_stats[1] or 0))),
-        "currency": currency_row[0] if currency_row else "USD",
-        "green_count": green_count,
-        "yellow_count": yellow_count,
-        "red_count": red_count,
-        "active_sequences": active_sequences,
-        "monthly_collections": free_plan_collection_usage(db, user),
-        "aging": {
-            "current": _bucket(0, 0),
-            "days_1_30": _bucket(1, 30),
-            "days_31_60": _bucket(31, 60),
-            "days_61_90": _bucket(61, 90),
-            "days_90_plus": _bucket(91, None),
-        },
-        **extras,
-        "activity": build_activity_feed(db, user.id, limit=10),
-        "sources": source_counts_for_user(db, user.id),
-    }
+    return get_invoices_summary_cached(db, user.id)
 
 
 @router.get("/{invoice_id}")
@@ -356,6 +299,7 @@ def approve_invoice(invoice_id: UUID, user: CurrentUser, db: Session = Depends(g
     inv.sequence_approved = True
     schedule_next_job(db, inv, scheduled_for=scheduled_for_current_step(db, inv))
     db.commit()
+    invalidate_dashboard_summary(user.id)
     return {"status": "approved"}
 
 
@@ -402,6 +346,7 @@ def mark_invoice_paid_manual(invoice_id: UUID, user: CurrentUser, db: Session = 
     if inv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
     mark_upload_invoice_paid(db, inv, user_id=user.id)
+    invalidate_dashboard_summary(user.id)
     return {"status": "paid", "balance": 0.0}
 
 

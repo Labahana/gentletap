@@ -14,6 +14,8 @@ celery_app = Celery(
         "gentletap.tasks.reminders",
         "gentletap.tasks.tokens",
         "gentletap.tasks.whatsapp",
+        "gentletap.tasks.activation",
+        "gentletap.tasks.profiler",
     ],
 )
 
@@ -27,6 +29,8 @@ celery_app.conf.update(
     worker_prefetch_multiplier=1,
     result_expires=3600,
     broker_connection_retry_on_startup=True,
+    task_soft_time_limit=600,
+    task_time_limit=900,
     beat_schedule_filename="/var/lib/celery/celerybeat-schedule",
     beat_schedule={
         "refresh-qb-tokens": {
@@ -40,14 +44,17 @@ celery_app.conf.update(
         "sync-qb-cdc": {
             "task": "gentletap.tasks.sync.sync_all_users",
             "schedule": crontab(minute="*/30"),
+            "options": {"expires": 25 * 60},
         },
         "evaluate-reminders": {
             "task": "gentletap.tasks.reminders.evaluate_due_reminders",
             "schedule": crontab(minute="*/5"),
+            "options": {"expires": 4 * 60},
         },
         "evaluate-whatsapp-followups": {
             "task": "gentletap.tasks.whatsapp.evaluate_followups",
             "schedule": crontab(minute="*/15"),
+            "options": {"expires": 14 * 60},
         },
     },
 )

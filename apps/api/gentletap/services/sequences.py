@@ -135,23 +135,9 @@ def advance_sequence_after_send(db: Session, invoice: Invoice) -> None:
 
 def scheduled_for_current_step(db: Session, invoice: Invoice) -> datetime:
     """Earliest send time for the invoice's current sequence step."""
-    now = datetime.now(UTC)
-    # First reminder after activation: send immediately (any time, per account).
-    if invoice.sequence_step == 0:
-        return now
-
-    from gentletap.intelligence.engine import engine
-    from gentletap.intelligence.schemas import Action
-    from gentletap.services.context_builder import build_reminder_context
-
-    ctx = build_reminder_context(db, invoice.id, invoice.user_id)
-    if ctx is None:
-        return now
-    ctx.invoice.approved = invoice.sequence_approved
-    result = engine.decide(ctx)
-    if result.action == Action.SEND and result.send_at and result.send_at > now:
-        return result.send_at
-    return now
+    # Step 0 sends immediately; follow-up spacing is handled by schedule_next_job.
+    # Avoid calling the full AI engine here — it was only used for send_at, which is always now.
+    return datetime.now(UTC)
 
 
 def _scheduled_for_next_step(db: Session, invoice: Invoice) -> datetime:
