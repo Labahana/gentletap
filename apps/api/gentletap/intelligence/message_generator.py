@@ -46,9 +46,29 @@ def _fallback_message(ctx: ReminderContext, tone: Tone) -> GeneratedMessage:
         f"was due on {due_str}{overdue}.\n\n"
         f"{_tone_instruction(tone).capitalize()}.\n\n"
         f"Please let me know if you have any questions."
-        f"{_payment_link_line(inv.payment_link)}\n\nBest regards"
+        f"{_payment_link_line(inv.payment_link)}\n\nBest regards,\n{ctx.sender_name}"
     )
     return GeneratedMessage(subject=subject, body=body)
+
+
+_PLACEHOLDER_RE = re.compile(
+    r"\[\s*(your\s+)?(name|full name|name here|sender(?:'s)?\s+name|signature)\s*\]"
+    r"|\{\{?\s*(your_name|name|sender_name|signature)\s*\}?\}",
+    re.IGNORECASE,
+)
+
+
+def _replace_name_placeholders(text: str, sender_name: str) -> str:
+    """Swap leftover signature placeholders (e.g. [Your Name]) with the real sender."""
+    return _PLACEHOLDER_RE.sub(sender_name, text)
+
+
+def _finalize(message: GeneratedMessage, sender_name: str) -> GeneratedMessage:
+    return GeneratedMessage(
+        subject=_replace_name_placeholders(message.subject, sender_name),
+        body=_replace_name_placeholders(message.body, sender_name),
+        whatsapp_template_key=message.whatsapp_template_key,
+    )
 
 
 def generate_whatsapp_message(ctx: ReminderContext, tone: Tone) -> GeneratedMessage:
@@ -120,9 +140,12 @@ def generate_message(
         "You write payment reminder emails for freelancers. "
         "Never use words like collections, debt collector, demand notice, overdue notice, or legal action. "
         "Keep emails concise, human, and relationship-preserving. "
+        "Sign off with the sender's real name provided below — "
+        "never use placeholders like [Your Name], [Name], or {name}. "
         "Respond with JSON only: {\"subject\": \"...\", \"body\": \"...\"}"
     )
     user = (
+        f"Sender (sign the email with this exact name): {ctx.sender_name}\n"
         f"Client: {ctx.client_name}\n"
         f"Invoice #{inv.doc_number} — ${inv.balance:,.2f} {inv.currency}\n"
         f"Due date: {due_str}\n"
@@ -157,6 +180,6 @@ def generate_message(
     for client, model in providers:
         result = _try_provider(client, model, system, user)
         if result is not None:
-            return result
+            return _finalize(result, ctx.sender_name)
 
     return _fallback_message(ctx, tone)
