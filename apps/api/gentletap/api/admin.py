@@ -18,6 +18,7 @@ from gentletap.services.admin_actions import (
 from gentletap.services.admin_data import (
     build_admin_overview,
     get_admin_user_detail,
+    list_admin_audit_log,
     list_admin_jobs,
     search_admin_users,
 )
@@ -64,10 +65,39 @@ def admin_users(
     admin: AdminUser,
     db: Session = Depends(get_db),
     search: str | None = Query(None),
+    plan: str | None = Query(None),
+    onboarding_step: str | None = Query(None),
     limit: int = Query(50, le=100),
     offset: int = Query(0, ge=0),
 ) -> dict:
-    return search_admin_users(db, search=search, limit=limit, offset=offset)
+    return search_admin_users(
+        db,
+        search=search,
+        plan=plan,
+        onboarding_step=onboarding_step,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.get("/audit")
+@limiter.limit("30/minute")
+def admin_audit_log(
+    request: Request,
+    admin: AdminUser,
+    db: Session = Depends(get_db),
+    limit: int = Query(50, le=100),
+    offset: int = Query(0, ge=0),
+) -> dict:
+    result = list_admin_audit_log(db, limit=limit, offset=offset)
+    record_admin_action(
+        db,
+        admin=admin,
+        action="audit.view",
+        request=request,
+        metadata={"offset": offset, "limit": limit},
+    )
+    return result
 
 
 @router.get("/users/{user_id}")

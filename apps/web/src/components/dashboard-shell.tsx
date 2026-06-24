@@ -20,6 +20,7 @@ import { Logo } from "@/components/logo";
 import { MobileUpgradeStrip, SidebarUpgradeNote } from "@/components/upgrade-prompt";
 import { useAuth } from "@/lib/auth-context";
 import { planLabel } from "@/lib/pricing";
+import { useIsAdmin } from "@/lib/use-is-admin";
 
 type NavItem = {
   href: string;
@@ -118,6 +119,7 @@ function SidebarFooter({
   monthlyLimit?: number;
 }) {
   const { user, logout } = useAuth();
+  const isAdmin = useIsAdmin();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -165,6 +167,11 @@ function SidebarFooter({
           <Link href="/settings/billing" onClick={() => setOpen(false)} className="block px-4 py-2 text-sm hover:bg-background">
             Billing & plan
           </Link>
+          {isAdmin && (
+            <Link href="/admin" onClick={() => setOpen(false)} className="block px-4 py-2 text-sm text-amber-700 hover:bg-background">
+              Platform admin
+            </Link>
+          )}
           <button
             type="button"
             onClick={() => { setOpen(false); logout(); }}

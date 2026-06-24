@@ -2,27 +2,31 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { AdminShell } from "@/components/admin-shell";
+import {
+  AdminAlert,
+  AdminButton,
+  AdminPageHeader,
+  AdminSection,
+  AdminStatCard,
+  AdminTable,
+  AdminBadge,
+  formatAdminDate,
+  AdminLoading,
+} from "@/components/admin/ui";
 import { api, getToken } from "@/lib/api";
-
-function StatCard({ label, value, warn }: { label: string; value: number; warn?: boolean }) {
-  return (
-    <div className={`rounded-lg border p-4 ${warn ? "border-amber-500/40 bg-amber-500/5" : "border-slate-800 bg-slate-900"}`}>
-      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-white">{value}</p>
-    </div>
-  );
-}
+import type { AdminOverview } from "@/lib/admin-types";
 
 export default function AdminOverviewPage() {
-  const [overview, setOverview] = useState<Awaited<ReturnType<typeof api.adminOverview>> | null>(null);
+  const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [health, setHealth] = useState<Awaited<ReturnType<typeof api.adminHealth>> | null>(null);
   const [requeueMsg, setRequeueMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     const token = getToken();
     if (!token) return;
+    setLoading(true);
     try {
       const [o, h] = await Promise.all([api.adminOverview(token), api.adminHealth(token)]);
       setOverview(o);
@@ -30,6 +34,8 @@ export default function AdminOverviewPage() {
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -46,74 +52,95 @@ export default function AdminOverviewPage() {
     await load();
   }
 
-  return (
-    <AdminShell>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-white">Platform overview</h1>
-          <p className="text-sm text-slate-400">Read-only system metrics</p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800"
-          >
-            Refresh
-          </button>
-          <button
-            type="button"
-            onClick={() => void requeueStuck()}
-            className="rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-500"
-          >
-            Requeue stuck jobs
-          </button>
-        </div>
-      </div>
+  if (loading && !overview) return <AdminLoading />;
 
-      {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
-      {requeueMsg && <p className="mb-4 text-sm text-amber-300">{requeueMsg}</p>}
+  return (
+    <>
+      <AdminPageHeader
+        title="Platform overview"
+        description="Live metrics across users, reminders, and infrastructure"
+        actions={
+          <>
+            <AdminButton onClick={() => void load()}>Refresh</AdminButton>
+            <AdminButton variant="primary" onClick={() => void requeueStuck()}>
+              Requeue stuck jobs
+            </AdminButton>
+          </>
+        }
+      />
+
+      {error && <AdminAlert tone="error">{error}</AdminAlert>}
+      {requeueMsg && <AdminAlert tone="success">{requeueMsg}</AdminAlert>}
 
       {overview && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Total users" value={overview.total_users} />
-          <StatCard label="Live users" value={overview.live_users} />
-          <StatCard label="Reminders sent today" value={overview.reminders_sent_today} />
-          <StatCard label="Active sequences" value={overview.active_sequences} />
-          <StatCard label="Pending jobs" value={overview.pending_jobs} />
-          <StatCard label="Processing" value={overview.processing_jobs} />
-          <StatCard label="Stuck jobs" value={overview.stuck_jobs} warn={overview.stuck_jobs > 0} />
-          <StatCard label="Failed jobs" value={overview.failed_jobs} warn={overview.failed_jobs > 0} />
-          <StatCard label="QB connected" value={overview.qb_connected} />
-          <StatCard label="Gmail connected" value={overview.google_connected} />
+          <AdminStatCard label="Total users" value={overview.total_users} href="/admin/users" />
+          <AdminStatCard label="Live users" value={overview.live_users} />
+          <AdminStatCard label="Reminders today" value={overview.reminders_sent_today} />
+          <AdminStatCard label="Active sequences" value={overview.active_sequences} />
+          <AdminStatCard label="Pending jobs" value={overview.pending_jobs} href="/admin/jobs?status=pending" />
+          <AdminStatCard label="Processing" value={overview.processing_jobs} href="/admin/jobs?status=processing" />
+          <AdminStatCard
+            label="Stuck jobs"
+            value={overview.stuck_jobs}
+            warn={overview.stuck_jobs > 0}
+            href="/admin/jobs?status=stuck"
+          />
+          <AdminStatCard
+            label="Failed jobs"
+            value={overview.failed_jobs}
+            warn={overview.failed_jobs > 0}
+            href="/admin/jobs?status=failed"
+          />
+          <AdminStatCard label="QB connected" value={overview.qb_connected} />
+          <AdminStatCard label="Gmail connected" value={overview.google_connected} />
         </div>
       )}
 
-      {health && (
-        <section className="mt-8 rounded-lg border border-slate-800 bg-slate-900 p-4">
-          <h2 className="text-sm font-medium text-slate-300">System health</h2>
-          <ul className="mt-3 space-y-1 text-sm">
-            {Object.entries(health.checks).map(([key, val]) => (
-              <li key={key} className="flex justify-between gap-4">
-                <span className="text-slate-400">{key}</span>
-                <span className={val === "ok" ? "text-emerald-400" : "text-amber-400"}>{val}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+        {health && (
+          <AdminSection title="System health">
+            <ul className="space-y-2 text-sm">
+              {Object.entries(health.checks).map(([key, val]) => (
+                <li key={key} className="flex items-center justify-between gap-4">
+                  <span className="text-slate-400">{key.replace(/_/g, " ")}</span>
+                  <AdminBadge tone={val === "ok" ? "ok" : "warn"}>{val}</AdminBadge>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-xs text-slate-500">Overall: {health.status}</p>
+          </AdminSection>
+        )}
 
-      <section className="mt-8 flex flex-wrap gap-3 text-sm">
-        <Link href="/admin/users" className="text-amber-400 hover:text-amber-300">
-          Search users →
-        </Link>
-        <Link href="/admin/jobs?status=failed" className="text-amber-400 hover:text-amber-300">
-          Failed jobs →
-        </Link>
-        <Link href="/admin/jobs?status=stuck" className="text-amber-400 hover:text-amber-300">
-          Stuck jobs →
-        </Link>
-      </section>
-    </AdminShell>
+        {overview && overview.recent_signups.length > 0 && (
+          <AdminSection title="Recent signups">
+            <AdminTable>
+              <thead className="bg-slate-950 text-slate-400">
+                <tr>
+                  <th className="px-3 py-2">Email</th>
+                  <th className="px-3 py-2">Plan</th>
+                  <th className="px-3 py-2">Step</th>
+                  <th className="px-3 py-2">Joined</th>
+                </tr>
+              </thead>
+              <tbody>
+                {overview.recent_signups.map((u) => (
+                  <tr key={u.id} className="border-t border-slate-800">
+                    <td className="px-3 py-2">
+                      <Link href={`/admin/users/${u.id}`} className="text-amber-400 hover:underline">
+                        {u.email}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2">{u.plan}</td>
+                    <td className="px-3 py-2">{u.onboarding_step}</td>
+                    <td className="px-3 py-2 text-slate-400">{formatAdminDate(u.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </AdminTable>
+          </AdminSection>
+        )}
+      </div>
+    </>
   );
 }

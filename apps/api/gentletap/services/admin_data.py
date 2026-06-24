@@ -4,9 +4,10 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from gentletap.database import (
+    AdminAuditLog,
     GoogleConnection,
     Invoice,
     Profile,
@@ -19,6 +20,10 @@ from gentletap.database import (
 from gentletap.services.email_router import has_delivery_capability
 
 STUCK_JOB_MINUTES = 15
+
+
+def _iso(dt) -> str | None:
+    return dt.isoformat() if dt else None
 
 
 def build_admin_overview(db: Session) -> dict:
@@ -67,6 +72,13 @@ def build_admin_overview(db: Session) -> dict:
         db.query(func.count(Invoice.id)).filter(Invoice.sequence_active.is_(True)).scalar() or 0
     )
 
+    recent_signups = (
+        db.query(Profile)
+        .order_by(Profile.created_at.desc())
+        .limit(8)
+        .all()
+    )
+
     return {
         "total_users": total_users,
         "live_users": live_users,
@@ -78,10 +90,28 @@ def build_admin_overview(db: Session) -> dict:
         "qb_connected": qb_connected,
         "google_connected": google_connected,
         "active_sequences": active_sequences,
+        "recent_signups": [
+            {
+                "id": str(u.id),
+                "email": u.email,
+                "plan": u.plan,
+                "onboarding_step": u.onboarding_step,
+                "created_at": _iso(u.created_at),
+            }
+            for u in recent_signups
+        ],
     }
 
 
-def search_admin_users(db: Session, *, search: str | None, limit: int, offset: int) -> dict:
+def search_admin_users(
+    db: Session,
+    *,
+    search: str | None,
+    plan: str | None = None,
+    onboarding_step: str | None = None,
+    limit: int,
+    offset: int,
+) -> dict:
     q = db.query(Profile)
     if search and search.strip():
         term = f"%{search.strip().lower()}%"
@@ -92,6 +122,10 @@ def search_admin_users(db: Session, *, search: str | None, limit: int, offset: i
                 func.lower(Profile.full_name).like(term),
             )
         )
+    if plan and plan.strip():
+        q = q.filter(Profile.plan == plan.strip().lower())
+    if onboarding_step and onboarding_step.strip():
+        q = q.filter(Profile.onboarding_step == onboarding_step.strip())
     total = q.count()
     rows = q.order_by(Profile.created_at.desc()).offset(offset).limit(limit).all()
 
@@ -127,10 +161,6 @@ def search_admin_users(db: Session, *, search: str | None, limit: int, offset: i
             }
         )
     return {"items": items, "total": total, "limit": limit, "offset": offset}
-
-
-def _iso(dt) -> str | None:
-    return dt.isoformat() if dt else None
 
 
 def get_admin_user_detail(db: Session, user_id: UUID) -> dict | None:
@@ -266,6 +296,7 @@ def list_admin_jobs(db: Session, *, status: str, limit: int) -> dict:
                 "sequence_step": job.sequence_step,
                 "scheduled_for": _iso(job.scheduled_for),
                 "updated_at": _iso(job.updated_at),
+                "celery_task_id": job.celery_task_id,
                 "invoice_id": str(inv.id),
                 "doc_number": inv.doc_number,
                 "user_id": str(user.id),
@@ -276,4 +307,36 @@ def list_admin_jobs(db: Session, *, status: str, limit: int) -> dict:
         ],
         "status_filter": status,
         "limit": limit,
+    }
+
+
+def list_admin_audit_log(db: Session, *, limit: int, offset: int) -> dict:
+    AdminProfile = aliased(Profile)
+    TargetProfile = aliased(Profile)
+
+    q = (
+        db.query(AdminAuditLog, AdminProfile, TargetProfile)
+        .join(AdminProfile, AdminAuditLog.admin_user_id == AdminProfile.id)
+        .outerjoin(TargetProfile, AdminAuditLog.target_user_id == TargetProfile.id)
+    )
+    total = q.count()
+    rows = q.order_by(AdminAuditLog.created_at.desc()).offset(offset).limit(limit).all()
+
+    return {
+        "items": [
+            {
+                "id": str(log.id),
+                "action": log.action,
+                "admin_email": admin.email,
+                "target_user_id": str(log.target_user_id) if log.target_user_id else None,
+                "target_email": target.email if target else None,
+                "ip_address": log.ip_address,
+                "metadata": log.metadata_json,
+                "created_at": _iso(log.created_at),
+            }
+            for log, admin, target in rows
+        ],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
     }
