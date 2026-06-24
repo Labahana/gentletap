@@ -763,6 +763,88 @@ export const api = {
       { method: "POST", body: JSON.stringify({ confirmation }) },
       token,
     ),
+
+  adminMe: (token: string) =>
+    request<{ admin: boolean; email: string; id: string }>("/admin/me", {}, token),
+
+  adminOverview: (token: string) =>
+    request<{
+      total_users: number;
+      live_users: number;
+      reminders_sent_today: number;
+      pending_jobs: number;
+      processing_jobs: number;
+      stuck_jobs: number;
+      failed_jobs: number;
+      qb_connected: number;
+      google_connected: number;
+      active_sequences: number;
+    }>("/admin/overview", {}, token),
+
+  adminHealth: (token: string) =>
+    request<{ status: string; checks: Record<string, string> }>("/admin/health", {}, token),
+
+  adminUsers: (token: string, params?: { search?: string; limit?: number; offset?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.search) q.set("search", params.search);
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.offset) q.set("offset", String(params.offset));
+    const qs = q.toString();
+    return request<{
+      items: Array<{
+        id: string;
+        email: string;
+        company_name: string | null;
+        full_name: string | null;
+        plan: string;
+        onboarding_step: string;
+        created_at: string | null;
+        qb_connected: boolean;
+        google_connected: boolean;
+        last_sync_at: string | null;
+      }>;
+      total: number;
+      limit: number;
+      offset: number;
+    }>(`/admin/users${qs ? `?${qs}` : ""}`, {}, token);
+  },
+
+  adminUserDetail: (token: string, userId: string) =>
+    request<Record<string, unknown>>(`/admin/users/${userId}`, {}, token),
+
+  adminJobs: (token: string, status = "failed") =>
+    request<{
+      items: Array<{
+        job_id: string;
+        status: string;
+        sequence_step: number;
+        scheduled_for: string | null;
+        updated_at: string | null;
+        invoice_id: string;
+        doc_number: string | null;
+        user_id: string;
+        user_email: string;
+        stuck: boolean;
+      }>;
+      status_filter: string;
+      limit: number;
+    }>(`/admin/jobs?status=${encodeURIComponent(status)}`, {}, token),
+
+  adminSyncQb: (token: string, userId: string) =>
+    request<{ status: string }>(`/admin/users/${userId}/sync-qb`, { method: "POST" }, token),
+
+  adminPauseReminders: (token: string, userId: string) =>
+    request<{ status: string; invoices_paused?: number; jobs_cancelled?: number }>(
+      `/admin/users/${userId}/pause-reminders`,
+      { method: "POST" },
+      token,
+    ),
+
+  adminRequeueJob: (token: string, jobId: string) =>
+    request<{ status: string }>(`/admin/jobs/${jobId}/requeue`, { method: "POST" }, token),
+
+  adminRequeueStuck: (token: string) =>
+    request<{ requeued: number }>("/admin/jobs/requeue-stuck", { method: "POST" }, token),
 };
 
 export const TOKEN_KEY = "gentletap_token";

@@ -25,6 +25,7 @@ dependencies = [
     "python-multipart>=0.0.18",
     "svix>=1.56.0",
     "slowapi>=0.1.9",
+    "limits[redis]>=3.13.0",
     "google-api-python-client>=2.160.0",
     "google-auth-oauthlib>=1.2.0",
     "google-auth-httplib2>=0.2.0",

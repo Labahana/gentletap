@@ -11,6 +11,7 @@ from gentletap.integrations.quickbooks import webhooks as qb_webhooks
 from gentletap.integrations.resend import webhooks as resend_webhooks
 from gentletap.integrations.twilio.phone import normalize_phone_e164, phones_match
 from gentletap.integrations.twilio.webhook_verify import verify_twilio_signature
+from gentletap.rate_limit import limiter
 from gentletap.services.whatsapp_inbound import handle_inbound_whatsapp
 from gentletap.services.whatsapp_routing import routed_via_for_to_phone
 from gentletap.utils.crypto import decrypt_token
@@ -80,6 +81,7 @@ def _verify_twilio(request: Request, params: dict[str, str], db: Session) -> Non
 
 
 @router.post("/quickbooks")
+@limiter.exempt
 async def quickbooks_webhook(request: Request, db: Session = Depends(get_db)) -> dict:
     payload = await request.body()
     signature = request.headers.get("intuit-signature")
@@ -91,6 +93,7 @@ async def quickbooks_webhook(request: Request, db: Session = Depends(get_db)) ->
 
 
 @router.post("/resend")
+@limiter.exempt
 async def resend_webhook(request: Request, db: Session = Depends(get_db)) -> dict:
     settings = get_settings()
     if not settings.resend_webhook_secret:
@@ -105,6 +108,7 @@ async def resend_webhook(request: Request, db: Session = Depends(get_db)) -> dic
 
 
 @router.post("/paddle")
+@limiter.exempt
 async def paddle_webhook(request: Request, db: Session = Depends(get_db)) -> dict:
     settings = get_settings()
     if not settings.paddle_webhook_secret:
@@ -121,6 +125,7 @@ async def paddle_webhook(request: Request, db: Session = Depends(get_db)) -> dic
 
 
 @router.post("/twilio/whatsapp")
+@limiter.exempt
 async def twilio_whatsapp_inbound(request: Request, db: Session = Depends(get_db)) -> Response:
     form = await request.form()
     params = {k: str(v) for k, v in form.items()}
@@ -154,6 +159,7 @@ async def twilio_whatsapp_inbound(request: Request, db: Session = Depends(get_db
 
 
 @router.post("/twilio/whatsapp/status")
+@limiter.exempt
 async def twilio_whatsapp_status(request: Request, db: Session = Depends(get_db)) -> dict:
     form = await request.form()
     params = {k: str(v) for k, v in form.items()}

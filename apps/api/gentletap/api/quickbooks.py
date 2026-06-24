@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import func
@@ -12,6 +12,7 @@ from gentletap.database import Invoice, QuickBooksConnection, get_db
 from gentletap.dependencies import CurrentUser
 from gentletap.integrations.quickbooks import oauth as qb_oauth
 from gentletap.integrations.quickbooks.sync import sync_status_key
+from gentletap.rate_limit import limiter
 from gentletap.tasks.sync import sync_user_invoices
 from gentletap.utils.crypto import decrypt_token
 from gentletap.utils.redis_client import get_json
@@ -20,7 +21,8 @@ router = APIRouter(prefix="/quickbooks", tags=["quickbooks"])
 
 
 @router.get("/connect-url")
-def get_connect_url(user: CurrentUser) -> dict:
+@limiter.limit("30/minute")
+def get_connect_url(request: Request, user: CurrentUser) -> dict:
     if not qb_oauth.is_configured():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -34,13 +36,16 @@ def get_connect_url(user: CurrentUser) -> dict:
 
 
 @router.get("/connect")
-def connect_quickbooks(user: CurrentUser) -> RedirectResponse:
-    payload = get_connect_url(user)
+@limiter.limit("30/minute")
+def connect_quickbooks(request: Request, user: CurrentUser) -> RedirectResponse:
+    payload = get_connect_url(request, user)
     return RedirectResponse(url=payload["authorization_url"], status_code=status.HTTP_302_FOUND)
 
 
 @router.get("/callback")
+@limiter.limit("60/minute")
 def oauth_callback(
+    request: Request,
     code: str = Query(...),
     state: str = Query(...),
     realmId: str = Query(...),

@@ -92,6 +92,19 @@ class Settings(BaseSettings):
 
     free_plan_monthly_collection_limit: int = 5
 
+    # Platform admin — comma-separated allowlists; empty admin_emails disables /v1/admin routes.
+    admin_emails: list[str] = []
+    admin_ip_allowlist: list[str] = []
+
+    @field_validator("admin_emails", "admin_ip_allowlist", mode="before")
+    @classmethod
+    def parse_admin_lists(cls, value: Any) -> list[str]:
+        if isinstance(value, list):
+            return [str(item).strip().lower() for item in value if str(item).strip()]
+        if isinstance(value, str):
+            return [item.strip().lower() for item in value.split(",") if item.strip()]
+        return []
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, value: Any) -> list[str]:

@@ -7,6 +7,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from gentletap.api import (
+    admin,
     analytics,
     auth,
     billing,
@@ -23,6 +24,7 @@ from gentletap.api import (
 )
 from gentletap.api.google import email_router
 from gentletap.config import get_settings, validate_production_settings
+from gentletap.middleware.security_headers import SecurityHeadersMiddleware
 from gentletap.rate_limit import limiter
 
 
@@ -34,15 +36,20 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    hide_docs = settings.is_production
     app = FastAPI(
         title="GentleTap API",
         description="AI-native payment collection for freelancers",
         version="1.0.0",
         lifespan=lifespan,
+        docs_url=None if hide_docs else "/docs",
+        redoc_url=None if hide_docs else "/redoc",
+        openapi_url=None if hide_docs else "/openapi.json",
     )
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     app.add_middleware(SlowAPIMiddleware)
+    app.add_middleware(SecurityHeadersMiddleware)
 
     if settings.sentry_dsn:
         try:
@@ -75,6 +82,7 @@ def create_app() -> FastAPI:
     app.include_router(billing.router, prefix=prefix)
     app.include_router(whatsapp.router, prefix=prefix)
     app.include_router(webhooks.router, prefix=prefix)
+    app.include_router(admin.router, prefix=prefix)
 
     @app.get("/")
     def root() -> dict:

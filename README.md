@@ -20,11 +20,32 @@ docker ps              # api, web, worker, beat, redis should be Up
 ```
 
 - Web: `https://gentletap.co` (nginx → port 3000)
-- API docs: proxied at `https://gentletap.co/v1/health`
+- Health: `https://gentletap.co/v1/health`
 
 Set `API_URL`, `WEB_URL`, `CORS_ORIGINS`, and OAuth redirect URIs to your public domain.
 
 **Important:** nginx must proxy **all** paths (including `/v1/*`) to the web container on port 3000 — not directly to port 8000. See [deploy/nginx.conf.example](./deploy/nginx.conf.example).
+
+### Security hardening (production)
+
+After deploy, apply these on the VPS:
+
+1. **nginx** — copy [deploy/nginx.conf.example](./deploy/nginx.conf.example), then in `/etc/nginx/nginx.conf` set `server_tokens off;` (hides `nginx/x.x.x` version).
+2. **Reload nginx** — `sudo nginx -t && sudo systemctl reload nginx`.
+3. **Admin access** — set `ADMIN_EMAILS` in `.env` (comma-separated platform ops emails).
+4. **Secrets** — use strong `SECRET_KEY`, `JWT_SECRET_KEY`, and `TOKEN_ENCRYPTION_KEY` (app refuses dev defaults in production).
+
+**Already in the app (no extra config):**
+
+- Security headers (CSP, HSTS via nginx, `X-Frame-Options`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`)
+- `X-Powered-By` removed from Next.js (`poweredByHeader: false`)
+- API rate limiting: 120 req/min default per IP (Redis-backed), stricter on auth/admin/OAuth
+- OpenAPI `/docs` disabled in production
+- JWT bearer auth (not cookie sessions — CSRF risk is low; XSS mitigated by CSP)
+- Webhook signature verification (Intuit, Resend, Paddle, Twilio)
+- Admin allowlist + audit log (`/admin`, migration `019`)
+
+Verify headers: `curl -sI https://gentletap.co | grep -iE 'content-security|strict-transport|x-frame|x-content'`
 
 ### Local dev (Docker Postgres)
 

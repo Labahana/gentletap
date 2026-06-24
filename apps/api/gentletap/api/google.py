@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
@@ -11,6 +11,7 @@ from gentletap.dependencies import CurrentUser
 from gentletap.integrations.google import oauth as google_oauth
 from gentletap.integrations.resend import domains as resend_domains
 from gentletap.integrations.resend import sender as resend_sender
+from gentletap.rate_limit import limiter
 from gentletap.services.email_platform import domain_from_preview, platform_available, platform_from_address
 from gentletap.services.email_router import get_send_provider
 from gentletap.utils.crypto import decrypt_token
@@ -20,7 +21,9 @@ router = APIRouter(prefix="/google", tags=["google"])
 
 
 @router.get("/connect-url")
+@limiter.limit("30/minute")
 def google_connect_url(
+    request: Request,
     user: CurrentUser,
     return_to: str = Query("onboarding", pattern="^(onboarding|settings)$"),
 ) -> dict:
@@ -39,7 +42,9 @@ def google_connect_url(
 
 
 @router.get("/callback")
+@limiter.limit("60/minute")
 def google_callback(
+    request: Request,
     code: str = Query(...),
     state: str = Query(...),
     db: Session = Depends(get_db),
