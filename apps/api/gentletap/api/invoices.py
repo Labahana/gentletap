@@ -30,11 +30,11 @@ from gentletap.services.manual_invoices import (
 )
 from gentletap.services.reminder_contacts import (
     effective_reminder_email,
-    effective_reminder_phone,
     reminder_contact_payload,
     update_invoice_contacts,
 )
-from gentletap.services.plan_limits import ensure_can_activate, free_plan_collection_usage, mark_collection_started
+from gentletap.services.email_router import has_delivery_capability
+from gentletap.services.plan_limits import ensure_can_activate, mark_collection_started
 from gentletap.services.sequences import (
     cancel_invoice_jobs,
     schedule_next_job,

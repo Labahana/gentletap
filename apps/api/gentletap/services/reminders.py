@@ -3,6 +3,7 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
+from fastapi import HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
