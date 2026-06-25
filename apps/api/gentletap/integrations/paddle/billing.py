@@ -111,14 +111,31 @@ def get_or_create_customer(db: Session, user: Profile) -> str:
     return customer_id
 
 
-def _checkout_url_from_transaction(data: dict) -> str:
+def public_config(settings: Settings | None = None) -> dict:
+    """Client-side Paddle.js config (client token is publishable, safe to expose)."""
+    settings = settings or get_settings()
+    env = (settings.paddle_environment or "sandbox").lower()
+    return {
+        "client_token": settings.paddle_client_token.strip(),
+        "environment": "sandbox" if env == "sandbox" else "production",
+    }
+
+
+def _checkout_result(data: dict) -> dict:
+    """Return the transaction id and (when available) the hosted checkout URL.
+
+    Paddle.js overlay checkout only needs the transaction id. The hosted URL is a
+    fallback for when the frontend client token is not configured, and requires an
+    approved default payment link in the Paddle dashboard.
+    """
+    transaction_id = (data.get("id") or "").strip()
     checkout = data.get("checkout") or {}
     url = (checkout.get("url") or "").strip()
-    if url:
-        return url
-    raise ValueError(
-        "Paddle transaction has no checkout URL — approve your default payment link in Paddle dashboard"
-    )
+    if not transaction_id and not url:
+        raise ValueError(
+            "Paddle transaction has no id or checkout URL — check your Paddle configuration"
+        )
+    return {"transaction_id": transaction_id, "checkout_url": url}
 
 
 def create_checkout_session(
@@ -129,7 +146,7 @@ def create_checkout_session(
     interval: str,
     success_url: str,
     cancel_url: str,
-) -> str:
+) -> dict:
     settings = get_settings()
     price_id = price_id_for(settings, plan, interval)
     if not price_id:
@@ -158,7 +175,7 @@ def create_checkout_session(
             },
         },
     )
-    return _checkout_url_from_transaction(data)
+    return _checkout_result(data)
 
 
 def create_portal_session(user: Profile, return_url: str) -> str:
@@ -220,7 +237,7 @@ def create_whatsapp_pack_checkout(
     pack: str,
     success_url: str,
     cancel_url: str,
-) -> str:
+) -> dict:
     from gentletap.plans import WHATSAPP_MESSAGE_PACKS
 
     settings = get_settings()
@@ -252,7 +269,7 @@ def create_whatsapp_pack_checkout(
             },
         },
     )
-    return _checkout_url_from_transaction(data)
+    return _checkout_result(data)
 
 
 def apply_whatsapp_credits(db: Session, user_id: str, credits: int) -> None:

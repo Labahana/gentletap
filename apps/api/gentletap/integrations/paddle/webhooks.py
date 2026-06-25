@@ -134,5 +134,10 @@ def handle_webhook_event(db: Session, payload: dict, settings: Settings | None =
                 paddle_billing.apply_whatsapp_credits(db, str(user.id), credits)
         elif custom.get("type") == "subscription" and custom.get("user_id"):
             plan = custom.get("plan") or "pro"
-            paddle_billing.apply_subscription_update(db, str(custom["user_id"]), str(plan))
+            paddle_billing.apply_subscription_update(
+                db,
+                str(custom["user_id"]),
+                str(plan),
+                subscription_id=data.get("subscription_id"),
+            )
             db.commit()

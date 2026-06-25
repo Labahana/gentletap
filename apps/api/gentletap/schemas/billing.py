@@ -12,6 +12,16 @@ class CheckoutRequest(BaseModel):
     return_to: Literal["billing", "onboarding"] = "billing"
 
 
+class CheckoutResponse(BaseModel):
+    checkout_url: str = ""
+    transaction_id: str = ""
+
+
+class PaddleConfig(BaseModel):
+    client_token: str = ""
+    environment: str = "sandbox"
+
+
 class PlanFeature(BaseModel):
     id: str
     name: str
@@ -29,4 +39,5 @@ class BillingStatusResponse(BaseModel):
     plan_display_name: str
     paddle_customer_id: str | None = None
     checkout_available: bool = False
+    paddle: PaddleConfig = Field(default_factory=PaddleConfig)
     plans: list[PlanFeature] = Field(default_factory=list)

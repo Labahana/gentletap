@@ -7,6 +7,7 @@ import { OnboardingImportStep } from "@/components/onboarding-import-step";
 import { OnboardingPreviewStep } from "@/components/onboarding-preview-step";
 import { OnboardingInfoBox, OnboardingLoadingOverlay, OnboardingShell } from "@/components/onboarding-shell";
 import { api, getToken, type ReminderPreviewItem } from "@/lib/api";
+import { openOverlayCheckout, type PaddlePublicConfig } from "@/lib/paddle";
 import { useAuth } from "@/lib/auth-context";
 
 const STEPS = [
@@ -145,6 +146,7 @@ function OnboardingContent() {
   const [activating, setActivating] = useState(false);
   const [previewsLoading, setPreviewsLoading] = useState(false);
   const [checkoutAvailable, setCheckoutAvailable] = useState(false);
+  const [paddleConfig, setPaddleConfig] = useState<PaddlePublicConfig | null>(null);
   const [busyPlan, setBusyPlan] = useState<string | null>(null);
   const [importSummary, setImportSummary] = useState<ImportSummary>({
     count: 0,
@@ -337,6 +339,7 @@ function OnboardingContent() {
     if (!token) return;
     api.billingStatus(token).then((s) => {
       setCheckoutAvailable(s.checkout_available);
+      setPaddleConfig(s.paddle);
     }).catch(() => {});
   }, [macroStep, loadPreviewDrafts]);
 
@@ -433,8 +436,28 @@ function OnboardingContent() {
     setEmailError(null);
     setBusyPlan("pro");
     try {
-      const { checkout_url } = await api.billingCheckout(token, "pro", "month", "onboarding");
-      window.location.href = checkout_url;
+      const { checkout_url, transaction_id } = await api.billingCheckout(
+        token,
+        "pro",
+        "month",
+        "onboarding",
+      );
+      const opened =
+        paddleConfig != null &&
+        (await openOverlayCheckout({
+          config: paddleConfig,
+          transactionId: transaction_id,
+          onComplete: () => {
+            void refresh();
+            router.replace("/onboarding?paid=1");
+          },
+        }));
+      if (!opened) {
+        if (!checkout_url) throw new Error("Checkout is not available — please try again later");
+        window.location.href = checkout_url;
+        return;
+      }
+      setBusyPlan(null);
     } catch (err) {
       setEmailError(err instanceof Error ? err.message : "Checkout failed");
       setBusyPlan(null);

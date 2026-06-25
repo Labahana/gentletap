@@ -104,7 +104,7 @@ def whatsapp_checkout_messages(
         )
     settings = get_settings()
     try:
-        url = paddle_billing.create_whatsapp_pack_checkout(
+        result = paddle_billing.create_whatsapp_pack_checkout(
             db,
             user,
             pack=body.pack,
@@ -113,4 +113,4 @@ def whatsapp_checkout_messages(
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
-    return {"checkout_url": url}
+    return {"checkout_url": result.get("checkout_url", ""), "transaction_id": result.get("transaction_id", "")}

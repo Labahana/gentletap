@@ -10,6 +10,7 @@
     "export:brand": "node scripts/export-brand-assets.mjs"
   },
   "dependencies": {
+    "@paddle/paddle-js": "^1.4.2",
     "@tabler/icons-react": "^3.44.0",
     "next": "16.2.7",
     "react": "19.2.4",

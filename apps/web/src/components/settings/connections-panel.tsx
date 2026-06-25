@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { ConnectQuickBooksButton } from "@/components/connect-quickbooks-button";
 import { api, getToken } from "@/lib/api";
+import { openOverlayCheckout } from "@/lib/paddle";
 import { useAuth } from "@/lib/auth-context";
 import { planLabel } from "@/lib/pricing";
 import { autoSyncStatusLine } from "@/lib/onboarding";
@@ -196,8 +197,21 @@ function ConnectionsPanelContent({ mode }: { mode: ConnectionsPanelMode }) {
     setWaBusy(true);
     setWaError(null);
     try {
-      const { checkout_url } = await api.whatsappCheckoutMessages(token, pack);
-      window.location.href = checkout_url;
+      const [{ checkout_url, transaction_id }, status] = await Promise.all([
+        api.whatsappCheckoutMessages(token, pack),
+        api.billingStatus(token),
+      ]);
+      const opened = await openOverlayCheckout({
+        config: status.paddle,
+        transactionId: transaction_id,
+        onComplete: () => router.replace(`${basePath}?whatsapp_purchased=1`),
+      });
+      if (!opened) {
+        if (!checkout_url) throw new Error("Checkout unavailable — please try again later");
+        window.location.href = checkout_url;
+        return;
+      }
+      setWaBusy(false);
     } catch (e) {
       setWaError(e instanceof Error ? e.message : "Checkout unavailable");
       setWaBusy(false);

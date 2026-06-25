@@ -668,6 +668,7 @@ export const api = {
       plan: string;
       plan_display_name: string;
       checkout_available: boolean;
+      paddle: { client_token: string; environment: "sandbox" | "production" };
       plans: import("@/lib/pricing").PlanFeature[];
     }>("/billing/status", {}, token),
 
@@ -677,7 +678,7 @@ export const api = {
     interval: "month" | "year" = "month",
     returnTo: "billing" | "onboarding" = "billing",
   ) =>
-    request<{ checkout_url: string }>(
+    request<{ checkout_url: string; transaction_id: string }>(
       "/billing/checkout",
       { method: "POST", body: JSON.stringify({ plan, interval, return_to: returnTo }) },
       token,
@@ -714,7 +715,7 @@ export const api = {
     request<{ connected: boolean }>("/whatsapp/disconnect", { method: "POST" }, token),
 
   whatsappCheckoutMessages: (token: string, pack: "pack_250" | "pack_500") =>
-    request<{ checkout_url: string }>(
+    request<{ checkout_url: string; transaction_id: string }>(
       "/whatsapp/checkout-messages",
       { method: "POST", body: JSON.stringify({ pack }) },
       token,

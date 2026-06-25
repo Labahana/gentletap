@@ -5,6 +5,7 @@ import { Suspense, useEffect, useState } from "react";
 import { PricingGrid } from "@/components/pricing-grid";
 import { api, getToken } from "@/lib/api";
 import { isUpgrade, planLabel, type PlanFeature, type PlanId } from "@/lib/pricing";
+import { openOverlayCheckout, type PaddlePublicConfig } from "@/lib/paddle";
 import { useAuth } from "@/lib/auth-context";
 
 function BillingContent() {
@@ -13,6 +14,7 @@ function BillingContent() {
   const searchParams = useSearchParams();
   const [plans, setPlans] = useState<PlanFeature[]>([]);
   const [checkoutAvailable, setCheckoutAvailable] = useState(true);
+  const [paddleConfig, setPaddleConfig] = useState<PaddlePublicConfig | null>(null);
   const [annual, setAnnual] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -23,6 +25,7 @@ function BillingContent() {
     api.billingStatus(token).then((s) => {
       setPlans(s.plans);
       setCheckoutAvailable(s.checkout_available);
+      setPaddleConfig(s.paddle);
     });
   }, [user]);
 
@@ -40,8 +43,27 @@ function BillingContent() {
     setError(null);
     setBusy(plan);
     try {
-      const { checkout_url } = await api.billingCheckout(token, plan, annual ? "year" : "month");
-      window.location.href = checkout_url;
+      const { checkout_url, transaction_id } = await api.billingCheckout(
+        token,
+        plan,
+        annual ? "year" : "month",
+      );
+      const opened =
+        paddleConfig != null &&
+        (await openOverlayCheckout({
+          config: paddleConfig,
+          transactionId: transaction_id,
+          onComplete: () => {
+            void refresh();
+            router.replace("/settings/billing?success=1");
+          },
+        }));
+      if (!opened) {
+        if (!checkout_url) throw new Error("Checkout is not available — please try again later");
+        window.location.href = checkout_url;
+        return;
+      }
+      setBusy(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout failed");
       setBusy(null);

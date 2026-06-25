@@ -6,7 +6,13 @@ from gentletap.database import get_db
 from gentletap.dependencies import CurrentUser
 from gentletap.integrations.paddle import billing as paddle_billing
 from gentletap.plans import plan_display_name
-from gentletap.schemas.billing import BillingStatusResponse, CheckoutRequest, PlanFeature
+from gentletap.schemas.billing import (
+    BillingStatusResponse,
+    CheckoutRequest,
+    CheckoutResponse,
+    PaddleConfig,
+    PlanFeature,
+)
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
@@ -15,6 +21,8 @@ router = APIRouter(prefix="/billing", tags=["billing"])
 def billing_status(user: CurrentUser) -> BillingStatusResponse:
     settings = get_settings()
     catalog = paddle_billing.catalog_with_availability(settings)
+    paddle_cfg = paddle_billing.public_config(settings)
+    # Overlay checkout works whenever a price + client token exist; hosted URL is the fallback.
     checkout_available = any(
         p["checkout_monthly_available"] or p["checkout_annual_available"]
         for p in catalog
@@ -25,6 +33,7 @@ def billing_status(user: CurrentUser) -> BillingStatusResponse:
         plan_display_name=plan_display_name(user.plan),
         paddle_customer_id=user.paddle_customer_id,
         checkout_available=checkout_available,
+        paddle=PaddleConfig(**paddle_cfg),
         plans=[PlanFeature(**p) for p in catalog],
     )
 
@@ -35,12 +44,12 @@ def list_plans() -> dict:
     return {"items": paddle_billing.catalog_with_availability(settings)}
 
 
-@router.post("/checkout")
+@router.post("/checkout", response_model=CheckoutResponse)
 def checkout(
     body: CheckoutRequest,
     user: CurrentUser,
     db: Session = Depends(get_db),
-) -> dict:
+) -> CheckoutResponse:
     settings = get_settings()
     try:
         if body.return_to == "onboarding":
@@ -49,7 +58,7 @@ def checkout(
         else:
             success_url = f"{settings.web_url}/settings/billing?success=1"
             cancel_url = f"{settings.web_url}/settings/billing?cancelled=1"
-        url = paddle_billing.create_checkout_session(
+        result = paddle_billing.create_checkout_session(
             db,
             user,
             plan=body.plan,
@@ -59,7 +68,7 @@ def checkout(
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
-    return {"checkout_url": url}
+    return CheckoutResponse(**result)
 
 
 @router.get("/portal")

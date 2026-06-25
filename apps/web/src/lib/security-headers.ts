@@ -4,19 +4,24 @@ const isProd = process.env.NODE_ENV === "production";
 
 /**
  * CSP tuned for Next.js (inline hydration scripts) + same-origin API proxy.
- * OAuth/Paddle checkout use top-level navigation, not connect-src.
+ * Paddle.js overlay checkout loads scripts, an iframe, and XHRs from *.paddle.com
+ * (and *.paddleedge.com for the sandbox/profiler). The hosted-URL fallback uses
+ * top-level navigation and needs no CSP entry.
  */
+const PADDLE_HOSTS = "https://*.paddle.com https://*.paddleedge.com";
+
 export const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "base-uri 'self'",
   "object-src 'none'",
   "frame-ancestors 'none'",
   "form-action 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
+  `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${PADDLE_HOSTS}`,
+  `style-src 'self' 'unsafe-inline' ${PADDLE_HOSTS}`,
+  `img-src 'self' data: blob: ${PADDLE_HOSTS}`,
   "font-src 'self' data:",
-  "connect-src 'self'",
+  `connect-src 'self' ${PADDLE_HOSTS}`,
+  `frame-src ${PADDLE_HOSTS}`,
   ...(isProd ? ["upgrade-insecure-requests"] : []),
 ].join("; ");
 
