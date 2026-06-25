@@ -1,7 +1,8 @@
 import json
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from gentletap.config import get_settings
@@ -105,6 +106,19 @@ async def resend_webhook(request: Request, db: Session = Depends(get_db)) -> dic
     data = json.loads(payload.decode())
     resend_webhooks.handle_webhook_event(db, data)
     return {"received": True}
+
+
+@router.get("/paddle")
+@limiter.exempt
+async def paddle_checkout_return(
+    _ptxn: str | None = Query(None),
+) -> RedirectResponse:
+    """Paddle appends ?_ptxn= after hosted checkout. Redirect browsers to billing."""
+    settings = get_settings()
+    if not _ptxn:
+        raise HTTPException(status_code=status.HTTP_405_METHOD_NOT_ALLOWED, detail="Webhooks accept POST only")
+    base = settings.web_url.rstrip("/")
+    return RedirectResponse(url=f"{base}/settings/billing?success=1", status_code=status.HTTP_302_FOUND)
 
 
 @router.post("/paddle")

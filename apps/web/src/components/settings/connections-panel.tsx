@@ -204,6 +204,7 @@ function ConnectionsPanelContent({ mode }: { mode: ConnectionsPanelMode }) {
       const opened = await openOverlayCheckout({
         config: status.paddle,
         transactionId: transaction_id,
+        successUrl: `${window.location.origin}${basePath}?whatsapp_purchased=1`,
         onComplete: () => router.replace(`${basePath}?whatsapp_purchased=1`),
       });
       if (!opened) {

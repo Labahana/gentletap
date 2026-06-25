@@ -32,9 +32,10 @@ export async function getPaddle(config: PaddlePublicConfig): Promise<Paddle | un
 export async function openOverlayCheckout(options: {
   config: PaddlePublicConfig;
   transactionId: string;
+  successUrl?: string;
   onComplete?: () => void;
 }): Promise<boolean> {
-  const { config, transactionId, onComplete } = options;
+  const { config, transactionId, successUrl, onComplete } = options;
   if (!transactionId) return false;
   const paddle = await getPaddle(config);
   if (!paddle) return false;
@@ -47,6 +48,9 @@ export async function openOverlayCheckout(options: {
     });
   }
 
-  paddle.Checkout.open({ transactionId });
+  paddle.Checkout.open({
+    transactionId,
+    settings: successUrl ? { successUrl } : undefined,
+  });
   return true;
 }

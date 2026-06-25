@@ -53,6 +53,7 @@ function BillingContent() {
         (await openOverlayCheckout({
           config: paddleConfig,
           transactionId: transaction_id,
+          successUrl: `${window.location.origin}/settings/billing?success=1`,
           onComplete: () => {
             void refresh();
             router.replace("/settings/billing?success=1");

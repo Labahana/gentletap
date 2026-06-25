@@ -447,6 +447,7 @@ function OnboardingContent() {
         (await openOverlayCheckout({
           config: paddleConfig,
           transactionId: transaction_id,
+          successUrl: `${window.location.origin}/onboarding?paid=1`,
           onComplete: () => {
             void refresh();
             router.replace("/onboarding?paid=1");
