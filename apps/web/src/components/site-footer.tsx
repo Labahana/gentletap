@@ -3,6 +3,8 @@ import { Logo } from "@/components/logo";
 import { LEGAL } from "@/lib/legal";
 
 const LEGAL_LINKS = [
+  { href: "/quickbooks-payment-reminders", label: "QuickBooks reminders" },
+  { href: "/integrations/quickbooks", label: "QBO integration" },
   { href: "/privacy", label: "Privacy Policy" },
   { href: "/terms", label: "Terms of Service" },
   { href: "/refund", label: "Refund Policy" },
