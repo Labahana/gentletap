@@ -8,6 +8,8 @@ from gentletap.config import get_settings
 from gentletap.database import Profile
 from gentletap.integrations.resend import sender as resend_sender
 from gentletap.services.auth import hash_password
+from gentletap.services.email_templates import AuthEmailData, render_password_reset_bodies
+from gentletap.services.platform_email import send_platform_email
 from gentletap.utils.redis_client import delete_key, get_json, set_json
 
 RESET_TTL = 3600
@@ -31,17 +33,21 @@ def request_password_reset(db: Session, email: str) -> None:
         return
 
     reset_url = f"{settings.web_url.rstrip('/')}/reset-password?token={token}"
-    body = (
-        f"Hi{((' ' + user.full_name.split()[0]) if user.full_name and user.full_name.strip() else '')},\n\n"
-        f"We received a request to reset your GentleTap password.\n\n"
-        f"Reset your password (link expires in 1 hour):\n{reset_url}\n\n"
-        f"If you didn't request this, you can ignore this email.\n"
+    first_name = user.full_name.split()[0] if user.full_name and user.full_name.strip() else ""
+    greeting = f"Hi {first_name}," if first_name else "Hi,"
+    plain, html = render_password_reset_bodies(
+        AuthEmailData(
+            greeting=greeting,
+            message="We received a request to reset your GentleTap password. This link expires in 1 hour.",
+            cta_label="Reset password",
+            cta_url=reset_url,
+        )
     )
-    resend_sender.send_email(
-        from_email=settings.auth_email_from,
+    send_platform_email(
         to=user.email,
         subject="Reset your GentleTap password",
-        body=body,
+        plain=plain,
+        html=html,
     )
 
 

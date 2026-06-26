@@ -224,6 +224,8 @@ export type ReminderPreviewItem = {
   tone?: string;
   channel?: string;
   whatsapp_followup?: boolean;
+  payment_link?: string | null;
+  currency?: string;
   error?: string;
   tone_insight?: string;
   needs_firm_tone?: boolean;

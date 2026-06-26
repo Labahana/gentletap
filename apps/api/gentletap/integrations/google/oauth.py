@@ -189,6 +189,7 @@ def send_email(
     body: str,
     from_name: str | None = None,
     reply_to: str | None = None,
+    html: str | None = None,
 ) -> str:
     access_token = _ensure_access_token(db, connection)
     sender_email = connection.google_email
@@ -203,7 +204,7 @@ def send_email(
     # Gmail rewards a valid List-Unsubscribe header — reduces spam foldering.
     msg["List-Unsubscribe"] = f"<mailto:{reply_to or sender_email}?subject=unsubscribe>"
     msg.attach(MIMEText(body, "plain"))
-    msg.attach(MIMEText(_body_to_html(body), "html"))
+    msg.attach(MIMEText(html or _body_to_html(body), "html"))
     raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
 
     with httpx.Client(timeout=30.0) as client:

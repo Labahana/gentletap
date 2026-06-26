@@ -75,7 +75,15 @@ def refresh_sender_status(db: Session, sender: EmailSender) -> EmailSender:
     return sender
 
 
-def send_email(*, from_email: str, to: str, subject: str, body: str, reply_to: str | None = None) -> str:
+def send_email(
+    *,
+    from_email: str,
+    to: str,
+    subject: str,
+    body: str,
+    reply_to: str | None = None,
+    html: str | None = None,
+) -> str:
     if not is_configured():
         raise ValueError("Resend is not configured")
 
@@ -85,6 +93,8 @@ def send_email(*, from_email: str, to: str, subject: str, body: str, reply_to: s
         "subject": subject,
         "text": body,
     }
+    if html:
+        payload["html"] = html
     if reply_to:
         payload["reply_to"] = reply_to
 

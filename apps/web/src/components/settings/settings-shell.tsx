@@ -16,9 +16,12 @@ const TABS: Array<{ href: string; label: string; danger?: boolean }> = [
 
 export function SettingsShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const wide = pathname.startsWith("/settings/billing");
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-8 sm:py-8">
+    <div
+      className={`mx-auto px-4 py-6 sm:px-8 sm:py-8 ${wide ? "max-w-6xl" : "max-w-3xl"}`}
+    >
       <h1 className="text-xl font-bold sm:text-2xl">Account Settings</h1>
 
       <nav className="-mx-1 mt-4 flex gap-0.5 overflow-x-auto border-b border-border pb-px">

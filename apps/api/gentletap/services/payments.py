@@ -7,6 +7,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from gentletap.database import Invoice, Profile, UserNotification
+from gentletap.services.payment_notifications import send_qb_payment_received_email
 from gentletap.services.sequences import mark_invoice_paid, recalculate_invoice_status, reopen_invoice
 
 
@@ -29,6 +30,7 @@ def apply_invoice_balance_update(
         return None
 
     was_unpaid = float(invoice.balance) > 0
+    collected_amount = float(invoice.balance)
     invoice.balance = balance
     if sync_payment_link:
         invoice.payment_link = payment_link
@@ -52,6 +54,7 @@ def apply_invoice_balance_update(
                     invoice_id=invoice.id,
                 )
             )
+            send_qb_payment_received_email(db, user, invoice, amount=collected_amount)
     db.commit()
     db.refresh(invoice)
     return invoice

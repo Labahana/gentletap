@@ -553,6 +553,8 @@ function OnboardingContent() {
     }
     return `${name} <${from}>`;
   })();
+  const businessName =
+    (companyName || user.company_name || emailDisplayName || user.email_display_name || user.full_name || user.email.split("@")[0] || "").trim();
 
   const content = stepHeading(macroStep);
 
@@ -679,6 +681,9 @@ function OnboardingContent() {
               avgDays={importSummary.avgDays}
               previews={previews}
               senderLabel={senderLabel}
+              businessName={businessName}
+              contactEmail={user.email}
+              contactPhone={phone || user.phone}
               loading={previewsLoading}
               activating={activating}
               busyPlan={busyPlan}

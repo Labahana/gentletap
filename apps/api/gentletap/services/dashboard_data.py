@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from gentletap.database import Client, Invoice, ReminderMessage, SyncLog, UserNotification
+from gentletap.database import Client, Invoice, Profile, ReminderMessage, SyncLog, UserNotification
 from gentletap.services.analytics_data import build_mom_metrics
 from gentletap.services.invoice_source import (
     attention_reason_label,
@@ -429,6 +429,7 @@ def build_invoices_summary(db: Session, user_id) -> dict:
     from gentletap.services.invoice_source import source_counts_for_user
     from gentletap.services.plan_limits import free_plan_collection_usage
 
+    user = db.query(Profile).filter(Profile.id == user_id).one()
     unpaid_count = (
         db.query(func.count(Invoice.id))
         .filter(Invoice.user_id == user_id, Invoice.balance > 0)
@@ -507,7 +508,7 @@ def build_invoices_summary(db: Session, user_id) -> dict:
         "yellow_count": yellow_count,
         "red_count": red_count,
         "active_sequences": active_sequences,
-        "monthly_collections": free_plan_collection_usage(db, user_id),
+        "monthly_collections": free_plan_collection_usage(db, user),
         "aging": {
             "current": _bucket(0, 0),
             "days_1_30": _bucket(1, 30),

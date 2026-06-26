@@ -2,9 +2,8 @@
 
 from sqlalchemy.orm import Session
 
-from gentletap.database import EmailDomain, EmailPreference, EmailSender, GoogleConnection, Profile, ReminderMessage
+from gentletap.database import EmailDomain, EmailPreference, EmailSender, GoogleConnection, Invoice, Profile, ReminderMessage
 from gentletap.integrations.google import oauth as google_oauth
-from gentletap.integrations.resend import domains as resend_domains
 from gentletap.integrations.resend import sender as resend_sender
 from gentletap.integrations.twilio import templates as wa_templates
 from gentletap.integrations.twilio import whatsapp as twilio_whatsapp
@@ -12,6 +11,7 @@ from gentletap.intelligence.schemas import Channel
 from gentletap.plans import has_whatsapp
 from gentletap.services.context_builder import build_reminder_context
 from gentletap.services.email_platform import domain_from_preview, platform_from_address
+from gentletap.services.email_templates import ReminderEmailData, build_reminder_bodies
 from gentletap.services.whatsapp_connection import resolve_twilio_credentials, resolve_whatsapp_from
 from gentletap.services.whatsapp_usage import get_active_connection
 
@@ -51,6 +51,42 @@ def has_delivery_capability(db: Session, user_id, *, plan: str = "free") -> bool
     return False
 
 
+def _business_name(profile: Profile) -> str:
+    return (
+        (profile.company_name or profile.email_display_name or profile.full_name or "").strip()
+        or profile.email.split("@")[0]
+    )
+
+
+def _prepare_reminder_email(
+    db: Session,
+    user_id,
+    message: ReminderMessage,
+    profile: Profile,
+) -> tuple[str, str | None]:
+    """Build multipart plain + HTML bodies for a reminder email."""
+    invoice = (
+        db.query(Invoice)
+        .filter(Invoice.id == message.invoice_id, Invoice.user_id == user_id)
+        .one_or_none()
+    )
+    if invoice is None:
+        return message.body, None
+
+    data = ReminderEmailData(
+        doc_number=(invoice.doc_number or "").strip() or "invoice",
+        balance=float(invoice.balance),
+        currency=invoice.currency or "USD",
+        client_name=invoice.client.name if invoice.client else "",
+        business_name=_business_name(profile),
+        contact_email=profile.email,
+        contact_phone=(profile.phone or "").strip() or None,
+        payment_link=(invoice.payment_link or "").strip() or None,
+    )
+    plain, html = build_reminder_bodies(data, message.body)
+    return plain, html
+
+
 def send_reminder_message(
     db: Session,
     user_id,
@@ -77,7 +113,8 @@ def send_reminder_message(
         raise ValueError("No email provider connected — connect Gmail or verify a sender")
 
     subject = message.subject or "Invoice reminder"
-    body = message.body
+    sender = db.query(Profile).filter(Profile.id == user_id).one_or_none()
+    body, html = _prepare_reminder_email(db, user_id, message, sender) if sender else (message.body, None)
 
     if provider == "google":
         connection = (
@@ -87,7 +124,6 @@ def send_reminder_message(
         )
         if connection is None:
             raise ValueError("Gmail not connected")
-        sender = db.query(Profile).filter(Profile.id == user_id).one_or_none()
         from_name = None
         reply_to = None
         if sender:
@@ -104,6 +140,7 @@ def send_reminder_message(
             body=body,
             from_name=from_name,
             reply_to=reply_to,
+            html=html,
         )
         message.send_provider = "google"
         message.channel = "email"
@@ -117,6 +154,7 @@ def send_reminder_message(
             subject=subject,
             body=body,
             reply_to=user.email,
+            html=html,
         )
         message.send_provider = "platform"
         message.channel = "email"
@@ -132,12 +170,13 @@ def send_reminder_message(
                 subject=subject,
                 body=body,
                 reply_to=user.email,
+                html=html,
             )
             message.send_provider = "resend"
             message.channel = "email"
             return external_id
 
-    sender = (
+    verified_sender = (
         db.query(EmailSender)
         .filter(
             EmailSender.user_id == user_id,
@@ -146,13 +185,14 @@ def send_reminder_message(
         )
         .one_or_none()
     )
-    if sender is None:
+    if verified_sender is None:
         raise ValueError("No verified Resend sender")
     external_id = resend_sender.send_email(
-        from_email=sender.email_address,
+        from_email=verified_sender.email_address,
         to=to_email,
         subject=subject,
         body=body,
+        html=html,
     )
     message.send_provider = "resend"
     message.channel = "email"

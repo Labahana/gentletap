@@ -89,55 +89,73 @@ function BillingContent() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold">Plans & billing</h2>
-          <p className="mt-1 text-sm text-muted">
-            Current plan: <span className="font-medium text-foreground">{planLabel(current)}</span>
+          <h2 className="text-xl font-semibold tracking-tight">Plans & billing</h2>
+          <p className="mt-1.5 text-sm text-muted">
+            You&apos;re on{" "}
+            <span className="inline-flex items-center rounded-full bg-accent/12 px-2.5 py-0.5 text-xs font-semibold text-accent">
+              {planLabel(current)}
+            </span>
+            {isPaid && " — renews automatically until you cancel"}
           </p>
         </div>
         {isPaid && (
-          <button type="button" className="btn-secondary py-2 text-sm" onClick={manage}>
+          <button
+            type="button"
+            className="btn-secondary shrink-0 px-4 py-2 text-sm"
+            onClick={manage}
+          >
             Manage subscription
           </button>
         )}
       </div>
 
       {success && (
-        <p className="mt-5 rounded-xl border border-green/30 bg-green/5 px-5 py-3 text-sm text-green">
-          Subscription updated — welcome to {planLabel(current)}!
-        </p>
+        <div className="mt-6 flex items-start gap-3 rounded-2xl border border-green/25 bg-green/5 px-5 py-4">
+          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-green/15 text-sm text-green">
+            ✓
+          </span>
+          <p className="text-sm text-green">
+            <span className="font-semibold">Payment successful.</span> Welcome to {planLabel(current)} —
+            your plan is active.
+          </p>
+        </div>
       )}
 
       {cancelled && (
-        <p className="mt-5 rounded-xl border border-border bg-background px-5 py-3 text-sm text-muted">
+        <p className="mt-6 rounded-2xl border border-border bg-background px-5 py-4 text-sm text-muted">
           Checkout cancelled — no changes were made.
         </p>
       )}
 
       {error && (
-        <p className="mt-5 rounded-xl border border-red/30 bg-red/5 px-5 py-3 text-sm text-red">{error}</p>
+        <p className="mt-6 rounded-2xl border border-red/25 bg-red/5 px-5 py-4 text-sm text-red">{error}</p>
       )}
 
       {!checkoutAvailable && (
-        <p className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-900">
+        <p className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
           Paddle checkout is not configured yet. Add price IDs to your environment to enable upgrades.
         </p>
       )}
 
-      <div className="mt-8">
+      <div className="mt-10">
         <PricingGrid
           plans={plans}
           currentPlan={current}
           annual={annual}
-          onToggleAnnual={() => setAnnual((v) => !v)}
+          onAnnualChange={setAnnual}
           onSelectPlan={(planId) => {
             if (isUpgrade(current, planId)) checkout(planId);
           }}
         />
       </div>
 
-      {busy && <p className="mt-4 text-center text-sm text-muted">Redirecting to checkout…</p>}
+      {busy && (
+        <p className="mt-6 text-center text-sm text-muted animate-pulse">
+          Opening secure checkout…
+        </p>
+      )}
     </div>
   );
 }

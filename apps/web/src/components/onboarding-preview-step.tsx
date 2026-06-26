@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { SequenceTimeline } from "@/components/onboarding-import-stats";
+import { ReminderEmailCard } from "@/components/reminder-email-card";
 import { formatMoney } from "@/lib/onboarding";
 import type { ReminderPreviewItem } from "@/lib/api";
 
@@ -66,42 +67,36 @@ function StatCards({
 function EmailFrame({
   preview,
   senderLabel,
+  businessName,
+  contactEmail,
+  contactPhone,
 }: {
   preview: ReminderPreviewItem;
   senderLabel: string;
+  businessName: string;
+  contactEmail?: string;
+  contactPhone?: string | null;
 }) {
-  const to = preview.client_email || `${preview.client_name.toLowerCase().replace(/\s+/g, ".")}@client.com`;
+  const to =
+    preview.client_email || `${preview.client_name.toLowerCase().replace(/\s+/g, ".")}@client.com`;
   const subject =
-    preview.subject ||
-    `Quick follow-up — Invoice #${preview.doc_number ?? "invoice"}`;
+    preview.subject || `Quick follow-up — Invoice #${preview.doc_number ?? "invoice"}`;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
-      <div className="space-y-1.5 border-b border-border bg-gray-50/80 px-4 py-3 text-sm">
-        <p>
-          <span className="font-medium text-foreground">From:</span>{" "}
-          <span className="text-foreground">{senderLabel}</span>
-        </p>
-        <p>
-          <span className="font-medium text-foreground">To:</span>{" "}
-          <span className="text-muted">{to}</span>
-        </p>
-        <p>
-          <span className="font-medium text-foreground">Subject:</span>{" "}
-          <span className="text-foreground">{subject}</span>
-        </p>
-      </div>
-      <div className="px-4 py-4 text-sm leading-relaxed text-foreground">
-        {preview.body ? (
-          <pre className="whitespace-pre-wrap font-sans">{preview.body}</pre>
-        ) : (
-          <p className="text-muted">
-            GentleTap will draft a personalized reminder for {preview.client_name}. Each invoice gets its own message
-            based on amount, history, and how long it&apos;s been open.
-          </p>
-        )}
-      </div>
-    </div>
+    <ReminderEmailCard
+      docNumber={preview.doc_number}
+      balance={preview.balance}
+      currency={preview.currency}
+      body={preview.body}
+      businessName={businessName}
+      contactEmail={contactEmail}
+      contactPhone={contactPhone}
+      paymentLink={preview.payment_link}
+      subject={subject}
+      toEmail={to}
+      fromLabel={senderLabel}
+      showMeta
+    />
   );
 }
 
@@ -116,16 +111,15 @@ function ToneNoteBanner({ note }: { note: string }) {
 
 function PreviewSkeleton() {
   return (
-    <div className="animate-pulse overflow-hidden rounded-xl border border-border bg-white">
-      <div className="space-y-2 border-b border-border bg-gray-50 px-4 py-3">
-        <div className="h-3 w-1/2 rounded bg-border" />
-        <div className="h-3 w-1/3 rounded bg-border" />
-        <div className="h-3 w-2/3 rounded bg-border" />
-      </div>
-      <div className="space-y-2 px-4 py-4">
-        <div className="h-3 w-full rounded bg-border" />
-        <div className="h-3 w-5/6 rounded bg-border" />
-        <div className="h-3 w-4/6 rounded bg-border" />
+    <div className="animate-pulse overflow-hidden rounded-xl border border-border bg-[#f5f5f3] p-3">
+      <div className="mx-auto max-w-[480px] overflow-hidden rounded-xl border border-border bg-white">
+        <div className="h-16 bg-[#eef7ee]" />
+        <div className="space-y-2 px-4 py-4">
+          <div className="h-3 w-full rounded bg-border" />
+          <div className="h-3 w-5/6 rounded bg-border" />
+          <div className="h-3 w-4/6 rounded bg-border" />
+        </div>
+        <div className="h-12 bg-[#faf8f5]" />
       </div>
     </div>
   );
@@ -141,6 +135,9 @@ type Props = {
   avgDays: number;
   previews: ReminderPreviewItem[];
   senderLabel: string;
+  businessName: string;
+  contactEmail?: string;
+  contactPhone?: string | null;
   loading?: boolean;
   activating?: boolean;
   busyPlan?: string | null;
@@ -158,6 +155,9 @@ export function OnboardingPreviewStep({
   avgDays,
   previews,
   senderLabel,
+  businessName,
+  contactEmail,
+  contactPhone,
   loading,
   activating,
   busyPlan,
@@ -198,7 +198,13 @@ export function OnboardingPreviewStep({
         </>
       ) : (
         <>
-          <EmailFrame preview={display} senderLabel={senderLabel} />
+          <EmailFrame
+            preview={display}
+            senderLabel={senderLabel}
+            businessName={businessName}
+            contactEmail={contactEmail}
+            contactPhone={contactPhone}
+          />
           {note && <ToneNoteBanner note={note} />}
         </>
       )}
@@ -225,7 +231,13 @@ export function OnboardingPreviewStep({
         <div className="space-y-4">
           {previews.slice(1, 5).map((p) => (
             <div key={p.invoice_id} className="space-y-2">
-              <EmailFrame preview={p} senderLabel={senderLabel} />
+              <EmailFrame
+                preview={p}
+                senderLabel={senderLabel}
+                businessName={businessName}
+                contactEmail={contactEmail}
+                contactPhone={contactPhone}
+              />
               {toneNote(p) && <ToneNoteBanner note={toneNote(p)!} />}
             </div>
           ))}
