@@ -11,6 +11,7 @@ import {
   organizationJsonLd,
   pageMetadata,
   softwareApplicationJsonLd,
+  productPricingJsonLd,
   webPageJsonLd,
 } from "@/lib/seo";
 
@@ -48,6 +49,7 @@ export default function QuickBooksPaymentRemindersPage() {
           webPageJsonLd(title, description, "/quickbooks-payment-reminders"),
           organizationJsonLd(),
           softwareApplicationJsonLd(),
+          productPricingJsonLd(),
           faqJsonLd(GUIDE_FAQ),
         ]}
       />
@@ -71,6 +73,9 @@ export default function QuickBooksPaymentRemindersPage() {
             </Link>
             <Link href="/#preview" className="btn-secondary">
               See a sample reminder
+            </Link>
+            <Link href="/quickbooks-reminders-vs-gentletap" className="btn-secondary">
+              vs QuickBooks reminders
             </Link>
           </div>
 

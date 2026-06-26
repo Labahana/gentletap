@@ -25,7 +25,7 @@ export const SEO_KEYWORDS = [
 
 export const DEFAULT_TITLE = "GentleTap — AI Payment Reminders for Freelancers | QuickBooks";
 export const DEFAULT_DESCRIPTION =
-  "Automated QuickBooks payment reminders for freelancers and small businesses. AI-drafted invoice follow-ups send from your Gmail — reminders stop when clients pay. Try free.";
+  "Stop chasing overdue invoices manually. GentleTap connects QuickBooks Online to Gmail to send polite, AI-driven payment reminders that protect client trust. Try free!";
 
 export const NOINDEX_ROBOTS: Metadata["robots"] = {
   index: false,
@@ -107,12 +107,7 @@ export function softwareApplicationJsonLd() {
     operatingSystem: "Web",
     url: SITE_URL,
     description: DEFAULT_DESCRIPTION,
-    offers: {
-      "@type": "Offer",
-      price: "0",
-      priceCurrency: "USD",
-      description: "Free Starter plan — paid plans for unlimited invoice collections",
-    },
+    offers: pricingOffersJsonLd(),
     featureList: [
       "QuickBooks Online invoice sync",
       "AI-personalized payment reminder emails",
@@ -120,6 +115,58 @@ export function softwareApplicationJsonLd() {
       "Automatic stop when invoice is paid",
       "WhatsApp follow-ups on Pro+ plans",
     ],
+  };
+}
+
+type PricingPlan = {
+  id: string;
+  name: string;
+  price_monthly: number;
+};
+
+/** Schema.org offers for Starter, Pro, Pro+, Team — supports rich-result eligibility. */
+export function pricingOffersJsonLd(
+  plans: readonly PricingPlan[] = [
+    { id: "free", name: "Starter", price_monthly: 0 },
+    { id: "pro", name: "Pro", price_monthly: 19 },
+    { id: "pro_plus", name: "Pro+", price_monthly: 39 },
+    { id: "team", name: "Team", price_monthly: 59 },
+  ],
+) {
+  const paid = plans.filter((p) => p.price_monthly > 0);
+  const low = Math.min(...plans.map((p) => p.price_monthly));
+  const high = Math.max(...paid.map((p) => p.price_monthly), 0);
+
+  return {
+    "@type": "AggregateOffer",
+    priceCurrency: "USD",
+    lowPrice: String(low),
+    highPrice: String(high),
+    offerCount: plans.length,
+    offers: plans.map((plan) => ({
+      "@type": "Offer",
+      name: `${plan.name} plan`,
+      price: String(plan.price_monthly),
+      priceCurrency: "USD",
+      url: `${SITE_URL}/signup`,
+      availability: "https://schema.org/InStock",
+      description:
+        plan.price_monthly === 0
+          ? "Free Starter plan with 5 invoice collections per month"
+          : `$${plan.price_monthly}/month — unlimited invoice collections`,
+    })),
+  };
+}
+
+export function productPricingJsonLd() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: `${LEGAL.productName} — Payment reminder software`,
+    description: DEFAULT_DESCRIPTION,
+    brand: { "@type": "Brand", name: LEGAL.productName },
+    url: SITE_URL,
+    offers: pricingOffersJsonLd(),
   };
 }
 
@@ -153,6 +200,7 @@ export function webPageJsonLd(title: string, description: string, path: string) 
 export const SITEMAP_PATHS: Array<{ path: string; changeFrequency: "weekly" | "monthly"; priority: number }> = [
   { path: "/", changeFrequency: "weekly", priority: 1 },
   { path: "/quickbooks-payment-reminders", changeFrequency: "weekly", priority: 0.95 },
+  { path: "/quickbooks-reminders-vs-gentletap", changeFrequency: "weekly", priority: 0.92 },
   { path: "/signup", changeFrequency: "monthly", priority: 0.9 },
   { path: "/integrations/quickbooks", changeFrequency: "monthly", priority: 0.85 },
   { path: "/contact", changeFrequency: "monthly", priority: 0.5 },

@@ -8,6 +8,12 @@ export function SiteHeader() {
         <Logo height={28} />
         <nav className="flex items-center gap-4 text-sm font-medium">
           <Link
+            href="/quickbooks-reminders-vs-gentletap"
+            className="hidden text-muted hover:text-foreground lg:inline"
+          >
+            QBO vs GentleTap
+          </Link>
+          <Link
             href="/quickbooks-payment-reminders"
             className="hidden text-muted hover:text-foreground lg:inline"
           >

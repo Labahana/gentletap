@@ -13,6 +13,7 @@ import {
   faqJsonLd,
   organizationJsonLd,
   pageMetadata,
+  productPricingJsonLd,
   softwareApplicationJsonLd,
   webPageJsonLd,
 } from "@/lib/seo";
@@ -51,6 +52,7 @@ export default function HomePage() {
           ),
           organizationJsonLd(),
           softwareApplicationJsonLd(),
+          productPricingJsonLd(),
           faqJsonLd(HOME_FAQ),
         ]}
       />
@@ -83,6 +85,10 @@ export default function HomePage() {
           <p className="mt-3 text-sm">
             <Link href="/quickbooks-payment-reminders" className="text-accent hover:underline">
               QuickBooks payment reminders guide →
+            </Link>
+            {" · "}
+            <Link href="/quickbooks-reminders-vs-gentletap" className="text-accent hover:underline">
+              vs built-in QBO reminders
             </Link>
           </p>
 
