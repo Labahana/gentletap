@@ -127,6 +127,7 @@ def affiliate_dashboard(affiliate: CurrentAffiliate, db: Session = Depends(get_d
 @router.post("/attribute")
 @limiter.limit("30/minute")
 def attribute_referral(
+    request: Request,
     body: AffiliateAttributeRequest,
     user: CurrentUser,
     db: Session = Depends(get_db),
