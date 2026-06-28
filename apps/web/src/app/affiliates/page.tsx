@@ -6,14 +6,13 @@ import { PasswordRequirements } from "@/components/password-requirements";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { applyAffiliate } from "@/lib/affiliate-auth";
-
-const COMMISSION_MONTHS = 12;
+import { AFFILIATE_COMMISSION_MONTHS, maxCommissionPerPlan } from "@/lib/affiliate-program";
 
 const EARNINGS = [
   { plan: "Pro", price: 19, earn: 5.7 },
   { plan: "Pro+", price: 39, earn: 11.7 },
   { plan: "Team", price: 59, earn: 17.7 },
-];
+] as const;
 
 export default function AffiliatesPage() {
   const [submitted, setSubmitted] = useState(false);
@@ -63,12 +62,12 @@ export default function AffiliatesPage() {
         <section className="mx-auto max-w-4xl px-6 py-16 lg:py-20">
           <p className="text-sm font-medium uppercase tracking-widest text-accent">Affiliate program</p>
           <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">
-            Earn 30% for {COMMISSION_MONTHS} months per referral
+            Earn 30% for {AFFILIATE_COMMISSION_MONTHS} months per referral
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-muted">
             Perfect for YouTube creators and educators with a freelancer audience. Refer GentleTap —
             automated invoice follow-ups via QuickBooks + Gmail — and earn 30% on each subscription
-            payment for {COMMISSION_MONTHS} months from their first purchase.
+            payment for {AFFILIATE_COMMISSION_MONTHS} months from their first purchase.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <a href="#apply" className="btn-primary">
@@ -93,14 +92,15 @@ export default function AffiliatesPage() {
                   <p className="mt-2 text-3xl font-bold">${row.earn.toFixed(2)}</p>
                   <p className="mt-1 text-sm text-muted">per month · ${row.price}/mo plan</p>
                   <p className="mt-2 text-xs text-muted">
-                    Up to ${(row.earn * COMMISSION_MONTHS).toFixed(0)} over {COMMISSION_MONTHS} months
+                    Up to ${maxCommissionPerPlan(row.price).toFixed(0)} over {AFFILIATE_COMMISSION_MONTHS}{" "}
+                    months
                   </p>
                 </div>
               ))}
             </div>
             <p className="mt-6 text-sm text-muted">
               50 Pro referrals in month 1 ≈ <strong className="text-foreground">$285/month</strong>{" "}
-              in commissions. Each customer pays you for {COMMISSION_MONTHS} months max — see{" "}
+              in commissions. Each customer pays you for up to {AFFILIATE_COMMISSION_MONTHS} months — see{" "}
               <Link href="/affiliates/terms" className="text-accent hover:underline">
                 program terms
               </Link>
@@ -126,7 +126,12 @@ export default function AffiliatesPage() {
               active subscribers, and earnings in your creator dashboard.
             </li>
             <li>
-              <strong className="text-foreground">4. Get paid</strong> — monthly PayPal payouts on
+              <strong className="text-foreground">4. Earn for {AFFILIATE_COMMISSION_MONTHS} months</strong> —{" "}
+              30% on each subscription payment for {AFFILIATE_COMMISSION_MONTHS} months per referred
+              customer.
+            </li>
+            <li>
+              <strong className="text-foreground">5. Get paid</strong> — monthly PayPal payouts on
               pending commissions (net 30).
             </li>
           </ol>

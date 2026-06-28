@@ -108,9 +108,12 @@ def test_commission_window_expires():
         ref_code="test",
         status="active",
         signed_up_at=now,
-        first_paid_at=now - timedelta(days=400),
+        first_paid_at=now - timedelta(days=800),
     )
     assert affiliate_service.referral_commission_eligible(referral) is False
+
+    referral.first_paid_at = now - timedelta(days=400)
+    assert affiliate_service.referral_commission_eligible(referral) is True
 
     referral.first_paid_at = now
     assert affiliate_service.referral_commission_eligible(referral) is True

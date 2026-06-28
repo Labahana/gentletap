@@ -100,7 +100,7 @@ class Settings(BaseSettings):
     affiliate_default_commission_rate: float = 0.30
     affiliate_cookie_days: int = 30
     # Months of recurring commission per referred customer (from first payment).
-    affiliate_commission_months: int = 12
+    affiliate_commission_months: int = 24
 
     @field_validator("admin_emails", "admin_ip_allowlist", mode="before")
     @classmethod

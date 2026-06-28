@@ -9,6 +9,7 @@ import {
   useAffiliateAuth,
   type AffiliateDashboard,
 } from "@/lib/affiliate-auth";
+import { AFFILIATE_COMMISSION_MONTHS } from "@/lib/affiliate-program";
 
 function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
@@ -97,7 +98,7 @@ export default function AffiliateDashboardPage() {
           <div>
             <h1 className="text-2xl font-bold">Welcome, {affiliate.name}</h1>
             <p className="mt-1 text-sm text-muted">
-              {(affiliate.commission_rate * 100).toFixed(0)}% commission · {dash?.stats.commission_months ?? 12}{" "}
+              {(affiliate.commission_rate * 100).toFixed(0)}% commission · {dash?.stats.commission_months ?? AFFILIATE_COMMISSION_MONTHS}{" "}
               months per referral · ref{" "}
               <code className="rounded bg-card px-1.5 py-0.5">{affiliate.ref_code}</code>
             </p>
