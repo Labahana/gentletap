@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from gentletap.config import Settings, get_settings
 from gentletap.database import BillingWebhookEvent, Profile
 from gentletap.integrations.paddle import billing as paddle_billing
+from gentletap.services import affiliates as affiliate_service
 
 
 def verify_signature(payload: bytes, signature_header: str | None, *, tolerance_seconds: int = 300) -> bool:
@@ -118,13 +119,6 @@ def handle_webhook_event(db: Session, payload: dict, settings: Settings | None =
                 user.paddle_customer_id = customer_id
         db.commit()
 
-    elif event_type in ("subscription.canceled", "subscription.paused"):
-        sub = data
-        user = _user_from_customer(db, sub.get("customer_id"))
-        if user:
-            paddle_billing.apply_subscription_update(db, str(user.id), "free")
-        db.commit()
-
     elif event_type == "transaction.completed":
         custom = _custom_data(data)
         if custom.get("type") == "whatsapp_credits":
@@ -140,4 +134,39 @@ def handle_webhook_event(db: Session, payload: dict, settings: Settings | None =
                 str(plan),
                 subscription_id=data.get("subscription_id"),
             )
+            user = _user_from_custom_data(db, custom) or _user_from_customer(db, data.get("customer_id"))
+            if user:
+                txn_id = data.get("id") or payload.get("event_id") or ""
+                gross, currency = affiliate_service.paddle_transaction_gross(data)
+                if txn_id and gross > 0:
+                    referral = affiliate_service.referral_for_user(db, user.id)
+                    event_kind = "initial" if referral and not referral.first_paid_at else "renewal"
+                    affiliate_service.record_subscription_commission(
+                        db,
+                        user=user,
+                        paddle_transaction_id=str(txn_id),
+                        paddle_subscription_id=data.get("subscription_id"),
+                        gross_amount=gross,
+                        currency=currency,
+                        event_type=event_kind,
+                    )
             db.commit()
+
+    elif event_type in ("transaction.payment_failed",):
+        pass
+
+    elif event_type in ("adjustment.created", "adjustment.updated"):
+        adjustment = data
+        action = (adjustment.get("action") or "").lower()
+        txn_id = adjustment.get("transaction_id") or (adjustment.get("transaction") or {}).get("id")
+        if action in ("refund", "chargeback", "credit") and txn_id:
+            affiliate_service.clawback_commission(db, str(txn_id))
+            db.commit()
+
+    elif event_type in ("subscription.canceled", "subscription.paused"):
+        sub = data
+        user = _user_from_customer(db, sub.get("customer_id"))
+        if user:
+            affiliate_service.mark_referral_churned(db, user.id)
+            paddle_billing.apply_subscription_update(db, str(user.id), "free")
+        db.commit()

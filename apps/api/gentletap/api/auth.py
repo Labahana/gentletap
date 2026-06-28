@@ -30,6 +30,7 @@ from gentletap.services.auth import (
     revoke_refresh_family,
     rotate_refresh_token,
 )
+from gentletap.services import affiliates as affiliate_service
 from gentletap.services.password_reset import request_password_reset, reset_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -51,6 +52,9 @@ def register(request: Request, body: RegisterRequest, db: Session = Depends(get_
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    if body.ref_code:
+        affiliate_service.attach_referral_to_user(db, user, body.ref_code)
 
     access, refresh = issue_token_pair(db, user)
     return TokenResponse(access_token=access, refresh_token=refresh)

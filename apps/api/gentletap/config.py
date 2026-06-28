@@ -97,6 +97,9 @@ class Settings(BaseSettings):
     admin_emails: list[str] = []
     admin_ip_allowlist: list[str] = []
 
+    affiliate_default_commission_rate: float = 0.30
+    affiliate_cookie_days: int = 30
+
     @field_validator("admin_emails", "admin_ip_allowlist", mode="before")
     @classmethod
     def parse_admin_lists(cls, value: Any) -> list[str]:

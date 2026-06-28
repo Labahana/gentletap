@@ -10,6 +10,8 @@ const LEGAL_LINKS = [
   },
   { href: "/quickbooks-reminders-vs-gentletap", label: "QBO vs GentleTap" },
   { href: "/integrations/quickbooks", label: "QBO integration" },
+  { href: "/affiliates", label: "Affiliate program" },
+  { href: "/affiliates/terms", label: "Affiliate terms" },
   { href: "/privacy", label: "Privacy Policy" },
   { href: "/terms", label: "Terms of Service" },
   { href: "/refund", label: "Refund Policy" },

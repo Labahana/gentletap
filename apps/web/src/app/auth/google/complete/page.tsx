@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { AuthLogo } from "@/components/auth-logo";
 import { api, setTokens } from "@/lib/api";
+import { tryAttributeFromCookie } from "@/lib/affiliate-ref";
 import { postAuthPath } from "@/lib/onboarding";
 
 function GoogleComplete() {
@@ -24,6 +25,7 @@ function GoogleComplete() {
         const { access_token, refresh_token } = await api.googleAuthExchange(code);
         if (!active) return;
         setTokens(access_token, refresh_token);
+        await tryAttributeFromCookie(access_token);
         const me = await api.me(access_token);
         window.location.href = postAuthPath(me);
       } catch (err) {

@@ -72,6 +72,97 @@ class Profile(Base, TimestampMixin):
     onboarding_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     timezone: Mapped[str] = mapped_column(String(64), default="America/New_York", nullable=False)
     whatsapp_message_credits: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    referred_by_affiliate_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), index=True, nullable=True
+    )
+
+
+class Affiliate(Base, TimestampMixin):
+    __tablename__ = "affiliates"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email: Mapped[str] = mapped_column(String(320), unique=True, index=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    channel_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    channel_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    payout_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    application_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ref_code: Mapped[str | None] = mapped_column(String(64), unique=True, index=True, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False, index=True)
+    commission_rate: Mapped[float] = mapped_column(Numeric(5, 4), default=0.30, nullable=False)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class AffiliateRefreshToken(Base, TimestampMixin):
+    __tablename__ = "affiliate_refresh_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    affiliate_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    family_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    used: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AffiliateClick(Base):
+    __tablename__ = "affiliate_clicks"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    affiliate_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    ref_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    landing_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    referrer: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    ip_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    clicked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+
+
+class AffiliateReferral(Base, TimestampMixin):
+    __tablename__ = "affiliate_referrals"
+    __table_args__ = (UniqueConstraint("user_id", name="uq_affiliate_referrals_user_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    affiliate_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    ref_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="signed_up", nullable=False, index=True)
+    signed_up_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    first_paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    churned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class AffiliateCommission(Base, TimestampMixin):
+    __tablename__ = "affiliate_commissions"
+    __table_args__ = (UniqueConstraint("paddle_transaction_id", name="uq_affiliate_commissions_paddle_txn"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    affiliate_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    referral_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    paddle_transaction_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    paddle_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    event_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    gross_amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    commission_amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False, index=True)
+    payout_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+
+
+class AffiliatePayout(Base, TimestampMixin):
+    __tablename__ = "affiliate_payouts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    affiliate_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    method: Mapped[str] = mapped_column(String(30), default="paypal", nullable=False)
+    reference: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class BillingWebhookEvent(Base):

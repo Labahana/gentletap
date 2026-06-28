@@ -146,6 +146,8 @@ def create_checkout_session(
     interval: str,
     success_url: str,
     cancel_url: str,
+    affiliate_ref: str | None = None,
+    affiliate_id: str | None = None,
 ) -> dict:
     settings = get_settings()
     price_id = price_id_for(settings, plan, interval)
@@ -153,6 +155,16 @@ def create_checkout_session(
         raise ValueError(f"Paddle price not configured for {plan} ({interval})")
 
     customer_id = get_or_create_customer(db, user)
+    custom_data: dict[str, str] = {
+        "user_id": str(user.id),
+        "plan": normalize_plan(plan),
+        "interval": interval,
+        "type": "subscription",
+    }
+    if affiliate_ref:
+        custom_data["affiliate_ref"] = affiliate_ref
+    if affiliate_id:
+        custom_data["affiliate_id"] = affiliate_id
     data = _request(
         settings,
         "POST",
@@ -161,12 +173,7 @@ def create_checkout_session(
             "items": [{"price_id": price_id, "quantity": 1}],
             "customer_id": customer_id,
             "collection_mode": "automatic",
-            "custom_data": {
-                "user_id": str(user.id),
-                "plan": normalize_plan(plan),
-                "interval": interval,
-                "type": "subscription",
-            },
+            "custom_data": custom_data,
             "checkout": {
                 "settings": {
                     "success_url": success_url,

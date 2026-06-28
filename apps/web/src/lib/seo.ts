@@ -208,6 +208,8 @@ export const SITEMAP_PATHS: Array<{ path: string; changeFrequency: "weekly" | "m
   { path: "/quickbooks-reminders-vs-gentletap", changeFrequency: "weekly", priority: 0.92 },
   { path: "/signup", changeFrequency: "monthly", priority: 0.9 },
   { path: "/integrations/quickbooks", changeFrequency: "monthly", priority: 0.85 },
+  { path: "/affiliates", changeFrequency: "monthly", priority: 0.88 },
+  { path: "/affiliates/terms", changeFrequency: "monthly", priority: 0.75 },
   { path: "/contact", changeFrequency: "monthly", priority: 0.5 },
   { path: "/terms", changeFrequency: "monthly", priority: 0.3 },
   { path: "/privacy", changeFrequency: "monthly", priority: 0.3 },

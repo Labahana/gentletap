@@ -5,6 +5,7 @@ from gentletap.config import get_settings
 from gentletap.database import get_db
 from gentletap.dependencies import CurrentUser
 from gentletap.integrations.paddle import billing as paddle_billing
+from gentletap.services import affiliates as affiliate_service
 from gentletap.plans import plan_display_name
 from gentletap.schemas.billing import (
     BillingStatusResponse,
@@ -58,6 +59,7 @@ def checkout(
         else:
             success_url = f"{settings.web_url}/settings/billing?success=1"
             cancel_url = f"{settings.web_url}/settings/billing?cancelled=1"
+        affiliate_meta = affiliate_service.affiliate_ref_for_checkout(db, user)
         result = paddle_billing.create_checkout_session(
             db,
             user,
@@ -65,6 +67,8 @@ def checkout(
             interval=body.interval,
             success_url=success_url,
             cancel_url=cancel_url,
+            affiliate_ref=affiliate_meta[1] if affiliate_meta else None,
+            affiliate_id=affiliate_meta[0] if affiliate_meta else None,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc

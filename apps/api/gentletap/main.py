@@ -8,6 +8,7 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from gentletap.api import (
     admin,
+    affiliates,
     analytics,
     auth,
     billing,
@@ -83,6 +84,7 @@ def create_app() -> FastAPI:
     app.include_router(whatsapp.router, prefix=prefix)
     app.include_router(webhooks.router, prefix=prefix)
     app.include_router(admin.router, prefix=prefix)
+    app.include_router(affiliates.router, prefix=prefix)
 
     @app.get("/")
     def root() -> dict:

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { DM_Sans } from "next/font/google";
 import { AuthProvider } from "@/lib/auth-context";
+import { AffiliateAuthProvider } from "@/lib/affiliate-auth";
+import { AffiliateRefTracker } from "@/components/affiliate-ref-tracker";
 import { CookieConsent } from "@/components/cookie-consent";
 import {
   DEFAULT_DESCRIPTION,
@@ -64,7 +66,12 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${dmSans.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <AffiliateAuthProvider>
+            <AffiliateRefTracker />
+            {children}
+          </AffiliateAuthProvider>
+        </AuthProvider>
         <CookieConsent />
       </body>
     </html>

@@ -307,7 +307,7 @@ async function parseError(res: Response): Promise<Error> {
 export const api = {
   health: () => request<{ status: string }>("/health"),
 
-  register: (body: { email: string; password: string; full_name?: string }) =>
+  register: (body: { email: string; password: string; full_name?: string; ref_code?: string }) =>
     request<TokenResponse>("/auth/register", { method: "POST", body: JSON.stringify(body) }),
 
   login: (body: { email: string; password: string }) =>
@@ -844,6 +844,60 @@ export const api = {
 
   adminRequeueStuck: (token: string) =>
     request<{ requeued: number }>("/admin/jobs/requeue-stuck", { method: "POST" }, token),
+
+  adminAffiliates: (
+    token: string,
+    params?: { status?: string; limit?: number; offset?: number },
+  ) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set("status", params.status);
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.offset) q.set("offset", String(params.offset));
+    const qs = q.toString();
+    return request<{
+      items: Array<{
+        id: string;
+        name: string;
+        email: string;
+        status: string;
+        ref_code: string | null;
+        channel_name: string | null;
+        signups: number;
+        active_subscribers: number;
+        lifetime_earnings: number;
+        created_at: string;
+        approved_at: string | null;
+      }>;
+      total: number;
+    }>(`/affiliates/admin/list${qs ? `?${qs}` : ""}`, {}, token);
+  },
+
+  adminAffiliateDetail: (token: string, affiliateId: string) =>
+    request<Record<string, unknown>>(`/affiliates/admin/${affiliateId}`, {}, token),
+
+  adminApproveAffiliate: (token: string, affiliateId: string, ref_code?: string) =>
+    request<{ status: string; ref_code: string }>(
+      `/affiliates/admin/${affiliateId}/approve`,
+      { method: "POST", body: JSON.stringify({ ref_code: ref_code ?? null }) },
+      token,
+    ),
+
+  adminRejectAffiliate: (token: string, affiliateId: string) =>
+    request<{ status: string }>(`/affiliates/admin/${affiliateId}/reject`, { method: "POST" }, token),
+
+  adminPauseAffiliate: (token: string, affiliateId: string) =>
+    request<{ status: string }>(`/affiliates/admin/${affiliateId}/pause`, { method: "POST" }, token),
+
+  adminAffiliatePayout: (
+    token: string,
+    affiliateId: string,
+    body: { amount: number; method?: string; reference?: string; notes?: string },
+  ) =>
+    request<{ id: string; amount: number; status: string }>(
+      `/affiliates/admin/${affiliateId}/payout`,
+      { method: "POST", body: JSON.stringify(body) },
+      token,
+    ),
 };
 
 export const TOKEN_KEY = "gentletap_token";

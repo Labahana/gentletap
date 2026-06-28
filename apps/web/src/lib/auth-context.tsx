@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { api, clearToken, getRefreshToken, getToken, setTokens, type User } from "./api";
+import { getAffiliateRefCookie, tryAttributeFromCookie } from "./affiliate-ref";
 
 type AuthContextValue = {
   user: User | null;
@@ -49,13 +50,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     const { access_token, refresh_token } = await api.login({ email, password });
     setTokens(access_token, refresh_token);
+    await tryAttributeFromCookie(access_token);
     const me = await api.me(access_token);
     setUser(me);
     return me;
   }, []);
 
   const register = useCallback(async (email: string, password: string, fullName: string) => {
-    const { access_token, refresh_token } = await api.register({ email, password, full_name: fullName });
+    const ref_code = getAffiliateRefCookie() ?? undefined;
+    const { access_token, refresh_token } = await api.register({
+      email,
+      password,
+      full_name: fullName,
+      ref_code,
+    });
     setTokens(access_token, refresh_token);
     const me = await api.me(access_token);
     setUser(me);
