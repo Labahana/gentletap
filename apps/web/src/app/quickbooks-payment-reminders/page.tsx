@@ -74,6 +74,12 @@ export default function QuickBooksPaymentRemindersPage() {
             <Link href="/#preview" className="btn-secondary">
               See a sample reminder
             </Link>
+            <Link
+              href="/invoice-follow-up-email-templates-for-freelancers"
+              className="btn-secondary"
+            >
+              Email templates
+            </Link>
             <Link href="/quickbooks-reminders-vs-gentletap" className="btn-secondary">
               vs QuickBooks reminders
             </Link>

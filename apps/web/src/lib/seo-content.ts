@@ -48,6 +48,97 @@ export const SEO_FEATURES = [
   },
 ] as const;
 
+export const INVOICE_FOLLOW_UP_TEMPLATES = [
+  {
+    id: "due-date",
+    title: "Friendly reminder on the due date",
+    when: "Invoice due today",
+    subject: "Invoice {{invoice_number}} — due today",
+    body: `Hi {{client_name}},
+
+Hope you're having a good week. Just a quick note that invoice {{invoice_number}} for {{amount}} is due today.
+
+You can pay here: {{payment_link}}
+
+Let me know if you have any questions about the line items — happy to clarify.
+
+Thanks,
+{{your_name}}`,
+  },
+  {
+    id: "three-days",
+    title: "Polite nudge — 3 days overdue",
+    when: "3 days past due",
+    subject: "Following up on invoice {{invoice_number}}",
+    body: `Hi {{client_name}},
+
+Wanted to check whether invoice {{invoice_number}} ({{amount}}, due {{due_date}}) landed on your side.
+
+Payment link: {{payment_link}}
+
+If anything's holding this up — PO number, approval, or a detail on the invoice — just reply and we'll sort it out.
+
+Best,
+{{your_name}}`,
+  },
+  {
+    id: "seven-days",
+    title: "Professional follow-up — 1 week overdue",
+    when: "7 days past due",
+    subject: "Invoice {{invoice_number}} — payment status",
+    body: `Hi {{client_name}},
+
+I'm following up on invoice {{invoice_number}} for {{amount}}, which was due {{due_date}}.
+
+Pay online: {{payment_link}}
+
+I know things get busy — if you need a copy resent or a small adjustment, let me know this week so we can close this out.
+
+Thank you,
+{{your_name}}`,
+  },
+  {
+    id: "fourteen-days",
+    title: "Firmer reminder — 2 weeks overdue",
+    when: "14 days past due",
+    subject: "Action needed: overdue invoice {{invoice_number}}",
+    body: `Hi {{client_name}},
+
+Invoice {{invoice_number}} for {{amount}} is now two weeks past due (original due date: {{due_date}}).
+
+Please arrange payment at your earliest convenience: {{payment_link}}
+
+If there's a dispute or you're waiting on internal approval, reply with a realistic payment date so I can update my records.
+
+Regards,
+{{your_name}}`,
+  },
+  {
+    id: "thirty-days",
+    title: "Final email before escalation",
+    when: "30+ days past due",
+    subject: "Final reminder — invoice {{invoice_number}}",
+    body: `Hi {{client_name}},
+
+This is a final courtesy reminder that invoice {{invoice_number}} for {{amount}} remains unpaid (due {{due_date}}).
+
+Payment link: {{payment_link}}
+
+I'd prefer to resolve this by email. Please confirm payment this week or let me know what's blocking it so we can agree on next steps.
+
+Thanks,
+{{your_name}}`,
+  },
+] as const;
+
+export const TEMPLATE_TIPS = [
+  "Reference the invoice number and amount every time — clients often have multiple open bills.",
+  "Include a direct payment link (QuickBooks, Stripe, or bank details) so there's zero friction.",
+  "Escalate tone gradually: warm → direct → firm. Sudden aggression damages repeat business.",
+  "Send from your real email address, not a no-reply inbox — deliverability and trust are higher.",
+  "Stop reminders the moment payment clears. Nothing annoys clients more than a chase after they've paid.",
+] as const;
+
 export const SEO_USE_CASES = [
   {
     title: "Freelancers & consultants",

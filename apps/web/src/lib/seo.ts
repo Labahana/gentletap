@@ -200,6 +200,11 @@ export function webPageJsonLd(title: string, description: string, path: string) 
 export const SITEMAP_PATHS: Array<{ path: string; changeFrequency: "weekly" | "monthly"; priority: number }> = [
   { path: "/", changeFrequency: "weekly", priority: 1 },
   { path: "/quickbooks-payment-reminders", changeFrequency: "weekly", priority: 0.95 },
+  {
+    path: "/invoice-follow-up-email-templates-for-freelancers",
+    changeFrequency: "weekly",
+    priority: 0.94,
+  },
   { path: "/quickbooks-reminders-vs-gentletap", changeFrequency: "weekly", priority: 0.92 },
   { path: "/signup", changeFrequency: "monthly", priority: 0.9 },
   { path: "/integrations/quickbooks", changeFrequency: "monthly", priority: 0.85 },
