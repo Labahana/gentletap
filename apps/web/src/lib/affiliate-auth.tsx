@@ -35,6 +35,7 @@ export type AffiliateDashboard = {
     signups: number;
     active_subscribers: number;
     conversion_rate: number;
+    commission_months: number;
     pending_earnings: number;
     approved_earnings: number;
     paid_earnings: number;
@@ -45,6 +46,8 @@ export type AffiliateDashboard = {
     status: string;
     signed_up_at: string;
     first_paid_at: string | null;
+    commission_ends_at: string | null;
+    commission_eligible: boolean;
     churned_at: string | null;
     user_email_masked: string;
     user_plan: string;

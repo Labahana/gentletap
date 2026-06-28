@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
+from gentletap.config import get_settings
 from gentletap.database import Affiliate, get_db
 from gentletap.dependencies import AdminUser, CurrentAffiliate, CurrentUser
 from gentletap.rate_limit import limiter
@@ -32,12 +33,18 @@ router = APIRouter(prefix="/affiliates", tags=["affiliates"])
 
 @router.get("/program")
 def affiliate_program_info() -> dict:
+    settings = get_settings()
+    months = settings.affiliate_commission_months
     return {
-        "commission_rate": 0.30,
-        "commission_type": "recurring",
-        "cookie_days": 30,
+        "commission_rate": settings.affiliate_default_commission_rate,
+        "commission_type": "recurring_limited",
+        "commission_months": months,
+        "cookie_days": settings.affiliate_cookie_days,
         "payout_method": "PayPal",
-        "description": "Earn 30% recurring commission on every subscription you refer.",
+        "description": (
+            f"Earn {int(settings.affiliate_default_commission_rate * 100)}% commission on each "
+            f"subscription payment for {months} months per referred customer."
+        ),
     }
 
 

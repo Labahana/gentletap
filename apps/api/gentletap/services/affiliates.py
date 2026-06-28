@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import calendar
 import hashlib
 import re
 import uuid
@@ -181,6 +182,36 @@ def paddle_transaction_gross(data: dict) -> tuple[Decimal, str]:
     return Decimal("0"), currency
 
 
+def _add_months(dt: datetime, months: int) -> datetime:
+    year = dt.year + (dt.month - 1 + months) // 12
+    month = (dt.month - 1 + months) % 12 + 1
+    last_day = calendar.monthrange(year, month)[1]
+    day = min(dt.day, last_day)
+    return dt.replace(year=year, month=month, day=day)
+
+
+def commission_ends_at(referral: AffiliateReferral) -> datetime | None:
+    if not referral.first_paid_at:
+        return None
+    months = get_settings().affiliate_commission_months
+    if months <= 0:
+        return None
+    return _add_months(referral.first_paid_at, months)
+
+
+def referral_commission_eligible(referral: AffiliateReferral, *, at: datetime | None = None) -> bool:
+    """True if this referral is still inside the commission window."""
+    months = get_settings().affiliate_commission_months
+    if months <= 0:
+        return False
+    if not referral.first_paid_at:
+        return True
+    end = commission_ends_at(referral)
+    if end is None:
+        return True
+    return (at or datetime.now(UTC)) <= end
+
+
 def record_subscription_commission(
     db: Session,
     *,
@@ -197,6 +228,9 @@ def record_subscription_commission(
 
     affiliate = db.query(Affiliate).filter(Affiliate.id == referral.affiliate_id).one_or_none()
     if not affiliate or affiliate.status != "active":
+        return None
+
+    if not referral_commission_eligible(referral):
         return None
 
     existing = (
@@ -390,6 +424,10 @@ def affiliate_dashboard(db: Session, affiliate: Affiliate) -> dict:
                 "status": r.status,
                 "signed_up_at": r.signed_up_at.isoformat(),
                 "first_paid_at": r.first_paid_at.isoformat() if r.first_paid_at else None,
+                "commission_ends_at": (
+                    commission_ends_at(r).isoformat() if commission_ends_at(r) else None
+                ),
+                "commission_eligible": referral_commission_eligible(r),
                 "churned_at": r.churned_at.isoformat() if r.churned_at else None,
                 "user_email_masked": mask_email(profile.email) if profile else "***",
                 "user_plan": profile.plan if profile else "unknown",
@@ -419,6 +457,7 @@ def affiliate_dashboard(db: Session, affiliate: Affiliate) -> dict:
 
     web_url = settings.web_url.rstrip("/")
     ref_code = affiliate.ref_code or ""
+    commission_months = settings.affiliate_commission_months
     return {
         "affiliate": {
             "id": str(affiliate.id),
@@ -442,6 +481,7 @@ def affiliate_dashboard(db: Session, affiliate: Affiliate) -> dict:
             "signups": signups,
             "active_subscribers": active_subscribers,
             "conversion_rate": conversion_rate,
+            "commission_months": commission_months,
             "pending_earnings": pending_earnings,
             "approved_earnings": approved_earnings,
             "paid_earnings": paid_earnings,

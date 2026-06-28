@@ -97,7 +97,8 @@ export default function AffiliateDashboardPage() {
           <div>
             <h1 className="text-2xl font-bold">Welcome, {affiliate.name}</h1>
             <p className="mt-1 text-sm text-muted">
-              {(affiliate.commission_rate * 100).toFixed(0)}% recurring commission · ref{" "}
+              {(affiliate.commission_rate * 100).toFixed(0)}% commission · {dash?.stats.commission_months ?? 12}{" "}
+              months per referral · ref{" "}
               <code className="rounded bg-card px-1.5 py-0.5">{affiliate.ref_code}</code>
             </p>
           </div>
@@ -154,7 +155,7 @@ export default function AffiliateDashboardPage() {
                       <th className="px-4 py-3">Plan</th>
                       <th className="px-4 py-3">Status</th>
                       <th className="px-4 py-3">Signed up</th>
-                      <th className="px-4 py-3">First paid</th>
+                      <th className="px-4 py-3">Commission until</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -172,7 +173,14 @@ export default function AffiliateDashboardPage() {
                           <td className="px-4 py-3 capitalize">{r.status.replace("_", " ")}</td>
                           <td className="px-4 py-3">{new Date(r.signed_up_at).toLocaleDateString()}</td>
                           <td className="px-4 py-3">
-                            {r.first_paid_at ? new Date(r.first_paid_at).toLocaleDateString() : "—"}
+                            {r.commission_ends_at
+                              ? new Date(r.commission_ends_at).toLocaleDateString()
+                              : r.first_paid_at
+                                ? "—"
+                                : "Starts at first payment"}
+                            {!r.commission_eligible && r.commission_ends_at && (
+                              <span className="ml-1 text-xs text-muted">(ended)</span>
+                            )}
                           </td>
                         </tr>
                       ))

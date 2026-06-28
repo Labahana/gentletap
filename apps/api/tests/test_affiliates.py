@@ -1,6 +1,8 @@
 """Affiliate program tests."""
 
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
@@ -94,3 +96,24 @@ def test_paddle_transaction_gross():
     gross, currency = affiliate_service.paddle_transaction_gross(data)
     assert gross == Decimal("19.00")
     assert currency == "USD"
+
+
+def test_commission_window_expires():
+    from gentletap.database import AffiliateReferral
+
+    now = datetime.now(UTC)
+    referral = AffiliateReferral(
+        affiliate_id=uuid.uuid4(),
+        user_id=uuid.uuid4(),
+        ref_code="test",
+        status="active",
+        signed_up_at=now,
+        first_paid_at=now - timedelta(days=400),
+    )
+    assert affiliate_service.referral_commission_eligible(referral) is False
+
+    referral.first_paid_at = now
+    assert affiliate_service.referral_commission_eligible(referral) is True
+
+    referral.first_paid_at = None
+    assert affiliate_service.referral_commission_eligible(referral) is True

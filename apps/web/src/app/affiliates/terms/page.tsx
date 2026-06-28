@@ -39,11 +39,17 @@ export default function AffiliateTermsPage() {
           customer&apos;s recurring plan payment (before taxes and payment-processor fees, unless
           otherwise stated in your approval email).
         </li>
-        <li>
-          <strong>Recurring:</strong> Commission applies to each successful renewal while the
-          referred customer maintains an active paid subscription and the Affiliate remains in good
-          standing.
-        </li>
+            <li>
+              <strong>Duration:</strong> Commission applies to each successful subscription payment
+              for <strong>12 months</strong> from the referred customer&apos;s first paid
+              subscription. After that window, no further commission is owed on that customer, even
+              if they remain subscribed.
+            </li>
+            <li>
+              <strong>Recurring (within window):</strong> Each renewal payment during those 12
+              months earns commission, while the referred customer maintains an active paid plan and
+              the Affiliate remains in good standing.
+            </li>
         <li>
           <strong>Eligible plans:</strong> Paid subscription plans offered on {LEGAL.websiteDisplay}{" "}
           at the time of payment (e.g. Pro, Pro+, Team). One-time add-ons (such as WhatsApp credit
@@ -113,8 +119,8 @@ export default function AffiliateTermsPage() {
         repayment.
       </p>
       <p>
-        Commission ends when a referred customer cancels their paid subscription or downgrades to a
-        free plan.
+        Commission ends when either the 12-month window expires, the referred customer cancels
+        their paid subscription, or downgrades to a free plan.
       </p>
 
       <h2>How you may promote GentleTap</h2>
