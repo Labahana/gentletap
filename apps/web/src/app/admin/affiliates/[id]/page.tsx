@@ -63,6 +63,8 @@ export default function AdminAffiliateDetailPage() {
   const affiliate = detail.affiliate as Record<string, unknown>;
   const stats = detail.stats as Record<string, number>;
   const referrals = (detail.referrals as Array<Record<string, unknown>>) || [];
+  const applicationNote =
+    typeof affiliate.application_note === "string" ? affiliate.application_note : "";
 
   return (
     <>
@@ -105,9 +107,9 @@ export default function AdminAffiliateDetailPage() {
             <dd>{String(affiliate.payout_email || "—")}</dd>
           </div>
         </dl>
-        {affiliate.application_note && (
-          <p className="mt-4 text-sm text-slate-400">{String(affiliate.application_note)}</p>
-        )}
+        {applicationNote ? (
+          <p className="mt-4 text-sm text-slate-400">{applicationNote}</p>
+        ) : null}
       </AdminSection>
 
       <AdminSection title="Record PayPal payout" className="mt-6">
