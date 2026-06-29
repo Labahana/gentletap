@@ -16,6 +16,56 @@ from gentletap.plans import has_whatsapp
 from gentletap.scale_limits import CSV_IMPORT_COMMIT_EVERY, CSV_IMPORT_MAX_ROWS
 from gentletap.services.sequences import reopen_invoice
 
+# Keep in sync with apps/web/src/lib/invoice-import-samples.ts
+SAMPLE_IMPORT_ROWS: list[dict[str, object]] = [
+    {
+        "client_name": "Acme Design Co",
+        "client_email": "billing@acmedesign.com",
+        "client_phone": "+14155550198",
+        "invoice_number": "INV-1042",
+        "amount": 2500.00,
+        "due_date": "2026-03-15",
+        "currency": "USD",
+    },
+    {
+        "client_name": "Northline Studio",
+        "client_email": "accounts@northline.io",
+        "invoice_number": "INV-1043",
+        "amount": 875.50,
+        "due_date": "2026-02-28",
+        "currency": "USD",
+    },
+    {
+        "client_name": "Brightpath Consulting",
+        "client_email": "ap@brightpath.co",
+        "amount": 1200,
+        "due_date": "2026-04-01",
+    },
+]
+
+
+def build_import_sample_file(fmt: str) -> tuple[bytes, str, str]:
+    normalized = fmt.lower().strip()
+    if normalized not in ("csv", "xlsx"):
+        raise ValueError("format must be csv or xlsx")
+
+    df = pd.DataFrame(SAMPLE_IMPORT_ROWS)
+    if normalized == "csv":
+        return (
+            df.to_csv(index=False).encode("utf-8"),
+            "gentletap-invoice-import-sample.csv",
+            "text/csv; charset=utf-8",
+        )
+
+    buf = io.BytesIO()
+    df.to_excel(buf, index=False, engine="openpyxl")
+    return (
+        buf.getvalue(),
+        "gentletap-invoice-import-sample.xlsx",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
 COLUMN_ALIASES: dict[str, list[str]] = {
     "client_name": ["client_name", "customer", "customer_name", "client", "name"],
     "client_email": ["client_email", "email", "customer_email", "e-mail"],

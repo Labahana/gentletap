@@ -7,6 +7,8 @@ export type PlanFeature = {
   price_annual: number;
   active_sequence_limit: number | null;
   monthly_collection_limit?: number | null;
+  /** ROI or proof point under the price */
+  value_note?: string;
   features: string[];
   checkout_monthly_available: boolean;
   checkout_annual_available: boolean;
@@ -50,10 +52,17 @@ export const PRICING_PLANS: Omit<
     price_annual: 0,
     active_sequence_limit: null,
     monthly_collection_limit: 5,
+    value_note: "No credit card required to start",
     features: [
-      "QuickBooks sync",
-      "AI reminder previews",
-      "Email reminders",
+      "QuickBooks Online sync (read-only)",
+      "CSV & Excel invoice upload",
+      "Connect Gmail for sending",
+      "AI-drafted payment reminder emails",
+      "Preview & edit messages before they send",
+      "Multi-step email sequences (due date → day 21)",
+      "Pause reminders per invoice anytime",
+      "Auto-stop when QuickBooks shows paid",
+      "Invoice & client dashboard",
       "5 invoice collections per month",
     ],
   },
@@ -63,11 +72,20 @@ export const PRICING_PLANS: Omit<
     price_monthly: 19,
     price_annual: 190,
     active_sequence_limit: null,
+    value_note: "Unlimited collections — one recovered invoice pays for years",
     features: [
-      "Unlimited sequences",
-      "Autonomous follow-ups",
-      "AI-personalized email",
-      "Send from Gmail",
+      "Everything in Starter",
+      "Unlimited invoice collections",
+      "Autonomous follow-ups (go live on autopilot)",
+      "AI-personalized emails per client & invoice",
+      "Sequences from due date through day 21",
+      "Send from your Gmail inbox",
+      "QuickBooks sync + spreadsheet re-upload",
+      "Edit upcoming reminders from dashboard",
+      "Per-invoice reminder history",
+      "Payment-received email notifications",
+      "Overdue alerts & dashboard summary",
+      "Analytics — collections & month-over-month",
     ],
   },
   {
@@ -76,12 +94,16 @@ export const PRICING_PLANS: Omit<
     price_monthly: 39,
     price_annual: 390,
     active_sequence_limit: null,
+    value_note: "450 WhatsApp messages/mo included",
     features: [
       "Everything in Pro",
-      "450 WhatsApp/month (steps 1–3)",
+      "WhatsApp on sequence steps 1–3",
+      "450 WhatsApp reminders per month",
       "Email first, WhatsApp hours later",
-      "Priority AI (GPT-4o)",
-      "Escalation dashboard",
+      "Priority AI (GPT-4o) for sharper copy",
+      "Escalation dashboard & recommendations",
+      "WhatsApp credit packs (add-on)",
+      "Multi-currency invoice support",
     ],
   },
   {
@@ -90,12 +112,40 @@ export const PRICING_PLANS: Omit<
     price_monthly: 59,
     price_annual: 590,
     active_sequence_limit: null,
+    value_note: "3 seats · 850 WhatsApp/mo",
     features: [
       "Everything in Pro+",
-      "850 WhatsApp/month",
+      "850 WhatsApp reminders per month",
       "3 team seats",
-      "Shared dashboard",
-      "Priority support",
+      "Shared invoice & client dashboard",
+      "Priority email support",
+      "All Pro+ automation for the whole studio",
     ],
   },
 ];
+
+/** Merge marketing copy from the catalog onto API plan rows (billing page). */
+export function withPlanMarketing(plan: PlanFeature): PlanFeature {
+  const catalog = PRICING_PLANS.find((p) => p.id === plan.id);
+  if (!catalog) return plan;
+  return {
+    ...plan,
+    value_note: catalog.value_note ?? plan.value_note,
+    features: catalog.features.length > 0 ? catalog.features : plan.features,
+  };
+}
+
+export const PRICING_VALUE_PROPS = [
+  {
+    title: "Stops when they pay",
+    body: "QuickBooks balance hits zero → reminders stop. No awkward chase after payment.",
+  },
+  {
+    title: "Sounds like you wrote it",
+    body: "AI drafts reference each invoice and client history — warm, not collections-agency.",
+  },
+  {
+    title: "Built for QuickBooks freelancers",
+    body: "Sync unpaid invoices, send from Gmail, recover cash without damaging relationships.",
+  },
+] as const;

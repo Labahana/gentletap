@@ -3,6 +3,7 @@ from decimal import Decimal
 import json
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, tuple_
 from sqlalchemy.orm import Session
@@ -10,7 +11,7 @@ from sqlalchemy.orm import Session
 from gentletap.database import Invoice, InvoiceImportBatch, ReminderMessage, get_db
 from gentletap.dependencies import CurrentUser
 from gentletap.plans import has_whatsapp
-from gentletap.services.csv_import import import_invoices_from_file
+from gentletap.services.csv_import import build_import_sample_file, import_invoices_from_file
 from gentletap.services.dashboard_cache import get_invoices_summary_cached, invalidate_dashboard_summary
 from gentletap.services.dashboard_data import (
     enrich_invoice_row,
@@ -59,6 +60,22 @@ class InvoiceContactsBody(BaseModel):
 
 class BulkMarkPaidBody(BaseModel):
     invoice_ids: list[UUID] = Field(min_length=1, max_length=100)
+
+
+@router.get("/import-sample")
+def download_import_sample(
+    format: str = Query("csv", alias="format", pattern="^(csv|xlsx)$"),
+) -> Response:
+    """Download a sample invoice spreadsheet (CSV or Excel). Public — no auth required."""
+    try:
+        content, filename, media_type = build_import_sample_file(format)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/import")

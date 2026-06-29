@@ -196,6 +196,89 @@ export function webPageJsonLd(title: string, description: string, path: string) 
   };
 }
 
+/** Structured data for the public affiliate program landing page. */
+export function affiliateProgramJsonLd(
+  description: string,
+  commissionMonths: number,
+  commissionRatePercent: number,
+  referralDiscountPercent: number,
+  referralDiscountMonths: number,
+) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: "GentleTap Affiliate Program",
+    description,
+    url: `${SITE_URL}/affiliates`,
+    isPartOf: { "@type": "WebSite", name: LEGAL.productName, url: SITE_URL },
+    mainEntity: {
+      "@type": "Service",
+      name: "GentleTap Affiliate Program",
+      serviceType: "Affiliate marketing program",
+      provider: {
+        "@type": "Organization",
+        name: LEGAL.productName,
+        legalName: LEGAL.legalName,
+        url: SITE_URL,
+      },
+      areaServed: "Worldwide",
+      audience: {
+        "@type": "Audience",
+        audienceType: "YouTube creators, freelance educators, and content publishers",
+      },
+      offers: [
+        {
+          "@type": "Offer",
+          price: "0",
+          priceCurrency: "USD",
+          description: `${commissionRatePercent}% recurring commission for ${commissionMonths} months per referred subscription`,
+          url: `${SITE_URL}/affiliates`,
+        },
+        {
+          "@type": "Offer",
+          priceCurrency: "USD",
+          description: `${referralDiscountPercent}% discount for referred customers on their first ${referralDiscountMonths} paid months`,
+          url: `${SITE_URL}/affiliates`,
+        },
+      ],
+    },
+  };
+}
+
+export function breadcrumbJsonLd(
+  items: ReadonlyArray<{ name: string; path: string }>,
+) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.name,
+      item: `${SITE_URL}${item.path}`,
+    })),
+  };
+}
+
+export function howToJsonLd(
+  name: string,
+  description: string,
+  steps: ReadonlyArray<{ name: string; text: string }>,
+) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    name,
+    description,
+    step: steps.map((step, index) => ({
+      "@type": "HowToStep",
+      position: index + 1,
+      name: step.name,
+      text: step.text,
+    })),
+  };
+}
+
 /** Public marketing URLs for sitemap.xml */
 export const SITEMAP_PATHS: Array<{ path: string; changeFrequency: "weekly" | "monthly"; priority: number }> = [
   { path: "/", changeFrequency: "weekly", priority: 1 },
@@ -208,7 +291,7 @@ export const SITEMAP_PATHS: Array<{ path: string; changeFrequency: "weekly" | "m
   { path: "/quickbooks-reminders-vs-gentletap", changeFrequency: "weekly", priority: 0.92 },
   { path: "/signup", changeFrequency: "monthly", priority: 0.9 },
   { path: "/integrations/quickbooks", changeFrequency: "monthly", priority: 0.85 },
-  { path: "/affiliates", changeFrequency: "monthly", priority: 0.88 },
+  { path: "/affiliates", changeFrequency: "weekly", priority: 0.92 },
   { path: "/affiliates/terms", changeFrequency: "monthly", priority: 0.75 },
   { path: "/contact", changeFrequency: "monthly", priority: 0.5 },
   { path: "/terms", changeFrequency: "monthly", priority: 0.3 },

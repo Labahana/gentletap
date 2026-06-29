@@ -159,9 +159,14 @@ export function PricingGrid({
                     )}
                   </>
                 )}
+                {plan.value_note && (
+                  <p className="mt-3 rounded-lg bg-accent/8 px-2.5 py-2 text-xs leading-snug text-foreground/85">
+                    {plan.value_note}
+                  </p>
+                )}
               </div>
 
-              <ul className="mt-6 flex-1 space-y-3 text-sm text-muted">
+              <ul className="mt-5 flex-1 space-y-2 text-sm text-muted">
                 {plan.features.map((f) => (
                   <li key={f} className="flex gap-2.5">
                     <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">

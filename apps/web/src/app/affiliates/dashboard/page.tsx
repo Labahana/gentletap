@@ -127,6 +127,29 @@ export default function AffiliateDashboardPage() {
                 </a>
               </p>
             )}
+            {dash?.promotion?.audience_offer && (
+              <div className="mt-4 rounded-xl border border-accent/25 bg-accent/5 p-4">
+                <p className="text-sm font-medium">Tell your audience</p>
+                <p className="mt-1 text-sm text-muted">
+                  Customers who use your link get{" "}
+                  <strong className="text-foreground">{dash.promotion.audience_offer}</strong> on
+                  paid plans at checkout.
+                </p>
+                {dash.promotion.sample_description && (
+                  <div className="mt-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted">
+                      Sample YouTube description
+                    </p>
+                    <p className="mt-2 whitespace-pre-wrap rounded-xl border border-border bg-background p-3 text-xs text-muted">
+                      {dash.promotion.sample_description}
+                    </p>
+                    <div className="mt-2">
+                      <CopyButton text={dash.promotion.sample_description} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

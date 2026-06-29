@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { PricingGrid } from "@/components/pricing-grid";
 import { api, getToken } from "@/lib/api";
-import { isUpgrade, planLabel, type PlanFeature, type PlanId } from "@/lib/pricing";
+import { isUpgrade, planLabel, withPlanMarketing, type PlanFeature, type PlanId } from "@/lib/pricing";
 import { openOverlayCheckout, type PaddlePublicConfig } from "@/lib/paddle";
 import { useAuth } from "@/lib/auth-context";
 
@@ -23,7 +23,7 @@ function BillingContent() {
     const token = getToken();
     if (!token) return;
     api.billingStatus(token).then((s) => {
-      setPlans(s.plans);
+      setPlans(s.plans.map((p) => withPlanMarketing(p as PlanFeature)));
       setCheckoutAvailable(s.checkout_available);
       setPaddleConfig(s.paddle);
     });

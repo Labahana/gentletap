@@ -35,15 +35,29 @@ router = APIRouter(prefix="/affiliates", tags=["affiliates"])
 def affiliate_program_info() -> dict:
     settings = get_settings()
     months = settings.affiliate_commission_months
+    discount_pct = int(settings.affiliate_referral_discount_percent * 100)
+    discount_months = settings.affiliate_referral_discount_months
     return {
         "commission_rate": settings.affiliate_default_commission_rate,
         "commission_type": "recurring_limited",
         "commission_months": months,
         "cookie_days": settings.affiliate_cookie_days,
         "payout_method": "PayPal",
+        "referral_discount_percent": discount_pct,
+        "referral_discount_months": discount_months,
+        "referral_discount_active": bool(
+            discount_pct > 0
+            and discount_months > 0
+            and settings.paddle_discount_id_affiliate_referral.strip()
+        ),
         "description": (
             f"Earn {int(settings.affiliate_default_commission_rate * 100)}% commission on each "
             f"subscription payment for {months} months per referred customer."
+        ),
+        "audience_offer": (
+            f"{discount_pct}% off first {discount_months} months for customers who use an affiliate link"
+            if discount_pct > 0 and discount_months > 0
+            else None
         ),
     }
 

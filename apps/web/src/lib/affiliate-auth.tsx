@@ -29,6 +29,12 @@ export type AffiliateProfile = {
 export type AffiliateDashboard = {
   affiliate: AffiliateProfile;
   links: { home: string | null; signup: string | null; pricing: string | null };
+  promotion?: {
+    audience_discount_percent: number;
+    audience_discount_months: number;
+    audience_offer: string | null;
+    sample_description: string | null;
+  };
   stats: {
     clicks_total: number;
     clicks_30d: number;

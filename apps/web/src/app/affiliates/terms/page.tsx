@@ -3,7 +3,7 @@ import Link from "next/link";
 import { LegalEntityBlock } from "@/components/legal-entity-block";
 import { LegalLayout } from "@/components/legal-layout";
 import { LEGAL, operatorIntro } from "@/lib/legal";
-import { AFFILIATE_COMMISSION_MONTHS } from "@/lib/affiliate-program";
+import { AFFILIATE_COMMISSION_MONTHS, referralDiscountLabel } from "@/lib/affiliate-program";
 
 export default function AffiliateTermsPage() {
   return (
@@ -60,6 +60,31 @@ export default function AffiliateTermsPage() {
           <strong>Changes:</strong> We may change commission rates for <em>new</em> referrals with
           30 days&apos; notice. Rates for existing active referrals remain as agreed unless the
           Affiliate Terms are terminated.
+        </li>
+      </ul>
+
+      <h2>Audience discount for referred customers</h2>
+      <p>
+        To help Affiliates convert their audience, we may offer a promotional discount to customers
+        who sign up through a valid affiliate referral link and upgrade to a paid plan. As of these
+        Affiliate Terms, referred customers receive <strong>{referralDiscountLabel()}</strong> on
+        eligible paid subscriptions (Pro, Pro+, Team), applied automatically at checkout when
+        configured in our billing system.
+      </p>
+      <ul>
+        <li>
+          The audience discount is a marketing benefit for referred customers — it does not reduce
+          your commission eligibility. Commission is calculated on the net subscription amount we
+          receive after the discount.
+        </li>
+        <li>
+          We may change or discontinue the audience discount with reasonable notice. Affiliates
+          should not promise discounts beyond what is stated on {LEGAL.websiteDisplay}/affiliates
+          or in your affiliate dashboard.
+        </li>
+        <li>
+          Coupon and deal sites may not republish the audience discount without our written approval
+          (see prohibited promotion below).
         </li>
       </ul>
 

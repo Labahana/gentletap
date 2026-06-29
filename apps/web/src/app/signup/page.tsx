@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { AuthLogo } from "@/components/auth-logo";
-import { AuthDivider, GoogleAuthButton } from "@/components/google-auth-button";
+import { GoogleAuthButton, AuthDivider } from "@/components/google-auth-button";
 import { PasswordRequirements } from "@/components/password-requirements";
+import { ReferralDiscountBanner } from "@/components/referral-discount-banner";
 import { useAuth } from "@/lib/auth-context";
 
 export default function SignupPage() {
@@ -41,6 +42,7 @@ export default function SignupPage() {
       <div className="card w-full max-w-md">
         <h1 className="text-xl font-bold">Create your account</h1>
         <p className="mt-1 text-sm text-muted">Free for up to 5 active invoices</p>
+        <ReferralDiscountBanner />
 
         <div className="mt-6">
           <GoogleAuthButton intent="signup" disabled={loading} />

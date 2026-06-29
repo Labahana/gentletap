@@ -458,6 +458,13 @@ def affiliate_dashboard(db: Session, affiliate: Affiliate) -> dict:
     web_url = settings.web_url.rstrip("/")
     ref_code = affiliate.ref_code or ""
     commission_months = settings.affiliate_commission_months
+    discount_pct = int(settings.affiliate_referral_discount_percent * 100)
+    discount_months = settings.affiliate_referral_discount_months
+    audience_offer = (
+        f"{discount_pct}% off first {discount_months} months"
+        if discount_pct > 0 and discount_months > 0
+        else None
+    )
     return {
         "affiliate": {
             "id": str(affiliate.id),
@@ -474,6 +481,17 @@ def affiliate_dashboard(db: Session, affiliate: Affiliate) -> dict:
             "home": f"{web_url}/?ref={ref_code}" if ref_code else None,
             "signup": f"{web_url}/signup?ref={ref_code}" if ref_code else None,
             "pricing": f"{web_url}/#pricing?ref={ref_code}" if ref_code else None,
+        },
+        "promotion": {
+            "audience_discount_percent": discount_pct,
+            "audience_discount_months": discount_months,
+            "audience_offer": audience_offer,
+            "sample_description": (
+                f"Try GentleTap for automated QuickBooks invoice follow-ups: {web_url}/signup?ref={ref_code}. "
+                f"{audience_offer} on paid plans when you use my link. I earn a commission if you subscribe."
+                if ref_code and audience_offer
+                else None
+            ),
         },
         "stats": {
             "clicks_total": clicks_total,

@@ -1,12 +1,23 @@
-"use client";
-
 import Link from "next/link";
-import { FormEvent, useState } from "react";
-import { PasswordRequirements } from "@/components/password-requirements";
+
+import { AffiliateApplyForm } from "@/components/affiliate-apply-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { applyAffiliate } from "@/lib/affiliate-auth";
-import { AFFILIATE_COMMISSION_MONTHS, maxCommissionPerPlan } from "@/lib/affiliate-program";
+import {
+  AFFILIATE_COMMISSION_MONTHS,
+  AFFILIATE_COMMISSION_RATE,
+  AFFILIATE_REFERRAL_DISCOUNT_MONTHS,
+  AFFILIATE_REFERRAL_DISCOUNT_PERCENT,
+  maxCommissionPerPlan,
+  referralDiscountLabel,
+} from "@/lib/affiliate-program";
+import { LEGAL } from "@/lib/legal";
+import {
+  AFFILIATE_AUDIENCE,
+  AFFILIATE_FAQ,
+  AFFILIATE_PROGRAM_COMPARE,
+  AFFILIATE_WHY_PROMOTE,
+} from "@/lib/seo-content";
 
 const EARNINGS = [
   { plan: "Pro", price: 19, earn: 5.7 },
@@ -14,64 +25,31 @@ const EARNINGS = [
   { plan: "Team", price: 59, earn: 17.7 },
 ] as const;
 
+const COMMISSION_PERCENT = Math.round(AFFILIATE_COMMISSION_RATE * 100);
+
 export default function AffiliatesPage() {
-  const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    password: "",
-    channel_name: "",
-    channel_url: "",
-    payout_email: "",
-    application_note: "",
-  });
-  const [agreedTerms, setAgreedTerms] = useState(false);
-
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError("");
-    if (!agreedTerms) {
-      setError("Please agree to the Affiliate Program Terms.");
-      return;
-    }
-    setLoading(true);
-    try {
-      await applyAffiliate({
-        email: form.email,
-        password: form.password,
-        name: form.name,
-        channel_name: form.channel_name || undefined,
-        channel_url: form.channel_url || undefined,
-        payout_email: form.payout_email || undefined,
-        application_note: form.application_note || undefined,
-      });
-      setSubmitted(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Application failed");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   return (
     <>
       <SiteHeader />
       <main className="flex-1">
-        <section className="mx-auto max-w-4xl px-6 py-16 lg:py-20">
-          <p className="text-sm font-medium uppercase tracking-widest text-accent">Affiliate program</p>
+        <article className="mx-auto max-w-4xl px-6 py-16 lg:py-20">
+          <p className="text-sm font-medium uppercase tracking-widest text-accent">
+            SaaS affiliate program · QuickBooks freelancers
+          </p>
           <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">
-            Earn 30% for {AFFILIATE_COMMISSION_MONTHS} months per referral
+            GentleTap affiliate program — earn {COMMISSION_PERCENT}% for {AFFILIATE_COMMISSION_MONTHS}{" "}
+            months per referral
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-muted">
-            Perfect for YouTube creators and educators with a freelancer audience. Refer GentleTap —
-            automated invoice follow-ups via QuickBooks + Gmail — and earn 30% on each subscription
-            payment for {AFFILIATE_COMMISSION_MONTHS} months from their first purchase.
+            Built for YouTube creators and freelance business educators. Refer automated invoice
+            follow-up software for QuickBooks + Gmail — earn {COMMISSION_PERCENT}% on every
+            subscription payment for {AFFILIATE_COMMISSION_MONTHS} months. Your audience gets{" "}
+            <strong className="text-foreground">{referralDiscountLabel()}</strong> when they upgrade
+            through your link.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <a href="#apply" className="btn-primary">
-              Apply now
+              Apply to the program
             </a>
             <Link href="/affiliates/login" className="btn-secondary">
               Creator login
@@ -80,11 +58,45 @@ export default function AffiliatesPage() {
               Program terms
             </Link>
           </div>
+        </article>
+
+        <section className="border-y border-border bg-accent/5 py-14">
+          <div className="mx-auto max-w-4xl px-6">
+            <h2 className="text-2xl font-bold">Your audience gets {referralDiscountLabel()}</h2>
+            <p className="mt-4 max-w-2xl text-muted">
+              Referred customers who upgrade to Pro, Pro+, or Team receive{" "}
+              {AFFILIATE_REFERRAL_DISCOUNT_PERCENT}% off their first {AFFILIATE_REFERRAL_DISCOUNT_MONTHS}{" "}
+              paid months — applied automatically at checkout when they use your link (e.g.{" "}
+              <code className="rounded bg-background px-1.5 py-0.5 text-sm">
+                {LEGAL.websiteDisplay}/signup?ref=yourcode
+              </code>
+              ). This gives creators a concrete hook beyond &ldquo;check out this tool.&rdquo;
+            </p>
+            <ul className="mt-6 space-y-2 text-sm text-muted">
+              <li>
+                <strong className="text-foreground">Pro example:</strong> $19/mo → $
+                {(19 * (1 - AFFILIATE_REFERRAL_DISCOUNT_PERCENT / 100)).toFixed(2)}/mo for months 1–
+                {AFFILIATE_REFERRAL_DISCOUNT_MONTHS}, then standard pricing.
+              </li>
+              <li>
+                <strong className="text-foreground">You still earn:</strong> {COMMISSION_PERCENT}% on
+                what they actually pay each month (including discounted months).
+              </li>
+              <li>
+                <strong className="text-foreground">Free Starter tier</strong> is unchanged — no
+                credit card required to try; discount applies when they choose a paid plan.
+              </li>
+            </ul>
+          </div>
         </section>
 
-        <section className="border-y border-border bg-card/40 py-14">
+        <section className="border-b border-border bg-card/40 py-14">
           <div className="mx-auto max-w-4xl px-6">
-            <h2 className="text-2xl font-bold">What you earn per customer</h2>
+            <h2 className="text-2xl font-bold">Affiliate earnings per referred customer</h2>
+            <p className="mt-3 text-muted">
+              Recurring commission on every renewal payment for up to {AFFILIATE_COMMISSION_MONTHS}{" "}
+              months from their first purchase.
+            </p>
             <div className="mt-8 grid gap-4 sm:grid-cols-3">
               {EARNINGS.map((row) => (
                 <div key={row.plan} className="card text-center">
@@ -99,150 +111,152 @@ export default function AffiliatesPage() {
               ))}
             </div>
             <p className="mt-6 text-sm text-muted">
-              50 Pro referrals in month 1 ≈ <strong className="text-foreground">$285/month</strong>{" "}
-              in commissions. Each customer pays you for up to {AFFILIATE_COMMISSION_MONTHS} months — see{" "}
+              50 Pro referrals in month 1 ≈{" "}
+              <strong className="text-foreground">$285/month</strong> in commissions. See{" "}
               <Link href="/affiliates/terms" className="text-accent hover:underline">
                 program terms
-              </Link>
-              .
+              </Link>{" "}
+              for payout schedule and clawbacks.
             </p>
           </div>
         </section>
 
         <section className="mx-auto max-w-4xl px-6 py-14">
-          <h2 className="text-2xl font-bold">How it works</h2>
+          <h2 className="text-2xl font-bold">Who should join the GentleTap affiliate program</h2>
+          <div className="mt-8 grid gap-6 sm:grid-cols-3">
+            {AFFILIATE_AUDIENCE.map((item) => (
+              <div key={item.title} className="card">
+                <h3 className="font-semibold">{item.title}</h3>
+                <p className="mt-2 text-sm text-muted">{item.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="border-y border-border bg-card/30 py-14">
+          <div className="mx-auto max-w-4xl px-6">
+            <h2 className="text-2xl font-bold">Why creators promote invoice reminder software</h2>
+            <div className="mt-8 grid gap-6 sm:grid-cols-2">
+              {AFFILIATE_WHY_PROMOTE.map((item) => (
+                <div key={item.title}>
+                  <h3 className="font-semibold">{item.title}</h3>
+                  <p className="mt-2 text-sm text-muted">{item.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-4xl px-6 py-14">
+          <h2 className="text-2xl font-bold">How the affiliate program works</h2>
           <ol className="mt-8 space-y-4 text-muted">
             <li>
-              <strong className="text-foreground">1. Apply</strong> — tell us about your channel. We
-              approve creators whose audience matches freelancers using QuickBooks.
+              <strong className="text-foreground">1. Apply</strong> — tell us about your channel.
+              We approve creators whose audience matches freelancers using QuickBooks.
             </li>
             <li>
-              <strong className="text-foreground">2. Get your link</strong> — share{" "}
-              <code className="rounded bg-background px-1.5 py-0.5 text-sm">gentletap.co/?ref=yourcode</code>{" "}
-              in videos, descriptions, and newsletters.
+              <strong className="text-foreground">2. Share your link + discount</strong> — promote{" "}
+              <code className="rounded bg-background px-1.5 py-0.5 text-sm">
+                {LEGAL.websiteDisplay}/?ref=yourcode
+              </code>{" "}
+              with {referralDiscountLabel()} for your audience.
             </li>
             <li>
-              <strong className="text-foreground">3. Track everything</strong> — clicks, signups,
+              <strong className="text-foreground">3. Track conversions</strong> — clicks, signups,
               active subscribers, and earnings in your creator dashboard.
             </li>
             <li>
               <strong className="text-foreground">4. Earn for {AFFILIATE_COMMISSION_MONTHS} months</strong> —{" "}
-              30% on each subscription payment for {AFFILIATE_COMMISSION_MONTHS} months per referred
-              customer.
+              {COMMISSION_PERCENT}% on each subscription payment per referred customer.
             </li>
             <li>
-              <strong className="text-foreground">5. Get paid</strong> — monthly PayPal payouts on
-              pending commissions (net 30).
+              <strong className="text-foreground">5. Get paid</strong> — monthly PayPal payouts (net
+              30, $50 minimum).
             </li>
           </ol>
         </section>
 
+        <section className="border-t border-border bg-card/20 py-14">
+          <div className="mx-auto max-w-4xl px-6">
+            <h2 className="text-2xl font-bold">GentleTap vs typical SaaS affiliate programs</h2>
+            <div className="mt-8 overflow-x-auto">
+              <table className="w-full min-w-[480px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-border text-muted">
+                    <th className="py-3 pr-4 font-medium">Feature</th>
+                    <th className="py-3 pr-4 font-medium">GentleTap</th>
+                    <th className="py-3 font-medium">Typical SaaS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {AFFILIATE_PROGRAM_COMPARE.map((row) => (
+                    <tr key={row.label} className="border-b border-border/60">
+                      <td className="py-3 pr-4 font-medium text-foreground">{row.label}</td>
+                      <td className="py-3 pr-4 text-accent">{row.gentletap}</td>
+                      <td className="py-3 text-muted">{row.typical}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-4xl px-6 py-14">
+          <h2 className="text-2xl font-bold">Related resources for affiliates</h2>
+          <p className="mt-3 text-muted">
+            Understand the product before you promote it — these pages match what your audience
+            searches for.
+          </p>
+          <ul className="mt-6 space-y-2 text-sm">
+            <li>
+              <Link href="/quickbooks-payment-reminders" className="text-accent hover:underline">
+                QuickBooks payment reminders guide
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/invoice-follow-up-email-templates-for-freelancers"
+                className="text-accent hover:underline"
+              >
+                Invoice follow-up email templates for freelancers
+              </Link>
+            </li>
+            <li>
+              <Link href="/quickbooks-reminders-vs-gentletap" className="text-accent hover:underline">
+                QuickBooks reminders vs GentleTap
+              </Link>
+            </li>
+            <li>
+              <Link href="/integrations/quickbooks" className="text-accent hover:underline">
+                QuickBooks Online integration overview
+              </Link>
+            </li>
+          </ul>
+        </section>
+
+        <section className="border-t border-border bg-card/20 py-14">
+          <div className="mx-auto max-w-4xl px-6">
+            <h2 className="text-2xl font-bold">Affiliate program FAQ</h2>
+            <dl className="mt-8 space-y-6">
+              {AFFILIATE_FAQ.map((item) => (
+                <div key={item.q}>
+                  <dt className="font-semibold text-foreground">{item.q}</dt>
+                  <dd className="mt-2 text-muted">{item.a}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </section>
+
         <section id="apply" className="border-t border-border bg-card/30 py-14">
           <div className="mx-auto max-w-lg px-6">
-            <h2 className="text-2xl font-bold">Apply to the program</h2>
-            {submitted ? (
-              <div className="card mt-8">
-                <p className="font-semibold text-green">Application received</p>
-                <p className="mt-2 text-sm text-muted">
-                  We&apos;ll review your channel and email you when approved. You can then log in to
-                  get your referral link.
-                </p>
-                <Link href="/affiliates/login" className="btn-secondary mt-6 inline-flex">
-                  Go to creator login
-                </Link>
-              </div>
-            ) : (
-              <form onSubmit={onSubmit} className="card mt-8 space-y-4">
-                <label className="block text-sm">
-                  Your name
-                  <input
-                    className="input mt-1"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    required
-                  />
-                </label>
-                <label className="block text-sm">
-                  Email (login + contact)
-                  <input
-                    type="email"
-                    className="input mt-1"
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    required
-                  />
-                </label>
-                <label className="block text-sm">
-                  Password
-                  <input
-                    type="password"
-                    className="input mt-1"
-                    value={form.password}
-                    onChange={(e) => setForm({ ...form, password: e.target.value })}
-                    minLength={8}
-                    required
-                  />
-                  <PasswordRequirements password={form.password} />
-                </label>
-                <label className="block text-sm">
-                  Channel / brand name
-                  <input
-                    className="input mt-1"
-                    placeholder="e.g. Freelance Finance with Alex"
-                    value={form.channel_name}
-                    onChange={(e) => setForm({ ...form, channel_name: e.target.value })}
-                  />
-                </label>
-                <label className="block text-sm">
-                  Channel URL
-                  <input
-                    type="url"
-                    className="input mt-1"
-                    placeholder="https://youtube.com/@..."
-                    value={form.channel_url}
-                    onChange={(e) => setForm({ ...form, channel_url: e.target.value })}
-                  />
-                </label>
-                <label className="block text-sm">
-                  PayPal payout email
-                  <input
-                    type="email"
-                    className="input mt-1"
-                    placeholder="Same as above if blank"
-                    value={form.payout_email}
-                    onChange={(e) => setForm({ ...form, payout_email: e.target.value })}
-                  />
-                </label>
-                <label className="block text-sm">
-                  Why is your audience a fit? (optional)
-                  <textarea
-                    className="input mt-1 min-h-[80px]"
-                    value={form.application_note}
-                    onChange={(e) => setForm({ ...form, application_note: e.target.value })}
-                  />
-                </label>
-                <label className="flex items-start gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="mt-1"
-                    checked={agreedTerms}
-                    onChange={(e) => setAgreedTerms(e.target.checked)}
-                    required
-                  />
-                  <span>
-                    I agree to the{" "}
-                    <Link href="/affiliates/terms" className="text-accent hover:underline" target="_blank">
-                      Affiliate Program Terms
-                    </Link>{" "}
-                    and confirm my promotions will include proper affiliate disclosure.
-                  </span>
-                </label>
-                {error && <p className="text-sm text-red">{error}</p>}
-                <button type="submit" disabled={loading} className="btn-primary w-full">
-                  {loading ? "Submitting…" : "Submit application"}
-                </button>
-              </form>
-            )}
+            <h2 className="text-2xl font-bold">Apply to the affiliate program</h2>
+            <p className="mt-2 text-sm text-muted">
+              Tell us about your channel. Approved creators get a referral link, audience discount,
+              and dashboard access.
+            </p>
+            <AffiliateApplyForm />
           </div>
         </section>
       </main>

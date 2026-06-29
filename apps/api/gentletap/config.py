@@ -101,6 +101,11 @@ class Settings(BaseSettings):
     affiliate_cookie_days: int = 30
     # Months of recurring commission per referred customer (from first payment).
     affiliate_commission_months: int = 24
+    # Audience discount when checkout is attributed to an affiliate referral.
+    affiliate_referral_discount_percent: float = 0.20
+    affiliate_referral_discount_months: int = 3
+    # Paddle discount ID (create in Paddle: e.g. 20% off for 3 billing cycles). Empty = no auto-discount.
+    paddle_discount_id_affiliate_referral: str = ""
 
     @field_validator("admin_emails", "admin_ip_allowlist", mode="before")
     @classmethod

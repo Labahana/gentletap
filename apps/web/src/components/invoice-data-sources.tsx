@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import { InvoiceImportFormatHelp } from "@/components/invoice-import-format-help";
 
 export function InvoiceDataSources({
   onUpload,
@@ -37,12 +38,13 @@ export function InvoiceDataSources({
         >
           {uploadBusy ? "Uploading…" : "Upload invoices (CSV, spreadsheet)"}
         </button>
+        <InvoiceImportFormatHelp compact />
       </div>
     );
   }
 
   return (
-    <div className="card !p-4">
+    <div className="card !p-4 space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-sm font-semibold">Add invoices</h2>
@@ -75,6 +77,7 @@ export function InvoiceDataSources({
           </button>
         </div>
       </div>
+      <InvoiceImportFormatHelp />
     </div>
   );
 }

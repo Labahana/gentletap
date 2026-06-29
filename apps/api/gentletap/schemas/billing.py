@@ -29,6 +29,7 @@ class PlanFeature(BaseModel):
     price_annual: int
     active_sequence_limit: int | None
     monthly_collection_limit: int | None = None
+    value_note: str | None = None
     features: list[str]
     checkout_monthly_available: bool = False
     checkout_annual_available: bool = False

@@ -10,6 +10,9 @@ export function SiteHeader() {
           <Link href="/#pricing" className="hidden text-muted hover:text-foreground sm:inline">
             Pricing
           </Link>
+          <Link href="/affiliates" className="hidden text-muted hover:text-foreground sm:inline">
+            Affiliates
+          </Link>
           <Link href="/login" className="text-muted hover:text-foreground">
             Log in
           </Link>

@@ -165,22 +165,28 @@ def create_checkout_session(
         custom_data["affiliate_ref"] = affiliate_ref
     if affiliate_id:
         custom_data["affiliate_id"] = affiliate_id
+
+    body: dict = {
+        "items": [{"price_id": price_id, "quantity": 1}],
+        "customer_id": customer_id,
+        "collection_mode": "automatic",
+        "custom_data": custom_data,
+        "checkout": {
+            "settings": {
+                "success_url": success_url,
+                "cancel_url": cancel_url,
+            },
+        },
+    }
+    discount_id = (settings.paddle_discount_id_affiliate_referral or "").strip()
+    if affiliate_ref and discount_id:
+        body["discount_id"] = discount_id
+
     data = _request(
         settings,
         "POST",
         "/transactions",
-        json_body={
-            "items": [{"price_id": price_id, "quantity": 1}],
-            "customer_id": customer_id,
-            "collection_mode": "automatic",
-            "custom_data": custom_data,
-            "checkout": {
-                "settings": {
-                    "success_url": success_url,
-                    "cancel_url": cancel_url,
-                },
-            },
-        },
+        json_body=body,
     )
     return _checkout_result(data)
 

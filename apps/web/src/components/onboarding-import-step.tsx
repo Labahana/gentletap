@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ConnectQuickBooksButton } from "@/components/connect-quickbooks-button";
 import { OnboardingImportStats } from "@/components/onboarding-import-stats";
-import { OnboardingInfoBox } from "@/components/onboarding-shell";
+import { InvoiceImportFormatHelp } from "@/components/invoice-import-format-help";
 import { api, getToken } from "@/lib/api";
 
 type ImportChoice = "quickbooks" | "csv";
@@ -265,11 +265,7 @@ export function OnboardingImportStep({
           >
             {choice === "csv" && (
               <div className="mt-4 space-y-3">
-                <OnboardingInfoBox>
-                  Required columns: <strong>client_name</strong> (or customer), <strong>client_email</strong> (or
-                  email), <strong>amount</strong> (or balance), <strong>due_date</strong>. Optional: invoice_number,
-                  currency.
-                </OnboardingInfoBox>
+                <InvoiceImportFormatHelp />
                 <label className="btn-secondary inline-flex cursor-pointer py-2 text-sm">
                   {uploading ? "Uploading…" : "Choose file"}
                   <input

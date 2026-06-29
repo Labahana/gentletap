@@ -7,7 +7,7 @@ import { PricingGrid } from "@/components/pricing-grid";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { HOME_FAQ, SEO_FEATURES, SEO_USE_CASES } from "@/lib/seo-content";
-import { PRICING_PLANS } from "@/lib/pricing";
+import { PRICING_PLANS, PRICING_VALUE_PROPS } from "@/lib/pricing";
 import {
   DEFAULT_DESCRIPTION,
   faqJsonLd,
@@ -89,6 +89,10 @@ export default function HomePage() {
             {" · "}
             <Link href="/quickbooks-reminders-vs-gentletap" className="text-accent hover:underline">
               vs built-in QBO reminders
+            </Link>
+            {" · "}
+            <Link href="/affiliates" className="text-accent hover:underline">
+              Creator affiliate program
             </Link>
           </p>
 
@@ -201,11 +205,22 @@ export default function HomePage() {
 
         <section id="pricing" className="mx-auto max-w-6xl px-6 pb-24 scroll-mt-20">
           <div className="text-center">
-            <h2 className="text-2xl font-bold">Simple, transparent pricing</h2>
-            <p className="mt-2 text-muted">
-              Start free. One recovered invoice pays for months of GentleTap.
+            <h2 className="text-2xl font-bold">Pricing that pays for itself</h2>
+            <p className="mx-auto mt-2 max-w-2xl text-muted">
+              Start free on up to 5 invoices. Upgrade when you&apos;re ready to automate every
+              follow-up — most freelancers recover the cost with a single late payment.
             </p>
           </div>
+
+          <div className="mt-10 grid gap-6 md:grid-cols-3">
+            {PRICING_VALUE_PROPS.map((item) => (
+              <div key={item.title} className="rounded-2xl border border-border bg-card/50 px-5 py-4 text-center md:text-left">
+                <h3 className="text-sm font-semibold">{item.title}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted">{item.body}</p>
+              </div>
+            ))}
+          </div>
+
           <div className="mt-10">
             <PricingGrid
               plans={PRICING_PLANS.map((p) => ({

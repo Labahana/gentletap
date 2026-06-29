@@ -148,6 +148,11 @@ export default function QuickBooksPaymentRemindersPage() {
             <Link href="/signup" className="btn-primary mt-6 inline-flex">
               Create free account
             </Link>
+            <p className="mt-4 text-sm">
+              <Link href="/affiliates" className="text-accent hover:underline">
+                YouTube creator? Promote GentleTap and earn 30% recurring commission →
+              </Link>
+            </p>
           </section>
         </article>
       </main>
