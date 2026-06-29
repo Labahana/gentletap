@@ -566,7 +566,6 @@ function OnboardingContent() {
       onStepSelect={goToStep}
       title={content.title}
       description={content.description}
-      wide={macroStep === 3}
     >
         {macroStep === 0 && (
           <form className="space-y-5" onSubmit={saveProfile}>

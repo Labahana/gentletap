@@ -16,7 +16,6 @@ type Props = {
   onClose?: () => void;
   title: string;
   description?: string;
-  wide?: boolean;
   children: ReactNode;
 };
 
@@ -89,29 +88,88 @@ function StepIcon({ id, active, done }: { id: string; active: boolean; done: boo
   );
 }
 
+const BACKDROP_NAV = [
+  "Overview",
+  "Invoices",
+  "Clients",
+  "Reminders sent",
+  "Analytics",
+  "Connections",
+  "Settings",
+];
+
 function DashboardBackdrop() {
   return (
-    <div className="absolute inset-0 overflow-hidden bg-[#eef0f4]" aria-hidden>
+    <div className="absolute inset-0 overflow-hidden bg-background" aria-hidden>
       <div className="flex h-full">
-        <div className="hidden w-56 shrink-0 border-r border-black/5 bg-[#1e2433] sm:block">
-          <div className="mx-4 mt-6 h-4 w-24 rounded bg-white/10" />
-          <div className="mt-8 space-y-3 px-4">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-3 rounded bg-white/5" style={{ width: `${60 + i * 8}%` }} />
+        <aside className="hidden w-[196px] shrink-0 flex-col border-r border-border bg-card lg:flex">
+          <div className="border-b border-border px-4 pb-3.5 pt-4">
+            <div className="flex items-center gap-2">
+              <div className="h-6 w-6 rounded-md bg-accent/20" />
+              <div className="h-3.5 w-20 rounded bg-foreground/10" />
+            </div>
+            <div className="mt-2 h-5 w-24 rounded-full bg-green/15" />
+          </div>
+          <nav className="flex-1 space-y-0.5 py-2">
+            {BACKDROP_NAV.map((label, i) => (
+              <div
+                key={label}
+                className={`flex items-center gap-2 px-4 py-1.5 text-[13px] ${
+                  i === 0
+                    ? "border-r-2 border-foreground bg-background font-medium text-foreground"
+                    : "text-muted"
+                }`}
+              >
+                <div className={`h-4 w-4 rounded-sm ${i === 0 ? "bg-accent/30" : "bg-border"}`} />
+                <span>{label}</span>
+              </div>
             ))}
+          </nav>
+          <div className="mx-3 mb-3 rounded-lg border border-accent/20 bg-accent/5 px-3 py-2">
+            <div className="h-2.5 w-16 rounded bg-accent/30" />
+            <div className="mt-2 h-7 w-full rounded-md bg-accent/20" />
           </div>
-        </div>
-        <div className="flex-1 p-6">
-          <div className="flex items-center justify-between">
-            <div className="h-8 w-48 rounded-lg bg-black/5" />
-            <div className="h-8 w-8 rounded-full bg-black/5" />
+        </aside>
+
+        <main className="min-w-0 flex-1 lg:ml-0">
+          <div className="px-5 py-5 lg:px-6">
+            <div className="mb-5 flex items-start justify-between">
+              <div>
+                <div className="h-4 w-44 rounded bg-foreground/10" />
+                <div className="mt-2 h-3 w-32 rounded bg-border" />
+              </div>
+              <div className="h-8 w-8 rounded-full bg-border" />
+            </div>
+
+            <div className="mb-5 rounded-xl border border-yellow/40 bg-yellow/10 px-4 py-3">
+              <div className="h-3 w-56 rounded bg-yellow/30" />
+              <div className="mt-2 h-7 w-28 rounded-md bg-accent/25" />
+            </div>
+
+            <div className="mb-5 h-14 rounded-xl border border-border bg-card" />
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="rounded-xl border border-border bg-card p-4">
+                  <div className="h-2.5 w-20 rounded bg-border" />
+                  <div className="mt-3 h-6 w-16 rounded bg-foreground/10" />
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center justify-between">
+                <div className="h-3.5 w-36 rounded bg-foreground/10" />
+                <div className="h-7 w-24 rounded-md bg-foreground/5" />
+              </div>
+              <div className="mt-4 space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-10 rounded-lg bg-background" />
+                ))}
+              </div>
+            </div>
           </div>
-          <div className="mt-6 h-10 w-full max-w-xl rounded-lg bg-amber-100/80" />
-          <div className="mt-8 grid gap-4 sm:grid-cols-2">
-            <div className="h-32 rounded-xl bg-white/60" />
-            <div className="h-32 rounded-xl bg-white/60" />
-          </div>
-        </div>
+        </main>
       </div>
     </div>
   );
@@ -133,11 +191,9 @@ export function OnboardingShell({
   onClose,
   title,
   description,
-  wide = false,
   children,
 }: Props) {
   const progress = ((currentStep + 1) / steps.length) * 100;
-  const modalWidth = wide ? "max-w-5xl" : "max-w-[680px]";
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -150,11 +206,11 @@ export function OnboardingShell({
   return (
     <div className="fixed inset-0 z-50 min-h-screen">
       <DashboardBackdrop />
-      <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" aria-hidden />
+      <div className="absolute inset-0 bg-black/50" aria-hidden />
 
-      <div className="relative flex min-h-screen items-center justify-center p-4 sm:p-6">
+      <div className="relative flex min-h-screen items-center justify-center p-4 sm:p-8">
         <div
-          className={`relative flex max-h-[85vh] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ${modalWidth}`}
+          className="relative flex h-[85vh] w-[min(100%,780px)] max-h-[85vh] flex-col overflow-hidden rounded-xl bg-white shadow-[0_20px_60px_-12px_rgba(0,0,0,0.35)]"
           role="dialog"
           aria-modal="true"
           aria-labelledby="onboarding-title"
@@ -249,7 +305,7 @@ export function OnboardingLoadingOverlay() {
   return (
     <div className="fixed inset-0 z-50 min-h-screen">
       <DashboardBackdrop />
-      <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/50" />
       <div className="relative flex min-h-screen items-center justify-center">
         <p className="text-sm text-white/90">Loading…</p>
       </div>
