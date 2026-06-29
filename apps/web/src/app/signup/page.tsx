@@ -15,12 +15,17 @@ export default function SignupPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
+    if (password !== confirmPassword) {
+      setError("Passwords don't match.");
+      return;
+    }
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
@@ -83,6 +88,18 @@ export default function SignupPage() {
               autoComplete="new-password"
             />
             <PasswordRequirements password={password} />
+          </label>
+          <label className="block text-sm">
+            Confirm password
+            <input
+              type="password"
+              minLength={8}
+              className="input mt-1"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              autoComplete="new-password"
+            />
           </label>
           {error && <p className="text-sm text-red">{error}</p>}
           <button type="submit" disabled={loading} className="btn-primary w-full">
