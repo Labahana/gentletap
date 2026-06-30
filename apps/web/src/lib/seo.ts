@@ -141,6 +141,7 @@ export function softwareApplicationJsonLd() {
       "AI-personalized payment reminder emails per invoice and client",
       "Send from Gmail or verified custom domain",
       "Multi-step escalation sequences (due date through 30+ days overdue)",
+      "WhatsApp payment reminders on Pro+ and Team — email first, WhatsApp ~3h later on steps 1–3",
       "Preview and approve drafts before first send",
       "Automatic stop when QuickBooks invoice balance hits zero",
       "Per-invoice pause and resume",

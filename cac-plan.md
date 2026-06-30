@@ -238,7 +238,8 @@ Using the Reddit "1,000 customers" filter: *Does this put me in front of the 3 p
 ## 9. Messaging cheatsheet (use in titles, H1s, ads)
 
 **Pain:** "Day 8 after the invoice. Still haven't followed up."  
-**Promise:** "Polite payment reminders from your Gmail — stop when QuickBooks shows paid."  
+**Promise:** "Polite payment reminders from your Gmail — WhatsApp on Pro+ for clients who miss email — stop when QuickBooks shows paid."  
+**Differentiators:** Gmail-native (not QBO-branded) · AI per invoice · multi-step escalation · **WhatsApp on Pro+** (email first, ~3h later) · auto-stop on payment · free tier  
 **Proof:** Sample email preview on homepage.  
 **CTA:** "Try free — no credit card · 5 invoices"  
 **Avoid:** "Debt collection" · "AR automation platform" · "Enterprise"
