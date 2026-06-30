@@ -121,6 +121,7 @@ export function organizationJsonLd() {
     url: SITE_URL,
     logo: `${SITE_URL}/brand/icon-512.png`,
     email: LEGAL.supportEmail,
+    description: DEFAULT_DESCRIPTION,
     sameAs: [] as string[],
   };
 }
@@ -136,12 +137,21 @@ export function softwareApplicationJsonLd() {
     description: DEFAULT_DESCRIPTION,
     offers: pricingOffersJsonLd(),
     featureList: [
-      "QuickBooks Online invoice sync",
-      "AI-personalized payment reminder emails",
-      "Gmail and custom domain sending",
-      "Automatic stop when invoice is paid",
-      "WhatsApp follow-ups on Pro+ plans",
+      "QuickBooks Online invoice sync (read-only access)",
+      "AI-personalized payment reminder emails per invoice and client",
+      "Send from Gmail or verified custom domain",
+      "Multi-step escalation sequences (due date through 30+ days overdue)",
+      "Preview and approve drafts before first send",
+      "Automatic stop when QuickBooks invoice balance hits zero",
+      "Per-invoice pause and resume",
+      "CSV invoice import with payment link support",
+      "WhatsApp follow-ups on Pro+ and Team plans",
+      "Free Starter plan — 5 invoice collections per month",
     ],
+    audience: {
+      "@type": "Audience",
+      audienceType: "Freelancers and consultants using QuickBooks Online and Gmail",
+    },
   };
 }
 
@@ -345,4 +355,5 @@ export const SITEMAP_PATHS: Array<{ path: string; changeFrequency: "weekly" | "m
   { path: "/privacy", changeFrequency: "monthly", priority: 0.3 },
   { path: "/refund", changeFrequency: "monthly", priority: 0.3 },
   { path: "/cookies", changeFrequency: "monthly", priority: 0.2 },
+  { path: "/llms.txt", changeFrequency: "monthly", priority: 0.6 },
 ];

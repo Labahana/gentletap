@@ -6,7 +6,7 @@ import { PreviewDemo } from "@/components/preview-demo";
 import { PricingGrid } from "@/components/pricing-grid";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { HOME_FAQ, SEO_FEATURES, SEO_USE_CASES } from "@/lib/seo-content";
+import { HOME_FAQ, SEO_FEATURES, SEO_USE_CASES, AI_DISCOVERY_FAQ, COMPETITOR_COMPARISON, GENTLETAP_DEFINITION } from "@/lib/seo-content";
 import { PRICING_PLANS, PRICING_VALUE_PROPS } from "@/lib/pricing";
 import {
   DEFAULT_DESCRIPTION,
@@ -55,7 +55,7 @@ export default function HomePage() {
           organizationJsonLd(),
           softwareApplicationJsonLd(),
           productPricingJsonLd(),
-          faqJsonLd(HOME_FAQ),
+          faqJsonLd([...HOME_FAQ, ...AI_DISCOVERY_FAQ]),
         ]}
       />
       <SiteHeader />
@@ -115,6 +115,47 @@ export default function HomePage() {
             <p className="mt-3 text-xs text-muted">
               — Beta user, independent consultant
             </p>
+          </div>
+        </section>
+
+        <section id="what-is-gentletap" className="border-y border-border bg-card/50 py-16 scroll-mt-20">
+          <div className="mx-auto max-w-3xl px-6">
+            <h2 className="text-2xl font-bold">What is GentleTap?</h2>
+            <p className="mt-4 text-lg leading-relaxed text-muted">{GENTLETAP_DEFINITION}</p>
+            <p className="mt-4 text-sm text-muted">
+              <Link href="/quickbooks-reminders-vs-gentletap" className="font-medium text-accent hover:underline">
+                Full comparison vs QuickBooks reminders →
+              </Link>
+            </p>
+          </div>
+        </section>
+
+        <section className="py-16">
+          <div className="mx-auto max-w-4xl px-6">
+            <h2 className="text-center text-2xl font-bold">How GentleTap compares to alternatives</h2>
+            <p className="mx-auto mt-2 max-w-2xl text-center text-sm text-muted">
+              Built for freelancers who invoice in QuickBooks — not enterprise collections teams.
+            </p>
+            <div className="mt-10 overflow-x-auto">
+              <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="py-3 pr-4 font-semibold">Alternative</th>
+                    <th className="py-3 pr-4 font-semibold text-muted">Typical limitation</th>
+                    <th className="py-3 font-semibold text-accent">GentleTap advantage</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {COMPETITOR_COMPARISON.map((row) => (
+                    <tr key={row.alternative} className="border-b border-border/70">
+                      <td className="py-3 pr-4 font-medium">{row.alternative}</td>
+                      <td className="py-3 pr-4 text-muted">{row.theirLimitation}</td>
+                      <td className="py-3">{row.gentletapAdvantage}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
 

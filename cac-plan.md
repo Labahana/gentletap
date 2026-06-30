@@ -86,9 +86,12 @@ Freelancers and micro-SMBs lose **~14 hours/week** chasing unpaid invoices (indu
 
 ### GEO / AI search (2026)
 
-- Allow **GPTBot, ClaudeBot, PerplexityBot** in `robots.txt` — AI answers cite pages they can crawl.
-- Use **FAQ + HowTo + SoftwareApplication** JSON-LD on every money page.
-- Write definitional paragraphs AI can quote: *"GentleTap is automated invoice follow-up for freelancers using QuickBooks Online and Gmail."*
+- **`/llms.txt`** — machine-readable product summary, features, pricing, competitor diffs, and canonical URLs for ChatGPT, Claude, Perplexity, and other agents
+- Allow **GPTBot, ClaudeBot, PerplexityBot** in `robots.txt` — AI answers cite pages they can crawl
+- Use **FAQ + HowTo + SoftwareApplication** JSON-LD on every money page
+- **`AI_DISCOVERY_FAQ`** in `seo-content.ts` — quotable answers for "What is GentleTap?" and vs QBO / ChaseBot / Paidnice
+- **`GENTLETAP_DEFINITION`** — one paragraph copied across homepage, guides, and llms.txt
+- Write definitional paragraphs AI can quote verbatim
 
 ---
 

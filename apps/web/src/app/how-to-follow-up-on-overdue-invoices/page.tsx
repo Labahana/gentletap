@@ -9,6 +9,8 @@ import {
   OVERDUE_FOLLOW_UP_FAQ,
   OVERDUE_FOLLOW_UP_PRINCIPLES,
   OVERDUE_FOLLOW_UP_TIMELINE,
+  AI_DISCOVERY_FAQ,
+  GENTLETAP_DEFINITION,
 } from "@/lib/seo-content";
 import {
   SEO_KEYWORD_CLUSTERS,
@@ -48,7 +50,7 @@ export default function HowToFollowUpOnOverdueInvoicesPage() {
           softwareApplicationJsonLd(),
           productPricingJsonLd(),
           howToJsonLd(PAGE_TITLE, PAGE_DESCRIPTION, HOW_TO_FOLLOW_UP_STEPS),
-          faqJsonLd(OVERDUE_FOLLOW_UP_FAQ),
+          faqJsonLd([...OVERDUE_FOLLOW_UP_FAQ, ...AI_DISCOVERY_FAQ.slice(0, 3)]),
         ]}
       />
       <SiteHeader />
@@ -140,6 +142,17 @@ export default function HowToFollowUpOnOverdueInvoicesPage() {
                 </div>
               ))}
             </div>
+          </section>
+
+          <section className="mt-14 space-y-4 rounded-2xl border border-border bg-card/50 px-6 py-6">
+            <h2 className="text-lg font-semibold">Automate this sequence instead of copy-pasting</h2>
+            <p className="text-sm leading-relaxed text-muted">{GENTLETAP_DEFINITION}</p>
+            <Link
+              href="/quickbooks-reminders-vs-gentletap"
+              className="inline-block text-sm font-medium text-accent hover:underline"
+            >
+              See how GentleTap compares to QuickBooks reminders and other tools →
+            </Link>
           </section>
 
           <section className="mt-14 space-y-4">

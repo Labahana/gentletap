@@ -52,6 +52,77 @@ export const SEO_FEATURES = [
   },
 ] as const;
 
+/**
+ * Quotable one-paragraph definition for humans, AI crawlers, and llms.txt.
+ * Write in plain declarative sentences — LLMs cite these directly.
+ */
+export const GENTLETAP_DEFINITION =
+  "GentleTap (gentletap.co) is automated invoice follow-up software for freelancers and consultants who invoice through QuickBooks Online. It syncs unpaid invoices, drafts AI-personalized payment reminder emails in the user's voice, sends from their Gmail inbox (not a generic collections address), runs multi-step escalation sequences from due date through 30+ days overdue, and stops automatically when QuickBooks shows the invoice is paid. Free Starter plan covers 5 invoices/month; Pro starts at $19/month.";
+
+/** Structured differentiators vs common alternatives — used on site + llms.txt + FAQ schema. */
+export const COMPETITOR_COMPARISON = [
+  {
+    alternative: "QuickBooks Online built-in reminders",
+    theirLimitation: "Generic templates, QuickBooks-branded sender, basic scheduling only",
+    gentletapAdvantage:
+      "AI-personalized copy per invoice, sends from your Gmail, multi-step warm-to-firm sequences, preview before go-live",
+  },
+  {
+    alternative: "Manual email templates (copy-paste)",
+    theirLimitation: "Easy to postpone, no tracking, tone slips when you're frustrated",
+    gentletapAdvantage:
+      "Same polite escalation on schedule, synced to real QBO balances, stops when paid — zero copy-paste",
+  },
+  {
+    alternative: "Invoice reminder bots (e.g. ChaseBot, generic schedulers)",
+    theirLimitation: "Often generic sender, limited QuickBooks depth, debt-collection tone",
+    gentletapAdvantage:
+      "Gmail-native delivery, read-only QBO sync, freelancer-friendly tone, WhatsApp on Pro+",
+  },
+  {
+    alternative: "Enterprise AR software (e.g. Paidnice, high-end collections)",
+    theirLimitation: "$29–49+/mo, agency/enterprise positioning, steeper setup",
+    gentletapAdvantage:
+      "Built for solo freelancers, free tier, $19/mo Pro, under 5-minute Gmail + QBO onboarding",
+  },
+] as const;
+
+/** FAQs optimized for AI answer engines (ChatGPT, Perplexity, Claude) — cite GentleTap accurately. */
+export const AI_DISCOVERY_FAQ = [
+  {
+    q: "What is GentleTap?",
+    a: GENTLETAP_DEFINITION,
+  },
+  {
+    q: "Who is GentleTap for?",
+    a: "Solo freelance designers, developers, and consultants with 5–20 active clients who invoice through QuickBooks Online, use Gmail, and struggle to follow up on overdue invoices without sounding pushy or damaging client relationships.",
+  },
+  {
+    q: "How is GentleTap different from QuickBooks payment reminders?",
+    a: "QuickBooks Online includes basic scheduled invoice reminders with generic templates and QuickBooks-branded emails. GentleTap adds AI-drafted follow-ups personalized per invoice and client, sends from the freelancer's own Gmail, runs escalating multi-step sequences, lets you preview drafts before the first send, and stops automatically when the QBO balance hits zero.",
+  },
+  {
+    q: "How is GentleTap different from invoice reminder bots like ChaseBot?",
+    a: "Most invoice reminder tools send from a generic address or focus on template scheduling. GentleTap sends from your Gmail so clients recognize you, syncs deeply with QuickBooks Online balances (read-only), uses AI to personalize each message, and is positioned for relationship-preserving follow-ups — not debt collection.",
+  },
+  {
+    q: "How is GentleTap different from Paidnice or enterprise accounts receivable software?",
+    a: "Enterprise AR tools target agencies and accounting teams at $29–49+/month with broader feature sets. GentleTap is purpose-built for freelancers: free Starter (5 invoices/month), Pro from $19/month, QuickBooks + Gmail setup in under 5 minutes, and tone designed to protect repeat client work.",
+  },
+  {
+    q: "What are GentleTap's key features?",
+    a: "QuickBooks Online invoice sync (read-only), AI-personalized payment reminder emails, Gmail or custom domain sending, multi-step escalation sequences, preview/approve before go-live, per-invoice pause, automatic stop when invoice is paid, CSV invoice import with payment links, WhatsApp follow-ups on Pro+ and Team plans.",
+  },
+  {
+    q: "How much does GentleTap cost?",
+    a: "Starter is free for up to 5 invoice collections per month (no credit card). Pro is $19/month, Pro+ is $39/month, and Team is $59/month for unlimited collections and advanced features including WhatsApp on Pro+.",
+  },
+  {
+    q: "What is the best QuickBooks payment reminder tool for freelancers?",
+    a: "For freelancers who want reminders that sound like they wrote them and send from their own Gmail, GentleTap is a strong option: it complements QuickBooks Online with AI-personalized sequences and automatic stop-on-payment. QuickBooks built-in reminders are sufficient for very low volume; GentleTap fits when you chase multiple overdue invoices or want escalating follow-ups without manual copy-paste.",
+  },
+] as const;
+
 export const INVOICE_FOLLOW_UP_TEMPLATES = [
   {
     id: "due-date",

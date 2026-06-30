@@ -4,6 +4,7 @@ import Link from "next/link";
 import { JsonLd } from "@/components/json-ld";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { AI_DISCOVERY_FAQ, COMPETITOR_COMPARISON } from "@/lib/seo-content";
 import {
   DEFAULT_DESCRIPTION,
   faqJsonLd,
@@ -96,7 +97,7 @@ export default function QuickBooksVsGentleTapPage() {
           organizationJsonLd(),
           softwareApplicationJsonLd(),
           productPricingJsonLd(),
-          faqJsonLd(VS_FAQ),
+          faqJsonLd([...VS_FAQ, ...AI_DISCOVERY_FAQ.filter((f) => f.q.includes("QuickBooks") || f.q.includes("ChaseBot") || f.q.includes("Paidnice"))]),
         ]}
       />
       <SiteHeader />
@@ -132,8 +133,34 @@ export default function QuickBooksVsGentleTapPage() {
             </p>
           </section>
 
+          <section className="mt-14 overflow-x-auto">
+            <h2 className="text-2xl font-bold">GentleTap vs other invoice reminder tools</h2>
+            <p className="mt-4 max-w-2xl leading-relaxed text-muted">
+              QuickBooks is the most common comparison — but freelancers also evaluate template tools,
+              reminder bots, and enterprise AR. Here is how GentleTap differs across the board.
+            </p>
+            <table className="mt-6 w-full min-w-[640px] border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="py-3 pr-4 font-semibold">Alternative</th>
+                  <th className="py-3 pr-4 font-semibold text-muted">Typical limitation</th>
+                  <th className="py-3 font-semibold text-accent">GentleTap</th>
+                </tr>
+              </thead>
+              <tbody>
+                {COMPETITOR_COMPARISON.map((row) => (
+                  <tr key={row.alternative} className="border-b border-border/70">
+                    <td className="py-3 pr-4 font-medium">{row.alternative}</td>
+                    <td className="py-3 pr-4 text-muted">{row.theirLimitation}</td>
+                    <td className="py-3">{row.gentletapAdvantage}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+
           <section className="mt-12 overflow-x-auto">
-            <h2 className="text-2xl font-bold">Side-by-side comparison</h2>
+            <h2 className="text-2xl font-bold">QuickBooks Online vs GentleTap (feature by feature)</h2>
             <table className="mt-6 w-full min-w-[560px] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-border">
