@@ -16,6 +16,7 @@ import {
   productPricingJsonLd,
   softwareApplicationJsonLd,
   webPageJsonLd,
+  breadcrumbJsonLd,
 } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
@@ -64,6 +65,13 @@ export default function InvoiceFollowUpTemplatesPage() {
       <JsonLd
         data={[
           webPageJsonLd(title, description, "/invoice-follow-up-email-templates-for-freelancers"),
+          breadcrumbJsonLd([
+            { name: "Home", path: "/" },
+            {
+              name: "Invoice follow-up templates",
+              path: "/invoice-follow-up-email-templates-for-freelancers",
+            },
+          ]),
           organizationJsonLd(),
           softwareApplicationJsonLd(),
           productPricingJsonLd(),
@@ -91,6 +99,9 @@ export default function InvoiceFollowUpTemplatesPage() {
             </Link>
             <Link href="/quickbooks-payment-reminders" className="btn-secondary">
               QuickBooks reminders
+            </Link>
+            <Link href="/how-to-follow-up-on-overdue-invoices" className="btn-secondary">
+              Overdue invoice guide
             </Link>
           </div>
 

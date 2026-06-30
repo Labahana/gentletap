@@ -16,10 +16,11 @@ import {
   productPricingJsonLd,
   softwareApplicationJsonLd,
   webPageJsonLd,
+  websiteJsonLd,
 } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
-  title: "GentleTap — AI Payment Reminders for Freelancers | QuickBooks",
+  title: "GentleTap — QuickBooks Payment Reminders for Freelancers | Gmail",
   description: DEFAULT_DESCRIPTION,
   path: "/",
   ogTitle: "GentleTap — Get paid. Keep the relationship.",
@@ -45,8 +46,9 @@ export default function HomePage() {
     <>
       <JsonLd
         data={[
+          websiteJsonLd(),
           webPageJsonLd(
-            "GentleTap — AI payment reminders for freelancers",
+            "GentleTap — QuickBooks payment reminders for freelancers",
             DEFAULT_DESCRIPTION,
             "/",
           ),
@@ -67,9 +69,8 @@ export default function HomePage() {
             <span className="text-accent">Keep the relationship.</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-muted">
-            GentleTap is automated invoice follow-up for freelancers and small businesses worldwide.
-            Connect QuickBooks, send personalized payment reminders from your Gmail, and stop chasing
-            overdue invoices manually.
+            GentleTap is payment reminder software for freelancers on QuickBooks Online — AI-drafted
+            invoice follow-ups send from your Gmail and stop automatically when clients pay.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link href="/signup" className="btn-primary min-w-[200px]">
@@ -83,16 +84,23 @@ export default function HomePage() {
             Under 5 minutes with Gmail + QuickBooks Online
           </p>
           <p className="mt-3 text-sm">
+            <Link href="/how-to-follow-up-on-overdue-invoices" className="text-accent hover:underline">
+              Overdue invoice follow-up guide
+            </Link>
+            {" · "}
             <Link href="/quickbooks-payment-reminders" className="text-accent hover:underline">
-              QuickBooks payment reminders guide →
+              QuickBooks payment reminders
+            </Link>
+            {" · "}
+            <Link
+              href="/invoice-follow-up-email-templates-for-freelancers"
+              className="text-accent hover:underline"
+            >
+              Email templates
             </Link>
             {" · "}
             <Link href="/quickbooks-reminders-vs-gentletap" className="text-accent hover:underline">
-              vs built-in QBO reminders
-            </Link>
-            {" · "}
-            <Link href="/affiliates" className="text-accent hover:underline">
-              Creator affiliate program
+              vs QBO reminders
             </Link>
           </p>
 

@@ -4,28 +4,55 @@ import { LEGAL } from "@/lib/legal";
 
 export const SITE_URL = LEGAL.websiteUrl;
 
-/** Primary + secondary terms — global freelancer / SMB SaaS (not geo-local). */
+/** Primary + secondary terms — clustered by intent (see cac-plan.md). */
+export const SEO_KEYWORD_CLUSTERS = {
+  brand: ["GentleTap", "GentleTap payment reminders"],
+  quickbooks: [
+    "QuickBooks payment reminders",
+    "QuickBooks invoice reminders",
+    "automated invoice follow up QuickBooks",
+    "quickbooks send payment reminder",
+    "QuickBooks Online payment reminder",
+  ],
+  templates: [
+    "invoice follow-up email templates for freelancers",
+    "freelancer invoice reminder email",
+    "overdue invoice email template",
+    "payment follow up email template",
+    "polite payment reminder email",
+  ],
+  howTo: [
+    "how to follow up on overdue invoice",
+    "how to follow up on overdue invoice without being annoying",
+    "how to chase unpaid invoices as a freelancer",
+    "follow up on unpaid invoice",
+  ],
+  product: [
+    "payment reminder software",
+    "invoice reminder software",
+    "automated payment reminders",
+    "invoice chasing software",
+    "freelance invoice reminders",
+    "send payment reminders from Gmail",
+  ],
+} as const;
+
 export const SEO_KEYWORDS = [
-  "payment reminder software",
-  "QuickBooks payment reminders",
-  "automated invoice follow up",
-  "accounts receivable automation",
-  "invoice collection software",
-  "freelance invoice reminders",
+  ...SEO_KEYWORD_CLUSTERS.brand,
+  ...SEO_KEYWORD_CLUSTERS.quickbooks,
+  ...SEO_KEYWORD_CLUSTERS.templates,
+  ...SEO_KEYWORD_CLUSTERS.howTo,
+  ...SEO_KEYWORD_CLUSTERS.product,
   "overdue invoice follow up",
-  "AI payment reminders",
   "get clients to pay on time",
-  "invoice chasing software",
-  "QuickBooks invoice reminders",
-  "send payment reminders from Gmail",
-  "automated accounts receivable",
+  "accounts receivable automation",
   "client payment follow up",
-  "freelancer billing software",
 ] as const;
 
-export const DEFAULT_TITLE = "GentleTap — AI Payment Reminders for Freelancers | QuickBooks";
+export const DEFAULT_TITLE =
+  "GentleTap — QuickBooks Payment Reminders for Freelancers | Gmail";
 export const DEFAULT_DESCRIPTION =
-  "Stop chasing overdue invoices manually. GentleTap connects QuickBooks Online to Gmail to send polite, AI-driven payment reminders that protect client trust. Try free!";
+  "Automated invoice follow-up for freelancers on QuickBooks Online. AI-drafted payment reminders send from your Gmail and stop when clients pay — polite, not pushy. Free for 5 invoices.";
 
 export const NOINDEX_ROBOTS: Metadata["robots"] = {
   index: false,
@@ -245,6 +272,21 @@ export function affiliateProgramJsonLd(
   };
 }
 
+export function websiteJsonLd() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: LEGAL.productName,
+    url: SITE_URL,
+    description: DEFAULT_DESCRIPTION,
+    publisher: {
+      "@type": "Organization",
+      name: LEGAL.productName,
+      url: SITE_URL,
+    },
+  };
+}
+
 export function breadcrumbJsonLd(
   items: ReadonlyArray<{ name: string; path: string }>,
 ) {
@@ -285,6 +327,11 @@ export const SITEMAP_PATHS: Array<{ path: string; changeFrequency: "weekly" | "m
   { path: "/quickbooks-payment-reminders", changeFrequency: "weekly", priority: 0.95 },
   {
     path: "/invoice-follow-up-email-templates-for-freelancers",
+    changeFrequency: "weekly",
+    priority: 0.94,
+  },
+  {
+    path: "/how-to-follow-up-on-overdue-invoices",
     changeFrequency: "weekly",
     priority: 0.94,
   },

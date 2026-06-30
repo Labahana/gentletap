@@ -6,6 +6,7 @@ const FOOTER_SECTIONS = [
   {
     title: "Resources",
     links: [
+      { href: "/how-to-follow-up-on-overdue-invoices", label: "Overdue invoice guide" },
       { href: "/quickbooks-payment-reminders", label: "QBO payment reminders" },
       {
         href: "/invoice-follow-up-email-templates-for-freelancers",

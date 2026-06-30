@@ -13,12 +13,13 @@ import {
   softwareApplicationJsonLd,
   productPricingJsonLd,
   webPageJsonLd,
+  breadcrumbJsonLd,
 } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
   title: "QuickBooks Payment Reminders — Automated Invoice Follow Up",
   description:
-    "Automate QuickBooks payment reminders for freelancers and small businesses. AI-drafted invoice follow-ups send from your Gmail and stop when clients pay. Global SaaS — try GentleTap free.",
+    "Automate QuickBooks payment reminders for freelancers. AI-drafted invoice follow-ups send from your Gmail and stop when clients pay. Free for 5 invoices — try GentleTap.",
   path: "/quickbooks-payment-reminders",
   keywords: [
     "QuickBooks payment reminders",
@@ -47,6 +48,10 @@ export default function QuickBooksPaymentRemindersPage() {
       <JsonLd
         data={[
           webPageJsonLd(title, description, "/quickbooks-payment-reminders"),
+          breadcrumbJsonLd([
+            { name: "Home", path: "/" },
+            { name: "QuickBooks payment reminders", path: "/quickbooks-payment-reminders" },
+          ]),
           organizationJsonLd(),
           softwareApplicationJsonLd(),
           productPricingJsonLd(),
@@ -79,6 +84,9 @@ export default function QuickBooksPaymentRemindersPage() {
               className="btn-secondary"
             >
               Email templates
+            </Link>
+            <Link href="/how-to-follow-up-on-overdue-invoices" className="btn-secondary">
+              Overdue invoice guide
             </Link>
             <Link href="/quickbooks-reminders-vs-gentletap" className="btn-secondary">
               vs QuickBooks reminders

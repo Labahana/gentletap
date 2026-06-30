@@ -1,5 +1,9 @@
 export const HOME_FAQ = [
   {
+    q: "How do I follow up on overdue invoices without sounding pushy?",
+    a: "Use a short, factual tone; reference the invoice number and payment link every time; and escalate gradually (due date → day 3 → day 7 → day 14). GentleTap automates that same sequence from QuickBooks so you don't improvise under stress.",
+  },
+  {
     q: "Will my clients know this is automated?",
     a: "Messages send from your Gmail or verified domain email, in your name. GentleTap drafts the follow-up; you approve before anything goes live. To your client, it reads like you.",
   },
@@ -137,6 +141,104 @@ export const TEMPLATE_TIPS = [
   "Escalate tone gradually: warm → direct → firm. Sudden aggression damages repeat business.",
   "Send from your real email address, not a no-reply inbox — deliverability and trust are higher.",
   "Stop reminders the moment payment clears. Nothing annoys clients more than a chase after they've paid.",
+] as const;
+
+/** Day-by-day follow-up timeline for how-to guide + HowTo schema. */
+export const OVERDUE_FOLLOW_UP_TIMELINE = [
+  {
+    day: "Due date",
+    title: "Friendly due-date check-in",
+    body: "Assume good intent. Confirm the invoice landed and restate the due date with a payment link. No guilt — just clarity.",
+  },
+  {
+    day: "Day 3 overdue",
+    title: "Polite nudge + ask for a date",
+    body: "Ask whether anything is blocking payment (PO, approval, wrong recipient). Request a specific expected payment date.",
+  },
+  {
+    day: "Day 7 overdue",
+    title: "Professional follow-up",
+    body: "Reference invoice number, amount, and original due date. Tone stays respectful but unmistakably about payment.",
+  },
+  {
+    day: "Day 14 overdue",
+    title: "Firmer reminder with deadline",
+    body: "Set a clear deadline for payment or a reply. Offer to resend the invoice or fix a line item if that's the blocker.",
+  },
+  {
+    day: "Day 30+ overdue",
+    title: "Final courtesy before escalation",
+    body: "Last email in the sequence. Confirm next steps if payment isn't received — pause work, payment plan, or formal escalation per your contract.",
+  },
+] as const;
+
+export const OVERDUE_FOLLOW_UP_PRINCIPLES = [
+  {
+    title: "Assume administrative delay, not bad intent",
+    body: "Most late payments are approval bottlenecks or inbox noise — not malice. Write like you're helping them close a task.",
+  },
+  {
+    title: "One email thread per invoice",
+    body: "Keep replies in a single thread so there's a clean paper trail. Reference the same subject line each time.",
+  },
+  {
+    title: "Ask for a date, not a vibe",
+    body: "After day 3, don't accept endless 'we're on it.' Ask: 'When will payment be processed?'",
+  },
+  {
+    title: "Escalate tone, not volume",
+    body: "Five identical reminders feel nagging. Five slightly firmer messages with new information feel professional.",
+  },
+] as const;
+
+export const OVERDUE_FOLLOW_UP_FAQ = [
+  {
+    q: "How do I follow up on an overdue invoice without being annoying?",
+    a: "Keep messages short, factual, and assumptive-positive. Reference the invoice number, amount, and payment link every time. Escalate tone gradually (warm → direct → firm) instead of sending the same nudge repeatedly.",
+  },
+  {
+    q: "When should I send my first overdue invoice follow-up?",
+    a: "Many freelancers send a friendly reminder on the due date, then again at 3 and 7 days overdue. Long-term clients may deserve an extra day; new clients or large invoices may need an earlier nudge.",
+  },
+  {
+    q: "Should I call or email about overdue invoices?",
+    a: "Email first — you want a written trail. If email isn't working, a brief call can help, but always send a short follow-up email summarizing what was agreed (who approves, payment date).",
+  },
+  {
+    q: "Can I automate overdue invoice follow-ups with QuickBooks?",
+    a: "Yes. GentleTap syncs unpaid invoices from QuickBooks Online, drafts personalized reminders in your voice, sends from Gmail, and stops automatically when the balance hits zero.",
+  },
+  {
+    q: "What if my client ghosts me after multiple reminders?",
+    a: "After a final written notice (typically day 30), pause new work if your contract allows, offer a payment plan, or escalate per your terms. GentleTap's sequences handle the email escalation; you decide when to stop the relationship.",
+  },
+] as const;
+
+export const HOW_TO_FOLLOW_UP_STEPS = [
+  {
+    name: "Confirm the invoice details",
+    text: "Verify the invoice number, amount, due date, and payment link in QuickBooks or your invoicing tool before you follow up.",
+  },
+  {
+    name: "Send a due-date reminder",
+    text: "On the due date, send a short friendly email confirming the invoice landed and include the payment link.",
+  },
+  {
+    name: "Follow up at day 3 with a specific ask",
+    text: "Ask if anything is blocking payment and request an expected payment date.",
+  },
+  {
+    name: "Escalate politely at day 7 and day 14",
+    text: "Increase directness each time while staying professional. Always reference the same invoice details.",
+  },
+  {
+    name: "Send a final notice before pausing work",
+    text: "At 30+ days, send a last courtesy email outlining next steps. Stop reminders when payment clears.",
+  },
+  {
+    name: "Automate the sequence (optional)",
+    text: "Connect QuickBooks and Gmail to GentleTap to run the same escalation automatically and stop when the invoice is paid.",
+  },
 ] as const;
 
 export const AFFILIATE_FAQ = [
