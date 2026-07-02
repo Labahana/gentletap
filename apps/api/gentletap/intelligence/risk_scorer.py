@@ -1,6 +1,4 @@
 from gentletap.intelligence.schemas import (
-    ClientProfile,
-    InvoiceContext,
     ReminderContext,
     RiskLevel,
 )

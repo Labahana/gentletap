@@ -13,7 +13,7 @@ import {
   AdminTable,
   formatAdminDate,
 } from "@/components/admin/ui";
-import { api, getToken } from "@/lib/api";
+import { api } from "@/lib/api";
 import type { AdminJob } from "@/lib/admin-types";
 
 const STATUSES = ["failed", "stuck", "pending", "processing", "all"] as const;
@@ -28,11 +28,9 @@ export default function AdminJobsPageInner() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const token = getToken();
-    if (!token) return;
     setLoading(true);
     try {
-      setData(await api.adminJobs(token, status));
+      setData(await api.adminJobs(status));
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load jobs");
@@ -46,12 +44,10 @@ export default function AdminJobsPageInner() {
   }, [load]);
 
   async function requeue(jobId: string) {
-    const token = getToken();
-    if (!token) return;
     if (!confirm(`Requeue job ${jobId.slice(0, 8)}…?`)) return;
     setBusyId(jobId);
     try {
-      const result = await api.adminRequeueJob(token, jobId);
+      const result = await api.adminRequeueJob(jobId);
       setMsg(`Job ${jobId.slice(0, 8)}…: ${result.status}`);
       await load();
     } catch (e) {
@@ -62,10 +58,8 @@ export default function AdminJobsPageInner() {
   }
 
   async function requeueAllStuck() {
-    const token = getToken();
-    if (!token) return;
     if (!confirm("Requeue all stuck jobs?")) return;
-    const result = await api.adminRequeueStuck(token);
+    const result = await api.adminRequeueStuck();
     setMsg(`Requeued ${result.requeued} stuck job(s)`);
     await load();
   }

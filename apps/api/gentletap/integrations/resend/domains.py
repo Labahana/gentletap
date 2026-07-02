@@ -7,7 +7,6 @@ import uuid
 import httpx
 from sqlalchemy.orm import Session
 
-from gentletap.config import get_settings
 from gentletap.database import EmailDomain
 from gentletap.integrations.resend.sender import RESEND_API, _headers, is_configured
 

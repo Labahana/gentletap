@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { api, getToken, type ClientListItem } from "@/lib/api";
+import { api, type ClientListItem } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { riskBadgeClass } from "@/lib/dashboard-ui";
 import { formatMoney, isOnboardingComplete } from "@/lib/onboarding";
@@ -19,13 +19,11 @@ export default function ClientsPage() {
   const [unreadAlerts, setUnreadAlerts] = useState(0);
 
   const load = useCallback(async () => {
-    const token = getToken();
-    if (!token) return;
     try {
       const [data, summary, notes] = await Promise.all([
-        api.clients(token),
-        api.invoicesSummary(token),
-        api.notifications(token),
+        api.clients(),
+        api.invoicesSummary(),
+        api.notifications(),
       ]);
       setClients(data.items);
       setCurrency(summary.currency);

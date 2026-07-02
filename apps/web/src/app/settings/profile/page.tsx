@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { YourPlanCard } from "@/components/settings/your-plan-card";
-import { api, getToken } from "@/lib/api";
+import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 
 const PERSONAS = [
@@ -41,9 +41,7 @@ export default function ProfileSettingsPage() {
   }, [user]);
 
   useEffect(() => {
-    const token = getToken();
-    if (!token) return;
-    api.invoicesSummary(token).then((s) => {
+    api.invoicesSummary().then((s) => {
       setMonthlyUsed(s.monthly_collections?.monthly_used);
       setMonthlyLimit(s.monthly_collections?.monthly_limit);
     });
@@ -53,13 +51,11 @@ export default function ProfileSettingsPage() {
 
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
-    const token = getToken();
-    if (!token) return;
     setProfileSaving(true);
     setProfileError(null);
     setProfileSaved(false);
     try {
-      await api.updateProfile(token, { full_name: fullName, persona: persona ?? undefined });
+      await api.updateProfile({ full_name: fullName, persona: persona ?? undefined });
       await refresh();
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 3000);

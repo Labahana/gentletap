@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { ConnectQuickBooksButton } from "@/components/connect-quickbooks-button";
-import { api, getToken } from "@/lib/api";
+import { api } from "@/lib/api";
 import { openOverlayCheckout } from "@/lib/paddle";
 import { useAuth } from "@/lib/auth-context";
 import { planLabel } from "@/lib/pricing";
@@ -53,16 +53,14 @@ function ConnectionsPanelContent({ mode }: { mode: ConnectionsPanelMode }) {
   }, [searchParams, router, basePath, mode]);
 
   async function loadStatus() {
-    const token = getToken();
-    if (!token) return;
     setLoadError(null);
     try {
       const [email, qb, whatsapp, replies, google] = await Promise.all([
-        api.emailStatus(token),
-        api.qbSyncStatus(token),
-        api.whatsappStatus(token).catch(() => null),
-        api.whatsappInbound(token).catch(() => ({ items: [] })),
-        api.googleStatus(token).catch(() => ({ connected: false, email: undefined })),
+        api.emailStatus(),
+        api.qbSyncStatus(),
+        api.whatsappStatus().catch(() => null),
+        api.whatsappInbound().catch(() => ({ items: [] })),
+        api.googleStatus().catch(() => ({ connected: false, email: undefined })),
       ]);
       setEmailReady(email.ready);
       setEmailProvider(email.provider);
@@ -89,12 +87,10 @@ function ConnectionsPanelContent({ mode }: { mode: ConnectionsPanelMode }) {
   }, [user, qbConnected, mode]);
 
   async function connectQb() {
-    const token = getToken();
-    if (!token) return;
     setQbConnecting(true);
     setLoadError(null);
     try {
-      const { authorization_url } = await api.qbConnectUrl(token);
+      const { authorization_url } = await api.qbConnectUrl();
       window.location.href = authorization_url;
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Could not start QuickBooks connection");
@@ -103,12 +99,10 @@ function ConnectionsPanelContent({ mode }: { mode: ConnectionsPanelMode }) {
   }
 
   async function disconnectQb() {
-    const token = getToken();
-    if (!token) return;
     if (!window.confirm("Disconnect from QuickBooks? Invoice sync and payment detection will stop.")) return;
     setLoadError(null);
     try {
-      await api.qbDisconnect(token);
+      await api.qbDisconnect();
       await loadStatus();
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Could not disconnect QuickBooks");
@@ -116,11 +110,9 @@ function ConnectionsPanelContent({ mode }: { mode: ConnectionsPanelMode }) {
   }
 
   async function switchEmailProvider(provider: "google" | "resend") {
-    const token = getToken();
-    if (!token) return;
     setLoadError(null);
     try {
-      await api.updateEmailPreferences(token, provider);
+      await api.updateEmailPreferences(provider);
       await loadStatus();
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Could not update email preference");
@@ -128,11 +120,9 @@ function ConnectionsPanelContent({ mode }: { mode: ConnectionsPanelMode }) {
   }
 
   async function connectGmail() {
-    const token = getToken();
-    if (!token) return;
     setLoadError(null);
     try {
-      const { authorization_url } = await api.googleConnectUrl(token, "settings");
+      const { authorization_url } = await api.googleConnectUrl("settings");
       window.location.href = authorization_url;
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Could not start Gmail connection");
@@ -140,11 +130,10 @@ function ConnectionsPanelContent({ mode }: { mode: ConnectionsPanelMode }) {
   }
 
   async function verifyResend() {
-    const token = getToken();
-    if (!token || !resendEmail.trim()) return;
+    if (!resendEmail.trim()) return;
     setLoadError(null);
     try {
-      await api.verifyResendSender(token, resendEmail.trim());
+      await api.verifyResendSender(resendEmail.trim());
       await loadStatus();
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Resend verification failed");
@@ -152,12 +141,10 @@ function ConnectionsPanelContent({ mode }: { mode: ConnectionsPanelMode }) {
   }
 
   async function disconnectGmail() {
-    const token = getToken();
-    if (!token) return;
     if (!window.confirm("Disconnect Gmail? Reminders will stop sending via Gmail until you reconnect or switch to Resend.")) return;
     setLoadError(null);
     try {
-      await api.googleDisconnect(token);
+      await api.googleDisconnect();
       await loadStatus();
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Could not disconnect Gmail");
@@ -165,12 +152,10 @@ function ConnectionsPanelContent({ mode }: { mode: ConnectionsPanelMode }) {
   }
 
   async function connectShared() {
-    const token = getToken();
-    if (!token) return;
     setWaBusy(true);
     setWaError(null);
     try {
-      await api.whatsappConnectShared(token);
+      await api.whatsappConnectShared();
       await loadStatus();
     } catch (e) {
       setWaError(e instanceof Error ? e.message : "Could not connect");
@@ -180,11 +165,9 @@ function ConnectionsPanelContent({ mode }: { mode: ConnectionsPanelMode }) {
   }
 
   async function disconnectWhatsapp() {
-    const token = getToken();
-    if (!token) return;
     setWaBusy(true);
     try {
-      await api.whatsappDisconnect(token);
+      await api.whatsappDisconnect();
       await loadStatus();
     } finally {
       setWaBusy(false);
@@ -192,14 +175,12 @@ function ConnectionsPanelContent({ mode }: { mode: ConnectionsPanelMode }) {
   }
 
   async function buyPack(pack: "pack_250" | "pack_500") {
-    const token = getToken();
-    if (!token) return;
     setWaBusy(true);
     setWaError(null);
     try {
       const [{ checkout_url, transaction_id }, status] = await Promise.all([
-        api.whatsappCheckoutMessages(token, pack),
-        api.billingStatus(token),
+        api.whatsappCheckoutMessages(pack),
+        api.billingStatus(),
       ]);
       const opened = await openOverlayCheckout({
         config: status.paddle,

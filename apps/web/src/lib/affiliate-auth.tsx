@@ -149,6 +149,7 @@ export function AffiliateAuthProvider({ children }: { children: React.ReactNode 
       "/affiliates/auth/login",
       { method: "POST", body: JSON.stringify({ email, password }) },
     );
+    if (!access_token) throw new Error("Login failed");
     setAffiliateTokens(access_token, refresh_token);
     setAffiliate(await affiliateRequest<AffiliateProfile>("/affiliates/me", {}, access_token));
   }, []);

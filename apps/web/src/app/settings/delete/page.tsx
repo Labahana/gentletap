@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { api, clearToken, getToken } from "@/lib/api";
+import { api, clearToken } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 
 export default function DeleteAccountSettingsPage() {
@@ -17,12 +17,10 @@ export default function DeleteAccountSettingsPage() {
   if (!user) return null;
 
   async function downloadData() {
-    const token = getToken();
-    if (!token) return;
     setExportBusy(true);
     setExportError(null);
     try {
-      await api.exportAccountData(token);
+      await api.exportAccountData();
     } catch (err) {
       setExportError(err instanceof Error ? err.message : "Could not export data");
     } finally {
@@ -32,8 +30,6 @@ export default function DeleteAccountSettingsPage() {
 
   async function deleteAccount(e: React.FormEvent) {
     e.preventDefault();
-    const token = getToken();
-    if (!token) return;
     if (deleteConfirm.trim().toUpperCase() !== "DELETE") {
       setDeleteError("Type DELETE in the box below to confirm.");
       return;
@@ -42,7 +38,7 @@ export default function DeleteAccountSettingsPage() {
     setDeleteBusy(true);
     setDeleteError(null);
     try {
-      await api.deleteAccount(token, deleteConfirm.trim());
+      await api.deleteAccount(deleteConfirm.trim());
       clearToken();
       router.replace("/?deleted=1");
     } catch (err) {

@@ -6,7 +6,7 @@ import { OnboardingEmailStep } from "@/components/onboarding-email-step";
 import { OnboardingImportStep } from "@/components/onboarding-import-step";
 import { OnboardingPreviewStep } from "@/components/onboarding-preview-step";
 import { OnboardingInfoBox, OnboardingLoadingOverlay, OnboardingShell } from "@/components/onboarding-shell";
-import { api, getToken, type ReminderPreviewItem } from "@/lib/api";
+import { api, type ReminderPreviewItem } from "@/lib/api";
 import { openOverlayCheckout, type PaddlePublicConfig } from "@/lib/paddle";
 import { useAuth } from "@/lib/auth-context";
 
@@ -198,16 +198,11 @@ function OnboardingContent() {
       setQbError(message ?? "QuickBooks connection failed");
       router.replace("/onboarding");
     } else if (email === "connected") {
-      const token = getToken();
-      if (token) {
-        api.googleStatus(token).then((g) => setSenderEmail(g.email ?? null)).catch(() => {});
-        api.me(token).then((me) => {
-          setMacroStep(backendToView(me.onboarding_step).macro);
-        }).catch(() => setMacroStep(3));
-        void refresh();
-      } else {
-        setMacroStep(3);
-      }
+      api.googleStatus().then((g) => setSenderEmail(g.email ?? null)).catch(() => {});
+      api.me().then((me) => {
+        setMacroStep(backendToView(me.onboarding_step).macro);
+      }).catch(() => setMacroStep(3));
+      void refresh();
       router.replace("/onboarding");
     } else if (email === "error") {
       setMacroStep(2);
@@ -224,19 +219,16 @@ function OnboardingContent() {
 
   useEffect(() => {
     if (searchParams.get("paid") !== "1" || !user) return;
-    const token = getToken();
-    if (!token) return;
-
     (async () => {
       for (let i = 0; i < 15; i += 1) {
-        const me = await api.me(token);
+        const me = await api.me();
         if (me.plan !== "free") break;
         await new Promise((r) => setTimeout(r, 2000));
       }
       await refresh();
       setMacroStep(3);
       try {
-        const result = await api.onboardingActivate(token);
+        const result = await api.onboardingActivate();
         await refresh();
         storeWelcome(result);
         router.replace("/dashboard");
@@ -247,12 +239,11 @@ function OnboardingContent() {
   }, [searchParams, user, refresh, router]);
 
   const pollImportStatus = useCallback(async () => {
-    const token = getToken();
-    if (!token) return false;
+    if (!user) return false;
     try {
       const [sync, summary] = await Promise.all([
-        api.qbSyncStatus(token),
-        api.invoicesSummary(token),
+        api.qbSyncStatus(),
+        api.invoicesSummary(),
       ]);
       const syncing = sync.status === "syncing";
       setImportSummary({
@@ -268,14 +259,12 @@ function OnboardingContent() {
       setImportSummary((s) => ({ ...s, message: "Could not load sync status", syncing: false }));
       return false;
     }
-  }, []);
+  }, [user]);
 
   const loadPreviewDrafts = useCallback(async () => {
-    const token = getToken();
-    if (!token) return;
     setPreviewsLoading(true);
     try {
-      const preview = await api.remindersPreview(token);
+      const preview = await api.remindersPreview();
       if (preview.items) setPreviews(preview.items);
       setImportSummary((s) => ({
         ...s,
@@ -318,16 +307,14 @@ function OnboardingContent() {
 
   useEffect(() => {
     if (macroStep !== 2 && macroStep !== 3) return;
-    const token = getToken();
-    if (!token) return;
-    api.emailSetup(token).then((setup) => {
+    api.emailSetup().then((setup) => {
       if (setup.google_connected && setup.google_email) {
         setSenderEmail(setup.google_email);
       } else if (setup.platform_from) {
         setSenderEmail(setup.platform_from);
       }
     }).catch(() => {});
-    api.googleStatus(token).then((g) => {
+    api.googleStatus().then((g) => {
       if (g.connected && g.email) setSenderEmail(g.email);
     }).catch(() => {});
   }, [macroStep]);
@@ -335,9 +322,7 @@ function OnboardingContent() {
   useEffect(() => {
     if (macroStep !== 3) return;
     void loadPreviewDrafts();
-    const token = getToken();
-    if (!token) return;
-    api.billingStatus(token).then((s) => {
+    api.billingStatus().then((s) => {
       setCheckoutAvailable(s.checkout_available);
       setPaddleConfig(s.paddle);
     }).catch(() => {});
@@ -370,12 +355,10 @@ function OnboardingContent() {
   }
 
   async function connectQuickBooks() {
-    const token = getToken();
-    if (!token) return;
     setQbConnecting(true);
     setQbError(null);
     try {
-      const { authorization_url } = await api.qbConnectUrl(token);
+      const { authorization_url } = await api.qbConnectUrl();
       window.location.href = authorization_url;
     } catch (err) {
       setQbError(err instanceof Error ? err.message : "Failed to start QuickBooks connection");
@@ -384,11 +367,9 @@ function OnboardingContent() {
   }
 
   async function connectGmail() {
-    const token = getToken();
-    if (!token) return;
     setEmailError(null);
     try {
-      const { authorization_url } = await api.googleConnectUrl(token, "onboarding");
+      const { authorization_url } = await api.googleConnectUrl("onboarding");
       window.location.href = authorization_url;
     } catch (err) {
       setEmailError(err instanceof Error ? err.message : "Failed to start Gmail connection");
@@ -396,31 +377,31 @@ function OnboardingContent() {
   }
 
   async function continueToEmail() {
-    const token = getToken();
-    if (token) {
-      await api.advanceOnboardingImport(token);
+    try {
+      await api.advanceOnboardingImport();
       await refresh();
+    } catch {
+      /* continue anyway */
     }
     setMacroStep(2);
   }
 
   async function continueToPreview() {
-    const token = getToken();
-    if (token) {
-      await api.advanceOnboardingQuickbooks(token);
+    try {
+      await api.advanceOnboardingQuickbooks();
       await refresh();
+    } catch {
+      /* continue anyway */
     }
     setMacroStep(3);
   }
 
   async function goLive() {
-    const token = getToken();
-    if (!token) return;
     setActivating(true);
     setEmailError(null);
     try {
-      await api.advanceOnboardingPricing(token);
-      const result = await api.onboardingActivate(token);
+      await api.advanceOnboardingPricing();
+      const result = await api.onboardingActivate();
       await refresh();
       storeWelcome(result);
       router.push("/dashboard");
@@ -431,14 +412,10 @@ function OnboardingContent() {
   }
 
   async function upgradeFromOnboarding() {
-    const token = getToken();
-    if (!token) return;
     setEmailError(null);
     setBusyPlan("pro");
     try {
-      const { checkout_url, transaction_id } = await api.billingCheckout(
-        token,
-        "pro",
+      const { checkout_url, transaction_id } = await api.billingCheckout("pro",
         "month",
         "onboarding",
       );
@@ -467,8 +444,6 @@ function OnboardingContent() {
 
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
-    const token = getToken();
-    if (!token) return;
     if (!companyName.trim()) {
       setProfileError("Company name is required");
       return;
@@ -476,7 +451,7 @@ function OnboardingContent() {
     setProfileSaving(true);
     setProfileError(null);
     try {
-      await api.saveOnboardingProfile(token, {
+      await api.saveOnboardingProfile({
         company_name: companyName.trim(),
         email_display_name: emailDisplayName.trim() || undefined,
         phone: phone.trim() || undefined,

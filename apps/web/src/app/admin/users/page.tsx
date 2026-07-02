@@ -12,7 +12,7 @@ import {
   AdminTable,
   formatAdminDate,
 } from "@/components/admin/ui";
-import { api, getToken } from "@/lib/api";
+import { api } from "@/lib/api";
 
 const PLANS = ["", "free", "pro", "pro_plus", "team"];
 const STEPS = ["", "account", "invoice_import", "email", "preview", "pricing", "live"];
@@ -30,12 +30,10 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const token = getToken();
-    if (!token) return;
     setLoading(true);
     try {
       setData(
-        await api.adminUsers(token, {
+        await api.adminUsers({
           search: query || undefined,
           plan: plan || undefined,
           onboarding_step: step || undefined,

@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime
 
 from sqlalchemy.orm import Session
 
-from gentletap.database import Client, Invoice, QuickBooksConnection
+from gentletap.database import Client, QuickBooksConnection
 from gentletap.integrations.quickbooks import client as qb_client
 
 

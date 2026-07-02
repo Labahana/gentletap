@@ -9,7 +9,9 @@ export function getAffiliateRefFromUrl(): string | null {
 
 export function setAffiliateRefCookie(refCode: string): void {
   const maxAge = REF_COOKIE_DAYS * 24 * 60 * 60;
-  document.cookie = `${REF_COOKIE}=${encodeURIComponent(refCode.toLowerCase())}; path=/; max-age=${maxAge}; SameSite=Lax`;
+  const isProd = process.env.NODE_ENV === "production";
+  const secure = isProd ? "; Secure" : "";
+  document.cookie = `${REF_COOKIE}=${encodeURIComponent(refCode.toLowerCase())}; path=/; max-age=${maxAge}; SameSite=Lax${secure}`;
 }
 
 export function getAffiliateRefCookie(): string | null {
@@ -30,6 +32,7 @@ export function clearAffiliateRefCookie(): void {
 export async function trackAffiliateClick(refCode: string): Promise<void> {
   await fetch("/v1/affiliates/track-click", {
     method: "POST",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       ref_code: refCode,
@@ -39,19 +42,17 @@ export async function trackAffiliateClick(refCode: string): Promise<void> {
   }).catch(() => undefined);
 }
 
-export async function attributeAffiliateReferral(userToken: string, refCode: string): Promise<void> {
+export async function attributeAffiliateReferral(refCode: string): Promise<void> {
   await fetch("/v1/affiliates/attribute", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${userToken}`,
-    },
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ref_code: refCode }),
   }).catch(() => undefined);
 }
 
-export async function tryAttributeFromCookie(userToken: string): Promise<void> {
+export async function tryAttributeFromCookie(): Promise<void> {
   const ref = getAffiliateRefCookie();
   if (!ref) return;
-  await attributeAffiliateReferral(userToken, ref);
+  await attributeAffiliateReferral(ref);
 }

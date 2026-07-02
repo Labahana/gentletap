@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { api, getToken } from "@/lib/api";
+import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { formatMoney } from "@/lib/onboarding";
 import { hasWhatsapp } from "@/lib/pricing";
@@ -40,10 +40,9 @@ export default function InvoiceDetailPage() {
   const [contactsSaved, setContactsSaved] = useState(false);
 
   const load = useCallback(async () => {
-    const token = getToken();
-    if (!token || !id) return;
+    if (!id) return;
     try {
-      setInvoice(await api.invoiceDetail(token, id));
+      setInvoice(await api.invoiceDetail(id));
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load invoice");
@@ -68,13 +67,12 @@ export default function InvoiceDetailPage() {
   }, [invoice]);
 
   async function markPaid() {
-    const token = getToken();
-    if (!token || !invoice) return;
+    if (!invoice) return;
     if (!window.confirm("Mark this invoice as paid? Reminders will stop.")) return;
     setManualBusy(true);
     setError(null);
     try {
-      await api.markInvoicePaid(token, invoice.id);
+      await api.markInvoicePaid(invoice.id);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not mark paid");
@@ -85,13 +83,12 @@ export default function InvoiceDetailPage() {
 
   async function saveManualEdits(e: React.FormEvent) {
     e.preventDefault();
-    const token = getToken();
-    if (!token || !invoice) return;
+    if (!invoice) return;
     setManualBusy(true);
     setError(null);
     setManualSaved(false);
     try {
-      await api.updateInvoice(token, invoice.id, {
+      await api.updateInvoice(invoice.id, {
         balance: parseFloat(editBalance),
         due_date: editDueDate || undefined,
         payment_link: editPaymentLink.trim() || undefined,
@@ -109,13 +106,12 @@ export default function InvoiceDetailPage() {
 
   async function saveContacts(e: React.FormEvent) {
     e.preventDefault();
-    const token = getToken();
-    if (!token || !invoice || !user) return;
+    if (!invoice || !user) return;
     setContactsBusy(true);
     setError(null);
     setContactsSaved(false);
     try {
-      await api.updateInvoiceContacts(token, invoice.id, {
+      await api.updateInvoiceContacts(invoice.id, {
         client_email: editReminderEmail.trim() || undefined,
         ...(hasWhatsapp(user.plan)
           ? {
@@ -135,12 +131,11 @@ export default function InvoiceDetailPage() {
   }
 
   async function startReminders() {
-    const token = getToken();
-    if (!token || !invoice) return;
+    if (!invoice) return;
     setManualBusy(true);
     setError(null);
     try {
-      await api.approveInvoice(token, invoice.id);
+      await api.approveInvoice(invoice.id);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not start reminders");
@@ -232,9 +227,7 @@ export default function InvoiceDetailPage() {
                     type="button"
                     className="rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-background"
                     onClick={async () => {
-                      const token = getToken();
-                      if (!token) return;
-                      await api.pauseInvoice(token, invoice.id);
+                      await api.pauseInvoice(invoice.id);
                       load();
                     }}
                   >
@@ -245,9 +238,7 @@ export default function InvoiceDetailPage() {
                     type="button"
                     className="btn-primary py-1.5 px-4 text-xs"
                     onClick={async () => {
-                      const token = getToken();
-                      if (!token) return;
-                      await api.resumeInvoice(token, invoice.id);
+                      await api.resumeInvoice(invoice.id);
                       load();
                     }}
                   >
@@ -259,10 +250,8 @@ export default function InvoiceDetailPage() {
                     type="button"
                     className="rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-background"
                     onClick={async () => {
-                      const token = getToken();
-                      if (!token) return;
                       try {
-                        await api.markDispute(token, invoice.id);
+                        await api.markDispute(invoice.id);
                         load();
                       } catch (err) {
                         setError(err instanceof Error ? err.message : "Could not mark dispute");
@@ -276,10 +265,8 @@ export default function InvoiceDetailPage() {
                     type="button"
                     className="rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-background"
                     onClick={async () => {
-                      const token = getToken();
-                      if (!token) return;
                       try {
-                        await api.clearDispute(token, invoice.id);
+                        await api.clearDispute(invoice.id);
                         load();
                       } catch (err) {
                         setError(err instanceof Error ? err.message : "Could not clear dispute");
@@ -369,13 +356,12 @@ export default function InvoiceDetailPage() {
                   <form
                     onSubmit={async (e) => {
                       e.preventDefault();
-                      const token = getToken();
-                      if (!token || !invoice) return;
+                                        if (!invoice) return;
                       setContactsBusy(true);
                       setError(null);
                       setContactsSaved(false);
                       try {
-                        await api.updateInvoiceContacts(token, invoice.id, {
+                        await api.updateInvoiceContacts(invoice.id, {
                           reminder_phone: editReminderPhone.trim() || undefined,
                           clear_reminder_phone: !editReminderPhone.trim(),
                         });

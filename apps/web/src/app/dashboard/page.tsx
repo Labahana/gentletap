@@ -16,7 +16,7 @@ import { DashIcon } from "@/components/dashboard-icons";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { DashboardUpgradeCard } from "@/components/upgrade-prompt";
 import { InvoiceDataSources } from "@/components/invoice-data-sources";
-import { api, getToken, type DashboardSummary, type InvoiceItem } from "@/lib/api";
+import { api, type DashboardSummary, type InvoiceItem } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import {
   greetingName,
@@ -72,14 +72,12 @@ export default function DashboardPage() {
   }, []);
 
   const load = useCallback(async () => {
-    const token = getToken();
-    if (!token) return;
     try {
       const [s, inv, notes, sync] = await Promise.all([
-        api.invoicesSummary(token),
-        api.invoices(token),
-        api.notifications(token),
-        api.qbSyncStatus(token),
+        api.invoicesSummary(),
+        api.invoices(),
+        api.notifications(),
+        api.qbSyncStatus(),
       ]);
       setSummary(s);
       setInvoices(inv.items);
@@ -114,12 +112,10 @@ export default function DashboardPage() {
   }, [user, load]);
 
   async function handleUpload(file: File) {
-    const token = getToken();
-    if (!token) return;
     setUploadBusy(true);
     setUploadNote(null);
     try {
-      const result = await api.importInvoicesCsv(token, file);
+      const result = await api.importInvoicesCsv(file);
       setUploadNote(importSuccessNote(result));
       await load();
     } catch (err) {

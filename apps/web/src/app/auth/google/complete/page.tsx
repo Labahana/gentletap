@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { AuthLogo } from "@/components/auth-logo";
-import { api, setTokens } from "@/lib/api";
 import { tryAttributeFromCookie } from "@/lib/affiliate-ref";
 import { postAuthPath } from "@/lib/onboarding";
 
 function GoogleComplete() {
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
+  const exchangedRef = useRef(false);
 
   useEffect(() => {
     const code = searchParams.get("code");
@@ -18,15 +18,25 @@ function GoogleComplete() {
       setError("Google sign-in did not complete. Please try again.");
       return;
     }
+    if (exchangedRef.current) return;
+    exchangedRef.current = true;
 
     let active = true;
     (async () => {
       try {
-        const { access_token, refresh_token } = await api.googleAuthExchange(code);
+        const res = await fetch("/api/session/google", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: "Google sign-in failed" }));
+          throw new Error(typeof err.detail === "string" ? err.detail : "Google sign-in failed");
+        }
+        const { user: me } = (await res.json()) as { user: { onboarding_step: string; onboarding_completed_at: string | null } };
         if (!active) return;
-        setTokens(access_token, refresh_token);
-        await tryAttributeFromCookie(access_token);
-        const me = await api.me(access_token);
+        await tryAttributeFromCookie();
         window.location.href = postAuthPath(me);
       } catch (err) {
         if (!active) return;

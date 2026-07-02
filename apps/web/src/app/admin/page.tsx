@@ -13,7 +13,7 @@ import {
   formatAdminDate,
   AdminLoading,
 } from "@/components/admin/ui";
-import { api, getToken } from "@/lib/api";
+import { api } from "@/lib/api";
 import type { AdminOverview } from "@/lib/admin-types";
 
 export default function AdminOverviewPage() {
@@ -24,11 +24,9 @@ export default function AdminOverviewPage() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const token = getToken();
-    if (!token) return;
     setLoading(true);
     try {
-      const [o, h] = await Promise.all([api.adminOverview(token), api.adminHealth(token)]);
+      const [o, h] = await Promise.all([api.adminOverview(), api.adminHealth()]);
       setOverview(o);
       setHealth(h);
       setError(null);
@@ -44,10 +42,8 @@ export default function AdminOverviewPage() {
   }, [load]);
 
   async function requeueStuck() {
-    const token = getToken();
-    if (!token) return;
     if (!confirm("Requeue all stuck reminder jobs (processing > 15 min)?")) return;
-    const result = await api.adminRequeueStuck(token);
+    const result = await api.adminRequeueStuck();
     setRequeueMsg(`Requeued ${result.requeued} stuck job(s)`);
     await load();
   }

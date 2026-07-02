@@ -13,7 +13,7 @@ services:
     volumes:
       - gentletap_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U gentletap -d gentletap"]
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,11 +22,11 @@ services:
     image: redis:7-alpine
     container_name: gentletap-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy volatile-lru
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy volatile-lru --requirepass ${REDIS_PASSWORD:-gentletap}
     volumes:
       - gentletap_redis:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a ${REDIS_PASSWORD:-gentletap} ping | grep -q PONG"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -40,9 +40,9 @@ services:
     env_file:
       - .env
     environment:
-      REDIS_URL: "redis://redis:6379/0"
-      CELERY_BROKER_URL: "redis://redis:6379/0"
-      CELERY_RESULT_BACKEND: "redis://redis:6379/1"
+      REDIS_URL: "redis://:${REDIS_PASSWORD:-gentletap}@redis:6379/0"
+      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD:-gentletap}@redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD:-gentletap}@redis:6379/1"
     ports:
       - "127.0.0.1:8000:8000"
     healthcheck:
@@ -71,9 +71,9 @@ services:
     env_file:
       - .env
     environment:
-      REDIS_URL: "redis://redis:6379/0"
-      CELERY_BROKER_URL: "redis://redis:6379/0"
-      CELERY_RESULT_BACKEND: "redis://redis:6379/1"
+      REDIS_URL: "redis://:${REDIS_PASSWORD:-gentletap}@redis:6379/0"
+      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD:-gentletap}@redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD:-gentletap}@redis:6379/1"
     entrypoint: ["celery", "-A", "gentletap.tasks.celery_app", "worker", "-l", "info", "--concurrency=4"]
     healthcheck:
       test:
@@ -90,8 +90,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      api:
-        condition: service_healthy
 
   beat:
     build:
@@ -102,12 +100,12 @@ services:
     env_file:
       - .env
     environment:
-      REDIS_URL: "redis://redis:6379/0"
-      CELERY_BROKER_URL: "redis://redis:6379/0"
-      CELERY_RESULT_BACKEND: "redis://redis:6379/1"
+      REDIS_URL: "redis://:${REDIS_PASSWORD:-gentletap}@redis:6379/0"
+      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD:-gentletap}@redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD:-gentletap}@redis:6379/1"
     entrypoint: ["celery", "-A", "gentletap.tasks.celery_app", "beat", "-l", "info"]
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import redis; redis.Redis.from_url('redis://redis:6379/0').ping()\""]
+      test: ["CMD-SHELL", "python -c \"import os, redis; redis.Redis.from_url(os.environ['REDIS_URL']).ping()\""]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -129,8 +127,10 @@ services:
     restart: unless-stopped
     environment:
       API_PROXY_URL: http://api:8000
+    # Bind to localhost only — public traffic must go through nginx (TLS, rate
+    # limits, security headers), never hit Next.js directly on port 3000.
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       api:
         condition: service_healthy

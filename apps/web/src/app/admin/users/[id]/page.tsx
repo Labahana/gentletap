@@ -14,7 +14,7 @@ import {
   connectionTone,
   formatAdminDate,
 } from "@/components/admin/ui";
-import { api, getToken } from "@/lib/api";
+import { api } from "@/lib/api";
 import type { AdminUserDetail } from "@/lib/admin-types";
 
 function ConnectionCard({
@@ -58,11 +58,9 @@ export default function AdminUserDetailPage() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const token = getToken();
-    if (!token) return;
     setLoading(true);
     try {
-      setDetail(await api.adminUserDetail(token, userId));
+      setDetail(await api.adminUserDetail(userId));
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load user");
@@ -77,15 +75,13 @@ export default function AdminUserDetailPage() {
 
   async function runAction(
     label: string,
-    fn: (token: string) => Promise<{ status: string } & Record<string, unknown>>,
+    fn: () => Promise<{ status: string } & Record<string, unknown>>,
   ) {
-    const token = getToken();
-    if (!token) return;
     if (!confirm(`${label}?`)) return;
     setBusy(true);
     setActionMsg(null);
     try {
-      const result = await fn(token);
+      const result = await fn();
       const extra =
         "invoices_paused" in result && result.invoices_paused != null
           ? ` (${result.invoices_paused} invoices, ${result.jobs_cancelled ?? 0} jobs cancelled)`
@@ -100,12 +96,10 @@ export default function AdminUserDetailPage() {
   }
 
   async function requeueJob(jobId: string) {
-    const token = getToken();
-    if (!token) return;
     if (!confirm("Requeue this failed job?")) return;
     setBusy(true);
     try {
-      const result = await api.adminRequeueJob(token, jobId);
+      const result = await api.adminRequeueJob(jobId);
       setActionMsg(`Job requeued: ${result.status}`);
       await load();
     } catch (e) {
@@ -155,13 +149,13 @@ export default function AdminUserDetailPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <AdminButton disabled={busy} onClick={() => void runAction("Force QuickBooks sync", (t) => api.adminSyncQb(t, userId))}>
+              <AdminButton disabled={busy} onClick={() => void runAction("Force QuickBooks sync", () => api.adminSyncQb(userId))}>
                 Force QB sync
               </AdminButton>
               <AdminButton
                 variant="danger"
                 disabled={busy}
-                onClick={() => void runAction("Pause all reminders", (t) => api.adminPauseReminders(t, userId))}
+                onClick={() => void runAction("Pause all reminders", () => api.adminPauseReminders(userId))}
               >
                 Pause reminders
               </AdminButton>

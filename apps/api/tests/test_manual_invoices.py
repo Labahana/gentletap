@@ -6,7 +6,7 @@ import pytest
 from fastapi import HTTPException
 
 from gentletap.database import Invoice
-from gentletap.services.manual_invoices import mark_upload_invoice_paid, require_upload_invoice, update_upload_invoice
+from gentletap.services.manual_invoices import require_upload_invoice, update_upload_invoice
 
 
 def _upload_invoice(**kwargs) -> Invoice:

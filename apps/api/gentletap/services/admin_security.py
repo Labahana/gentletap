@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from gentletap.config import get_settings
 from gentletap.database import AdminAuditLog, Profile
+from gentletap.utils.request_ip import client_ip
 
 
 def admin_emails_configured() -> list[str]:
@@ -17,15 +18,6 @@ def admin_emails_configured() -> list[str]:
 def is_admin_email(email: str) -> bool:
     allowed = admin_emails_configured()
     return bool(allowed) and email.lower() in allowed
-
-
-def client_ip(request: Request) -> str:
-    forwarded = (request.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
-    if forwarded:
-        return forwarded
-    if request.client and request.client.host:
-        return request.client.host
-    return ""
 
 
 def assert_admin_access(request: Request, user: Profile) -> None:

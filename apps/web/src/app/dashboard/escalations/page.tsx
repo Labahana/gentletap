@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { api, getToken } from "@/lib/api";
+import { api } from "@/lib/api";
 import { formatMoney } from "@/lib/onboarding";
 import { useAuth } from "@/lib/auth-context";
 
@@ -25,10 +25,8 @@ export default function EscalationsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const token = getToken();
-    if (!token) return;
     try {
-      const data = await api.escalations(token);
+      const data = await api.escalations();
       setItems(data.items);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load escalations");

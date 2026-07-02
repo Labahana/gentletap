@@ -1,6 +1,6 @@
 """Analytics and month-over-month metrics."""
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session

@@ -94,6 +94,20 @@ def process_whatsapp_followup(db: Session, job_id: UUID) -> None:
         db.commit()
         return
 
+    # Re-check payment state under a row lock right before sending — a QuickBooks
+    # webhook may have marked the invoice paid while we built context / called the AI.
+    invoice = (
+        db.query(Invoice)
+        .filter(Invoice.id == invoice.id)
+        .populate_existing()
+        .with_for_update()
+        .one()
+    )
+    if float(invoice.balance) <= 0 or not invoice.sequence_active or invoice.sequence_paused:
+        job.status = "cancelled"
+        db.commit()
+        return
+
     tone = job.tone or (decide_result.tone.value if decide_result.tone else None)
     payload = wa_templates.build_payload(
         ctx,

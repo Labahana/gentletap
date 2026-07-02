@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { PricingGrid } from "@/components/pricing-grid";
-import { api, getToken } from "@/lib/api";
+import { api } from "@/lib/api";
 import { isUpgrade, planLabel, withPlanMarketing, type PlanFeature, type PlanId } from "@/lib/pricing";
 import { openOverlayCheckout, type PaddlePublicConfig } from "@/lib/paddle";
 import { useAuth } from "@/lib/auth-context";
@@ -20,9 +20,7 @@ function BillingContent() {
   const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = getToken();
-    if (!token) return;
-    api.billingStatus(token).then((s) => {
+    api.billingStatus().then((s) => {
       setPlans(s.plans.map((p) => withPlanMarketing(p as PlanFeature)));
       setCheckoutAvailable(s.checkout_available);
       setPaddleConfig(s.paddle);
@@ -38,14 +36,10 @@ function BillingContent() {
 
   async function checkout(plan: PlanId) {
     if (plan === "free") return;
-    const token = getToken();
-    if (!token) return;
     setError(null);
     setBusy(plan);
     try {
-      const { checkout_url, transaction_id } = await api.billingCheckout(
-        token,
-        plan,
+      const { checkout_url, transaction_id } = await api.billingCheckout(plan,
         annual ? "year" : "month",
       );
       const opened =
@@ -72,10 +66,8 @@ function BillingContent() {
   }
 
   async function manage() {
-    const token = getToken();
-    if (!token) return;
     try {
-      const { portal_url } = await api.billingPortal(token);
+      const { portal_url } = await api.billingPortal();
       window.location.href = portal_url;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Portal unavailable");

@@ -11,7 +11,7 @@ import {
   AdminTable,
   formatAdminDate,
 } from "@/components/admin/ui";
-import { api, getToken } from "@/lib/api";
+import { api } from "@/lib/api";
 import type { AdminAuditEntry } from "@/lib/admin-types";
 
 const PAGE_SIZE = 50;
@@ -28,11 +28,9 @@ export default function AdminAuditPage() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const token = getToken();
-    if (!token) return;
     setLoading(true);
     try {
-      setData(await api.adminAudit(token, { limit: PAGE_SIZE, offset }));
+      setData(await api.adminAudit({ limit: PAGE_SIZE, offset }));
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load audit log");

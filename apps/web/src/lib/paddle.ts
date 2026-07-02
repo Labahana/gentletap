@@ -1,7 +1,7 @@
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 
 export type PaddlePublicConfig = {
-  client_token: string;
+  client_token?: string | null;
   environment: "sandbox" | "production";
 };
 

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { OnboardingInfoBox } from "@/components/onboarding-shell";
-import { api, getToken, type EmailSetupInfo, type EmailDnsRecord } from "@/lib/api";
+import { api, type EmailSetupInfo, type EmailDnsRecord } from "@/lib/api";
 
 type EmailChoice = "platform" | "google" | "domain";
 type DomainPhase = "choose" | "input" | "dns";
@@ -118,9 +118,7 @@ export function OnboardingEmailStep({ userEmail, onBack, onContinue, onConnectGm
   const [busy, setBusy] = useState(false);
 
   const loadSetup = useCallback(async () => {
-    const token = getToken();
-    if (!token) return;
-    const data = await api.emailSetup(token);
+    const data = await api.emailSetup();
     setSetup(data);
     if (data.provider === "platform") setChoice("platform");
     else if (data.provider === "google" || data.google_connected) setChoice("google");
@@ -134,13 +132,12 @@ export function OnboardingEmailStep({ userEmail, onBack, onContinue, onConnectGm
   }, [loadSetup]);
 
   async function handlePrimary() {
-    const token = getToken();
-    if (!token || !choice) return;
+    if (!choice) return;
     setError(null);
     setBusy(true);
     try {
       if (choice === "platform") {
-        await api.enablePlatformEmail(token);
+        await api.enablePlatformEmail();
         await loadSetup();
         onContinue();
         return;
@@ -159,12 +156,12 @@ export function OnboardingEmailStep({ userEmail, onBack, onContinue, onConnectGm
             setError("Enter your company email or domain");
             return;
           }
-          await api.startEmailDomain(token, domainInput.trim());
+          await api.startEmailDomain(domainInput.trim());
           setDomainPhase("dns");
           await loadSetup();
           return;
         }
-        await api.continueEmailDomain(token);
+        await api.continueEmailDomain();
         await loadSetup();
         onContinue();
       }
@@ -176,12 +173,10 @@ export function OnboardingEmailStep({ userEmail, onBack, onContinue, onConnectGm
   }
 
   async function verifyDomain() {
-    const token = getToken();
-    if (!token) return;
     setBusy(true);
     setError(null);
     try {
-      await api.verifyEmailDomain(token);
+      await api.verifyEmailDomain();
       await loadSetup();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verification failed");
@@ -191,11 +186,9 @@ export function OnboardingEmailStep({ userEmail, onBack, onContinue, onConnectGm
   }
 
   async function cancelDomain() {
-    const token = getToken();
-    if (!token) return;
     setBusy(true);
     try {
-      await api.cancelEmailDomain(token);
+      await api.cancelEmailDomain();
       setDomainPhase("choose");
       setDomainInput("");
       setChoice(null);

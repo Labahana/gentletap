@@ -204,7 +204,14 @@ def sync_unpaid_invoices(db: Session, user_id: UUID) -> dict:
         from gentletap.services.payments import apply_invoice_balance_update
 
         synced_qb_ids = {str(qb.get("Id")) for qb in qb_invoices}
-        stale_q = db.query(Invoice).filter(Invoice.user_id == user_id, Invoice.balance > 0)
+        # Only mark QuickBooks-sourced invoices paid. Uploaded/CSV invoices
+        # (source="upload", qb_invoice_id like "csv:...") are never returned by
+        # the QB unpaid query and must not be zeroed out here.
+        stale_q = db.query(Invoice).filter(
+            Invoice.user_id == user_id,
+            Invoice.balance > 0,
+            Invoice.source == "quickbooks",
+        )
         if synced_qb_ids:
             stale_q = stale_q.filter(Invoice.qb_invoice_id.notin_(synced_qb_ids))
         for inv in stale_q.all():

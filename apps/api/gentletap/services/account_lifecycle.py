@@ -13,6 +13,7 @@ from gentletap.database import (
     EmailSender,
     GoogleConnection,
     Invoice,
+    InvoiceImportBatch,
     Profile,
     QuickBooksConnection,
     RefreshToken,
@@ -94,6 +95,9 @@ def delete_user_account(db: Session, user_id: UUID) -> None:
         synchronize_session=False
     )
     db.query(Invoice).filter(Invoice.user_id == user_id).delete(synchronize_session=False)
+    db.query(InvoiceImportBatch).filter(InvoiceImportBatch.user_id == user_id).delete(
+        synchronize_session=False
+    )
     db.query(Client).filter(Client.user_id == user_id).delete(synchronize_session=False)
     db.query(UserNotification).filter(UserNotification.user_id == user_id).delete(synchronize_session=False)
     db.query(SyncLog).filter(SyncLog.user_id == user_id).delete(synchronize_session=False)

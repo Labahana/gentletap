@@ -6,21 +6,6 @@ from sqlalchemy.orm import Session
 from gentletap.database import Client, Invoice
 
 
-def _outstanding_by_client(db: Session, user_id, client_ids: list | None = None) -> dict:
-    q = (
-        db.query(
-            Invoice.client_id,
-            func.coalesce(func.sum(Invoice.balance), 0),
-            func.count(Invoice.id),
-        )
-        .filter(Invoice.user_id == user_id, Invoice.balance > 0)
-    )
-    if client_ids:
-        q = q.filter(Invoice.client_id.in_(client_ids))
-    rows = q.group_by(Invoice.client_id).all()
-    return {r[0]: {"outstanding": float(r[1]), "unpaid_count": r[2]} for r in rows}
-
-
 def _active_chase_by_client(db: Session, user_id, client_ids: list | None = None) -> dict:
     q = db.query(Invoice.client_id, func.count(Invoice.id)).filter(
         Invoice.user_id == user_id,
@@ -34,16 +19,37 @@ def _active_chase_by_client(db: Session, user_id, client_ids: list | None = None
 
 
 def list_clients(db: Session, user_id, limit: int = 100, offset: int = 0) -> dict:
-    q = db.query(Client).filter(Client.user_id == user_id)
-    total = q.count()
-    clients = q.order_by(Client.name.asc()).offset(offset).limit(limit).all()
-    client_ids = [c.id for c in clients]
-    outstanding_map = _outstanding_by_client(db, user_id, client_ids)
+    total = db.query(func.count(Client.id)).filter(Client.user_id == user_id).scalar() or 0
+
+    # Aggregate outstanding per client in SQL so ordering/pagination happen on the
+    # database side. Re-sorting a single page in Python produced wrong page contents.
+    outstanding_sq = (
+        db.query(
+            Invoice.client_id.label("client_id"),
+            func.coalesce(func.sum(Invoice.balance), 0).label("outstanding"),
+            func.count(Invoice.id).label("unpaid_count"),
+        )
+        .filter(Invoice.user_id == user_id, Invoice.balance > 0)
+        .group_by(Invoice.client_id)
+        .subquery()
+    )
+    outstanding_col = func.coalesce(outstanding_sq.c.outstanding, 0)
+
+    rows = (
+        db.query(Client, outstanding_col, outstanding_sq.c.unpaid_count)
+        .outerjoin(outstanding_sq, Client.id == outstanding_sq.c.client_id)
+        .filter(Client.user_id == user_id)
+        .order_by(outstanding_col.desc(), Client.name.asc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    client_ids = [c.id for c, _, _ in rows]
     chase_map = _active_chase_by_client(db, user_id, client_ids)
 
     items = []
-    for c in clients:
-        stats = outstanding_map.get(c.id, {"outstanding": 0.0, "unpaid_count": 0})
+    for c, outstanding, unpaid_count in rows:
         items.append(
             {
                 "id": str(c.id),
@@ -57,13 +63,12 @@ def list_clients(db: Session, user_id, limit: int = 100, offset: int = 0) -> dic
                 "tenure_months": c.tenure_months,
                 "preferred_channel": c.preferred_channel,
                 "email_suppressed": c.email_suppressed,
-                "outstanding": stats["outstanding"],
-                "unpaid_count": stats["unpaid_count"],
+                "outstanding": float(outstanding or 0),
+                "unpaid_count": int(unpaid_count or 0),
                 "active_chase_count": chase_map.get(c.id, 0),
             }
         )
 
-    items.sort(key=lambda x: (-x["outstanding"], x["name"]))
     return {"items": items, "total": total, "limit": limit, "offset": offset}
 
 
@@ -84,7 +89,18 @@ def client_detail(db: Session, user_id, client_id) -> dict | None:
         .all()
     )
 
-    outstanding = sum(float(i.balance) for i in invoices if float(i.balance) > 0)
+    # Aggregate across ALL unpaid invoices, not just the 20 shown, so clients with
+    # more than 20 open invoices report the correct total.
+    outstanding = float(
+        db.query(func.coalesce(func.sum(Invoice.balance), 0))
+        .filter(
+            Invoice.client_id == client.id,
+            Invoice.user_id == user_id,
+            Invoice.balance > 0,
+        )
+        .scalar()
+        or 0
+    )
 
     return {
         "id": str(client.id),

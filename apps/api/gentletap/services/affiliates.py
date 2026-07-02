@@ -315,7 +315,6 @@ def create_affiliate_application(
     if db.query(Affiliate).filter(Affiliate.email == normalized).one_or_none():
         raise ValueError("An application already exists for this email")
 
-    base_ref = channel_name or name or normalized.split("@")[0]
     affiliate = Affiliate(
         id=uuid.uuid4(),
         email=normalized,

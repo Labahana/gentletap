@@ -11,7 +11,7 @@ import {
   AdminSection,
   AdminStatCard,
 } from "@/components/admin/ui";
-import { api, getToken } from "@/lib/api";
+import { api } from "@/lib/api";
 
 export default function AdminAffiliateDetailPage() {
   const params = useParams();
@@ -23,10 +23,8 @@ export default function AdminAffiliateDetailPage() {
   const [payoutRef, setPayoutRef] = useState("");
 
   const load = useCallback(async () => {
-    const token = getToken();
-    if (!token) return;
     try {
-      setDetail(await api.adminAffiliateDetail(token, id));
+      setDetail(await api.adminAffiliateDetail(id));
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
@@ -38,12 +36,10 @@ export default function AdminAffiliateDetailPage() {
   }, [load]);
 
   async function recordPayout() {
-    const token = getToken();
-    if (!token) return;
     const amount = parseFloat(payoutAmount);
     if (!amount || amount <= 0) return;
     try {
-      await api.adminAffiliatePayout(token, id, {
+      await api.adminAffiliatePayout(id, {
         amount,
         reference: payoutRef || undefined,
         method: "paypal",

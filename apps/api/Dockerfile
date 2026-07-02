@@ -18,10 +18,15 @@ COPY alembic.ini ./
 RUN pip install --upgrade pip \
     && pip install .
 
-RUN mkdir -p /var/lib/celery
-
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
+
+# Run as a non-root user. The celery beat schedule lives in /var/lib/celery
+# (a named volume); it must be owned by this user so beat can write to it.
+RUN useradd -r -u 1000 -m -d /home/appuser appuser \
+    && mkdir -p /var/lib/celery \
+    && chown -R appuser:appuser /var/lib/celery /app
+USER appuser
 
 EXPOSE 8000
 

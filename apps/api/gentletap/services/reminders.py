@@ -1,6 +1,6 @@
 """Reminder preview, approval, and send orchestration."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -41,7 +41,7 @@ from gentletap.services.whatsapp_usage import (
     should_schedule_whatsapp_for_step,
 )
 
-from gentletap.services.plan_limits import ensure_can_activate, mark_collection_started
+from gentletap.services.plan_limits import mark_collection_started
 
 def generate_draft(db: Session, invoice: Invoice, *, preview: bool = False) -> ReminderMessage:
     ctx = build_reminder_context(db, invoice.id, invoice.user_id)
@@ -449,6 +449,17 @@ def process_due_job(db: Session, job_id: UUID) -> None:
     db.add(AgentDecision(invoice_id=invoice.id, decision=result.model_dump(mode="json")))
 
     if result.action == Action.WAIT:
+        # A client reply pauses the sequence for 48h. Reschedule this step to fire
+        # after the wait window rather than cancelling — otherwise the sequence
+        # stays active with no pending job and silently stalls forever.
+        if result.reason == "client_responded" and invoice.client_responded_at is not None:
+            responded = invoice.client_responded_at
+            if responded.tzinfo is None:
+                responded = responded.replace(tzinfo=UTC)
+            job.scheduled_for = responded + timedelta(hours=48, minutes=5)
+            job.status = "pending"
+            db.commit()
+            return
         job.status = "cancelled"
         db.commit()
         return
@@ -541,6 +552,22 @@ def process_due_job(db: Session, job_id: UUID) -> None:
 
     if not email_required and not can_email and not schedule_wa:
         job.status = "failed"
+        db.commit()
+        return
+
+    # Re-check payment state under a row lock immediately before sending. Building
+    # the message / calling the AI above can take seconds, during which a QuickBooks
+    # webhook may have marked the invoice paid and cancelled its jobs. Without this,
+    # a client who just paid could still receive a "you owe us" reminder.
+    invoice = (
+        db.query(Invoice)
+        .filter(Invoice.id == invoice.id)
+        .populate_existing()
+        .with_for_update()
+        .one()
+    )
+    if float(invoice.balance) <= 0 or not invoice.sequence_active or invoice.sequence_paused:
+        job.status = "cancelled"
         db.commit()
         return
 

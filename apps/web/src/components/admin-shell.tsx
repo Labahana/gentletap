@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { Logo } from "@/components/logo";
-import { api, getToken } from "@/lib/api";
+import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 
 const NAV = [
@@ -24,13 +24,12 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (loading) return;
-    const token = getToken();
-    if (!token || !user) {
+    if (!user) {
       router.replace("/login");
       return;
     }
     api
-      .adminMe(token)
+      .adminMe()
       .then(() => setVerified(true))
       .catch(() => router.replace("/dashboard"))
       .finally(() => setChecking(false));

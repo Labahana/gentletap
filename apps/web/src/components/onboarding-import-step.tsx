@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ConnectQuickBooksButton } from "@/components/connect-quickbooks-button";
 import { OnboardingImportStats } from "@/components/onboarding-import-stats";
 import { InvoiceImportFormatHelp } from "@/components/invoice-import-format-help";
-import { api, getToken } from "@/lib/api";
+import { api } from "@/lib/api";
 
 type ImportChoice = "quickbooks" | "csv";
 type ImportPhase = "choose" | "results";
@@ -93,10 +93,8 @@ export function OnboardingImportStep({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const checkQbStatus = useCallback(async () => {
-    const token = getToken();
-    if (!token) return;
     try {
-      const status = await api.qbSyncStatus(token);
+      const status = await api.qbSyncStatus();
       setQbConnected(Boolean(status.connected));
     } catch {
       setQbConnected(false);
@@ -133,14 +131,11 @@ export function OnboardingImportStep({
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const token = getToken();
-    if (!token) return;
-
     setError(null);
     setUploading(true);
     setUploadResult(null);
     try {
-      const result = await api.importInvoicesCsv(token, file);
+      const result = await api.importInvoicesCsv(file);
       setUploadResult({ imported: result.imported, skipped: result.skipped });
       setChoice("csv");
       setPhase("results");

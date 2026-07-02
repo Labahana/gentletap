@@ -27,8 +27,10 @@ from gentletap.services.auth import (
     authenticate_user,
     hash_password,
     issue_token_pair,
+    revoke_all_user_tokens,
     revoke_refresh_family,
     rotate_refresh_token,
+    verify_password,
 )
 from gentletap.services import affiliates as affiliate_service
 from gentletap.services.password_reset import request_password_reset, reset_password
@@ -191,13 +193,22 @@ def update_profile(
 
 
 @router.post("/change-password")
+@limiter.limit("5/minute")
 def change_password(
+    request: Request,
     body: ChangePasswordRequest,
     user: CurrentUser,
     db: Session = Depends(get_db),
 ) -> dict:
+    if not verify_password(body.current_password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect.",
+        )
     user.password_hash = hash_password(body.password)
     db.commit()
+    # Invalidate all other sessions after a credential change.
+    revoke_all_user_tokens(db, user.id)
     return {"message": "Password updated."}
 
 

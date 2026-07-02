@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { ACCESS_COOKIE } from "@/lib/session-cookies";
+
 const HOP_BY_HOP = new Set([
   "host",
   "connection",
@@ -36,10 +38,17 @@ async function proxyRequest(
     headers.set(key, value);
   });
 
+  // Inject auth from HttpOnly session cookie when the client did not send Authorization.
+  const access = request.cookies.get(ACCESS_COOKIE)?.value;
+  if (access && !headers.has("authorization")) {
+    headers.set("Authorization", `Bearer ${access}`);
+  }
+
   const init: RequestInit = {
     method: request.method,
     headers,
     redirect: "manual",
+    credentials: "include",
   };
 
   if (request.method !== "GET" && request.method !== "HEAD") {
@@ -69,7 +78,7 @@ async function proxyRequest(
       error,
     });
     return NextResponse.json(
-      { detail: "API unavailable", proxy: base },
+      { detail: "Service temporarily unavailable" },
       { status: 502 },
     );
   } finally {

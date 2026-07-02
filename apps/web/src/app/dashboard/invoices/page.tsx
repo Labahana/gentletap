@@ -11,7 +11,7 @@ import {
   SourceFilterChips,
 } from "@/components/dashboard-parts";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { api, getToken, type InvoiceItem } from "@/lib/api";
+import { api, type InvoiceItem } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import {
   filterBySource,
@@ -173,14 +173,12 @@ export default function InvoicesPage() {
   const [showImportHistory, setShowImportHistory] = useState(false);
 
   const load = useCallback(async () => {
-    const token = getToken();
-    if (!token) return;
     try {
       const [inv, summary, notes, history] = await Promise.all([
-        api.invoices(token),
-        api.invoicesSummary(token),
-        api.notifications(token),
-        api.importHistory(token),
+        api.invoices(),
+        api.invoicesSummary(),
+        api.notifications(),
+        api.importHistory(),
       ]);
       setInvoices(inv.items);
       setImportHistory(history.items);
@@ -206,13 +204,11 @@ export default function InvoicesPage() {
   }, [user, load]);
 
   async function handleMarkPaid(invoiceId: string) {
-    const token = getToken();
-    if (!token) return;
     if (!window.confirm("Mark this invoice as paid? Reminders will stop.")) return;
     setMarkPaidBusy(invoiceId);
     setError(null);
     try {
-      await api.markInvoicePaid(token, invoiceId);
+      await api.markInvoicePaid(invoiceId);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not mark invoice paid");
@@ -231,13 +227,12 @@ export default function InvoicesPage() {
   }
 
   async function handleBulkMarkPaid() {
-    const token = getToken();
-    if (!token || selectedIds.size === 0) return;
+    if (selectedIds.size === 0) return;
     if (!window.confirm(`Mark ${selectedIds.size} invoice(s) as paid? Reminders will stop.`)) return;
     setBulkBusy(true);
     setError(null);
     try {
-      const result = await api.bulkMarkInvoicesPaid(token, [...selectedIds]);
+      const result = await api.bulkMarkInvoicesPaid([...selectedIds]);
       if (result.errors.length > 0) {
         setError(`${result.paid_count} marked paid. ${result.errors.length} could not be updated.`);
       }
@@ -252,13 +247,11 @@ export default function InvoicesPage() {
   }
 
   async function handleUpload(file: File) {
-    const token = getToken();
-    if (!token) return;
     setUploadBusy(true);
     setUploadNote(null);
     setError(null);
     try {
-      const result = await api.importInvoicesCsv(token, file);
+      const result = await api.importInvoicesCsv(file);
       setUploadNote(importSuccessNote(result));
       await load();
     } catch (err) {

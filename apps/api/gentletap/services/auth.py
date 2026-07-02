@@ -88,6 +88,12 @@ def revoke_refresh_family(db: Session, raw_token: str) -> None:
     db.commit()
 
 
+def revoke_all_user_tokens(db: Session, user_id: UUID) -> None:
+    """Invalidate every refresh token for a user (e.g. after a password change/reset)."""
+    db.query(RefreshToken).filter(RefreshToken.user_id == user_id).update({"used": True})
+    db.commit()
+
+
 def decode_access_token(token: str) -> dict[str, Any]:
     return jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
 

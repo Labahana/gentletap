@@ -12,7 +12,7 @@ import {
   AdminTable,
   formatAdminDate,
 } from "@/components/admin/ui";
-import { api, getToken } from "@/lib/api";
+import { api } from "@/lib/api";
 
 type AffiliateRow = Awaited<ReturnType<typeof api.adminAffiliates>>["items"][number];
 
@@ -24,11 +24,9 @@ export default function AdminAffiliatesPage() {
   const [msg, setMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const token = getToken();
-    if (!token) return;
     setLoading(true);
     try {
-      const data = await api.adminAffiliates(token, { status: status || undefined, limit: 100 });
+      const data = await api.adminAffiliates({ status: status || undefined, limit: 100 });
       setItems(data.items);
       setError(null);
     } catch (e) {
@@ -43,17 +41,14 @@ export default function AdminAffiliatesPage() {
   }, [load]);
 
   async function approve(id: string) {
-    const token = getToken();
-    if (!token) return;
-    const result = await api.adminApproveAffiliate(token, id);
+    const result = await api.adminApproveAffiliate(id);
     setMsg(`Approved — ref code: ${result.ref_code}`);
     await load();
   }
 
   async function reject(id: string) {
-    const token = getToken();
-    if (!token || !confirm("Reject this application?")) return;
-    await api.adminRejectAffiliate(token, id);
+    if (!confirm("Reject this application?")) return;
+    await api.adminRejectAffiliate(id);
     setMsg("Rejected");
     await load();
   }

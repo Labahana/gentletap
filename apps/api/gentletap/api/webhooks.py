@@ -44,7 +44,6 @@ def _twilio_auth_for_inbound(db: Session, to_phone: str) -> str:
         )
         if not matches:
             # Fallback: format variants stored without strict normalization.
-            digits = normalized_to.lstrip("+")
             matches = (
                 db.query(WhatsappConnection)
                 .filter(

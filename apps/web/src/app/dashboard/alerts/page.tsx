@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { DashIcon } from "@/components/dashboard-icons";
-import { api, getToken } from "@/lib/api";
+import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { alertCardStyle, formatActivityTime } from "@/lib/dashboard-ui";
 import { formatMoney, isOnboardingComplete } from "@/lib/onboarding";
@@ -31,13 +31,11 @@ export default function AlertsPage() {
   const [monthlyLimit, setMonthlyLimit] = useState<number | undefined>();
 
   const load = useCallback(async () => {
-    const token = getToken();
-    if (!token) return;
     try {
       const [notes, esc, summary] = await Promise.all([
-        api.notifications(token),
-        api.escalations(token),
-        api.invoicesSummary(token),
+        api.notifications(),
+        api.escalations(),
+        api.invoicesSummary(),
       ]);
       setMonthlyUsed(summary.monthly_collections?.monthly_used);
       setMonthlyLimit(summary.monthly_collections?.monthly_limit);
@@ -83,9 +81,8 @@ export default function AlertsPage() {
   const unreadCount = items.filter((i) => !i.read).length;
 
   async function markRead(id: string) {
-    const token = getToken();
-    if (!token || id.startsWith("esc-")) return;
-    await api.markNotificationRead(token, id);
+    if (id.startsWith("esc-")) return;
+    await api.markNotificationRead(id);
     await load();
   }
 

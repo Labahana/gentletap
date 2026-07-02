@@ -10,7 +10,7 @@ import {
   TrendBars,
 } from "@/components/dashboard-parts";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { api, getToken, type AnalyticsData } from "@/lib/api";
+import { api, type AnalyticsData } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { formatAvgDaysSub, formatMomPct } from "@/lib/dashboard-ui";
 import { formatMoney, isOnboardingComplete } from "@/lib/onboarding";
@@ -24,12 +24,10 @@ export default function AnalyticsPage() {
   const [unreadAlerts, setUnreadAlerts] = useState(0);
 
   const load = useCallback(async () => {
-    const token = getToken();
-    if (!token) return;
     try {
       const [analytics, notes] = await Promise.all([
-        api.analytics(token),
-        api.notifications(token),
+        api.analytics(),
+        api.notifications(),
       ]);
       setData(analytics);
       setUnreadAlerts(notes.items.filter((n) => !n.read).length);

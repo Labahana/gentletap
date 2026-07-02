@@ -3,7 +3,6 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 

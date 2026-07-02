@@ -89,6 +89,14 @@ class Settings(BaseSettings):
 
     skip_db_migrations: bool = False
 
+    # Trust X-Real-IP / X-Forwarded-For from the reverse proxy (nginx) when
+    # determining the client IP for rate limiting and the admin IP allowlist.
+    # Enable ONLY when the app is reachable exclusively through a trusted proxy
+    # (the compose files bind web/api to localhost so this holds in production).
+    # If the app is ever exposed directly, set this to false or clients can
+    # spoof their IP to bypass rate limits and the admin allowlist.
+    trust_proxy_headers: bool = True
+
     cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
     free_plan_monthly_collection_limit: int = 5

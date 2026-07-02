@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from gentletap.config import get_settings
 from gentletap.database import Profile
 from gentletap.integrations.resend import sender as resend_sender
-from gentletap.services.auth import hash_password
+from gentletap.services.auth import hash_password, revoke_all_user_tokens
 from gentletap.services.email_templates import AuthEmailData, render_password_reset_bodies
 from gentletap.services.platform_email import send_platform_email
 from gentletap.utils.redis_client import delete_key, get_json, set_json
@@ -65,3 +65,5 @@ def reset_password(db: Session, *, token: str, new_password: str) -> None:
     user.password_hash = hash_password(new_password)
     delete_key(_token_key(token))
     db.commit()
+    # A reset means the account may be compromised — invalidate all sessions.
+    revoke_all_user_tokens(db, user.id)

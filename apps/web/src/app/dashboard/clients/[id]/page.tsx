@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { api, getToken, type ClientDetail } from "@/lib/api";
+import { api, type ClientDetail } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { riskBadgeClass } from "@/lib/dashboard-ui";
 import { formatMoney, isOnboardingComplete } from "@/lib/onboarding";
@@ -22,10 +22,9 @@ export default function ClientDetailPage() {
   const [saved, setSaved] = useState(false);
 
   const load = useCallback(async () => {
-    const token = getToken();
-    if (!token || !id) return;
+    if (!id) return;
     try {
-      const row = await api.clientDetail(token, id);
+      const row = await api.clientDetail(id);
       setClient(row);
       setEditEmail(row.email ?? "");
       setEditPhone(row.phone ?? "");
@@ -46,13 +45,12 @@ export default function ClientDetailPage() {
 
   async function saveContact(e: React.FormEvent) {
     e.preventDefault();
-    const token = getToken();
-    if (!token || !client || !user) return;
+    if (!client || !user) return;
     setSaveBusy(true);
     setError(null);
     setSaved(false);
     try {
-      await api.updateClient(token, client.id, {
+      await api.updateClient(client.id, {
         email: editEmail.trim() || undefined,
         ...(hasWhatsapp(user.plan) ? { phone: editPhone.trim() || undefined } : {}),
       });
