@@ -534,10 +534,11 @@ def process_due_job(db: Session, job_id: UUID) -> None:
 
     client_email = effective_reminder_email(invoice) if invoice.client else None
     client_phone = effective_reminder_phone(invoice) if invoice.client else None
+    email_suppressed = bool(invoice.client and invoice.client.email_suppressed)
     step = job.sequence_step
 
     email_required = step == 0 or step >= 4
-    can_email = bool(client_email and get_send_provider(db, user.id))
+    can_email = bool(client_email and not email_suppressed and get_send_provider(db, user.id))
     schedule_wa, _wa_reason = should_schedule_whatsapp_for_step(
         db,
         user=user,

@@ -91,6 +91,7 @@ def build_reminder_context(db: Session, invoice_id: UUID, user_id: UUID) -> Remi
         email_suppressed=bool(client.email_suppressed),
         user_plan=user.plan,
         sender_name=sender_name,
+        business_timezone=user.timezone or "America/New_York",
         prior_messages_count=int(prior_messages_count),
         profile=client_profile_from_row(client),
         invoice=invoice_context_from_row(invoice),

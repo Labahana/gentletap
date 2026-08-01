@@ -12,6 +12,18 @@
 - Invoice follow-up email templates: https://gentletap.co/invoice-follow-up-email-templates-for-freelancers
 - How to follow up on overdue invoices: https://gentletap.co/how-to-follow-up-on-overdue-invoices
 - QuickBooks reminders vs GentleTap: https://gentletap.co/quickbooks-reminders-vs-gentletap
+- Compare alternatives (hub): https://gentletap.co/compare
+- GentleTap vs Bonsai: https://gentletap.co/compare/bonsai
+- GentleTap vs Chaser: https://gentletap.co/compare/chaser
+- GentleTap vs Melio: https://gentletap.co/compare/melio
+- GentleTap vs invoice dunning software: https://gentletap.co/compare/invoice-dunning
+- GentleTap vs InvoiceChaser: https://gentletap.co/compare/invoicechaser
+- GentleTap vs Landolio: https://gentletap.co/compare/landolio
+- GentleTap vs Paidnice: https://gentletap.co/compare/paidnice
+- GentleTap vs HoneyBook: https://gentletap.co/compare/honeybook
+- GentleTap vs DueDrop: https://gentletap.co/compare/duedrop
+- GentleTap vs NudgePe: https://gentletap.co/compare/nudgepe
+- GentleTap vs FreshBooks: https://gentletap.co/compare/freshbooks
 - QuickBooks integration: https://gentletap.co/integrations/quickbooks
 - Affiliate program: https://gentletap.co/affiliates
 - Pricing: https://gentletap.co/#pricing
@@ -30,6 +42,7 @@ Solo freelance designers, developers, and consultants (2–8 years experience) w
 - AI-personalized reminder drafts per invoice and client history
 - Send from Gmail or verified custom domain (not a generic collections inbox)
 - Multi-step escalation: due date → 3 → 7 → 14 → 30+ days overdue
+- Five reminder tones (warm → friendly → professional → firm → urgent), AI-drafted per client
 - Preview and approve drafts during onboarding before anything sends
 - Pause per invoice anytime
 - Automatic stop when QuickBooks balance hits zero
@@ -67,9 +80,28 @@ Solo freelance designers, developers, and consultants (2–8 years experience) w
 - Bots: often generic sender, limited QBO integration, collection tone, usually email-only
 - GentleTap: Gmail-native, deep QBO balance sync, freelancer-friendly tone, WhatsApp on Pro+
 
-### vs enterprise AR (Paidnice, etc.)
-- Enterprise: $29–49+/mo, agency focus, heavier setup, rarely freelancer WhatsApp workflows
-- GentleTap: freelancer-first, free tier, $19/mo Pro, WhatsApp channel on Pro+ ($39/mo)
+### vs enterprise AR (Paidnice, Chaser, etc.)
+- Enterprise: $69–259+/mo, late fees, SMS/calls, payment portals, team AR dashboards
+- GentleTap: freelancer-first, free tier, Pro $19/mo, Gmail-native AI follow-up, WhatsApp on Pro+ ($39/mo). Not a replacement for full dunning/late-fee workflows.
+
+### vs Bonsai / HoneyBook (all-in-one freelancer platforms)
+- Platforms: proposals, contracts, invoicing, basic reminders in one app
+- GentleTap: follow-up layer for QuickBooks only — AI Gmail sequences, not a CRM
+
+### vs Melio (payments + AR)
+- Melio: free AR with invoicing and payment processing; basic reminders
+- GentleTap: no invoicing or payments — AI escalating follow-up from Gmail for QBO invoices
+
+### vs Landolio (UK freelancer tool)
+- Landolio: manual invoice entry, 3-email sequence, £9/mo, UK legal templates
+- GentleTap: QuickBooks sync, 5-step AI sequences, global, Gmail sending
+
+### vs DueDrop / NudgePe (inbox-native reminders)
+- DueDrop: multi-platform accounting (QBO, Xero, FreshBooks) + Gmail/Outlook
+- NudgePe: CSV/Stripe/Sheets + Gmail automation
+- GentleTap: QuickBooks-specialist with client profiling, preview-before-send, WhatsApp on Pro+
+
+Honest comparison pages: https://gentletap.co/compare
 
 ## Common questions
 

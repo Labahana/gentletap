@@ -5,9 +5,11 @@ import { JsonLd } from "@/components/json-ld";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import {
+  GENTLETAP_REMINDER_TONES,
   HOME_FAQ,
   INVOICE_FOLLOW_UP_TEMPLATES,
   TEMPLATE_TIPS,
+  TONE_ESCALATION_NOTE,
 } from "@/lib/seo-content";
 import {
   faqJsonLd,
@@ -131,6 +133,41 @@ export default function InvoiceFollowUpTemplatesPage() {
             </div>
           </section>
 
+          <section className="mt-14">
+            <h2 className="text-2xl font-bold">GentleTap&apos;s 5 reminder tones (with examples)</h2>
+            <p className="mt-4 leading-relaxed text-muted">
+              When you automate follow-ups, GentleTap doesn&apos;t send the same email every time.
+              It picks a tone based on how overdue the invoice is, sequence step, and each
+              client&apos;s payment history — then drafts copy in that register. {TONE_ESCALATION_NOTE}
+            </p>
+            <div className="mt-8 space-y-8">
+              {GENTLETAP_REMINDER_TONES.map((tone) => (
+                <div key={tone.id} className="card">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <h3 className="text-lg font-semibold capitalize">{tone.name}</h3>
+                    <span className="text-xs font-medium uppercase tracking-wide text-accent">
+                      {tone.when}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm font-medium text-foreground">
+                    Subject: <span className="font-normal text-muted">{tone.subject}</span>
+                  </p>
+                  <pre className="mt-4 overflow-x-auto whitespace-pre-wrap rounded-xl border border-border bg-background p-4 text-sm leading-relaxed text-muted">
+                    {tone.body}
+                  </pre>
+                </div>
+              ))}
+            </div>
+            <p className="mt-6 text-sm text-muted">
+              Prefer copy-paste templates? Use the five manual templates above. Ready to automate the
+              same escalation from QuickBooks?{" "}
+              <Link href="/signup" className="font-medium text-accent hover:underline">
+                Try GentleTap free
+              </Link>
+              .
+            </p>
+          </section>
+
           <section className="mt-14 space-y-4">
             <h2 className="text-2xl font-bold">Tips for freelancer invoice follow-ups</h2>
             <ul className="space-y-3 text-muted">
@@ -167,6 +204,10 @@ export default function InvoiceFollowUpTemplatesPage() {
               className="inline-block text-sm font-medium text-accent hover:underline"
             >
               Compare QuickBooks built-in reminders vs GentleTap →
+            </Link>
+            {" · "}
+            <Link href="/compare" className="inline-block text-sm font-medium text-accent hover:underline">
+              Compare vs Bonsai, Chaser, Melio & more →
             </Link>
           </section>
 

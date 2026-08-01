@@ -136,8 +136,11 @@ export default function QuickBooksVsGentleTapPage() {
           <section className="mt-14 overflow-x-auto">
             <h2 className="text-2xl font-bold">GentleTap vs other invoice reminder tools</h2>
             <p className="mt-4 max-w-2xl leading-relaxed text-muted">
-              QuickBooks is the most common comparison — but freelancers also evaluate template tools,
-              reminder bots, and enterprise AR. Here is how GentleTap differs across the board.
+              QuickBooks is the most common comparison — but freelancers also evaluate Bonsai,
+              Chaser, Melio, Paidnice, Landolio, and more.{" "}
+              <Link href="/compare" className="font-medium text-accent hover:underline">
+                See all honest comparisons →
+              </Link>
             </p>
             <table className="mt-6 w-full min-w-[640px] border-collapse text-left text-sm">
               <thead>

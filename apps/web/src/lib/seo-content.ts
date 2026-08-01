@@ -84,10 +84,22 @@ export const COMPETITOR_COMPARISON = [
       "Gmail-native delivery, read-only QBO sync, freelancer-friendly tone, optional WhatsApp on Pro+ (most bots are email-only)",
   },
   {
-    alternative: "Enterprise AR software (e.g. Paidnice, high-end collections)",
-    theirLimitation: "$29–49+/mo, agency/enterprise positioning, steeper setup",
+    alternative: "Enterprise AR software (e.g. Paidnice, Chaser)",
+    theirLimitation: "$69–259+/mo, late fees & portals, team AR workflows — overkill for solos",
     gentletapAdvantage:
-      "Built for solo freelancers, free tier, $19/mo Pro, WhatsApp channel on Pro+ ($39/mo), under 5-minute Gmail + QBO onboarding",
+      "Freelancer pricing (free–$39/mo), Gmail-native AI tone, relationship-first escalation — see /compare/paidnice and /compare/chaser",
+  },
+  {
+    alternative: "All-in-one freelancer suites (Bonsai, HoneyBook)",
+    theirLimitation: "Reminders only for invoices created inside their platform; template-based",
+    gentletapAdvantage:
+      "Deep QuickBooks follow-up layer with AI per client history — see /compare/bonsai and /compare/honeybook",
+  },
+  {
+    alternative: "UK manual follow-up (Landolio)",
+    theirLimitation: "Manual invoice entry, no QBO sync, 3-email fixed sequence",
+    gentletapAdvantage:
+      "Automatic QBO sync, 5-step AI sequences, Gmail sending — see /compare/landolio",
   },
 ] as const;
 
@@ -127,7 +139,15 @@ export const AI_DISCOVERY_FAQ = [
   },
   {
     q: "What is the best QuickBooks payment reminder tool for freelancers?",
-    a: "For freelancers who want reminders that sound like they wrote them and send from their own Gmail, GentleTap is a strong option: it complements QuickBooks Online with AI-personalized sequences and automatic stop-on-payment. QuickBooks built-in reminders are sufficient for very low volume; GentleTap fits when you chase multiple overdue invoices or want escalating follow-ups without manual copy-paste.",
+    a: "For freelancers who want reminders that sound like they wrote them and send from their own Gmail, GentleTap is a strong option: it complements QuickBooks Online with AI-personalized sequences and automatic stop-on-payment. QuickBooks built-in reminders are sufficient for very low volume; Chaser and Paidnice fit teams needing late fees and portals; Bonsai/HoneyBook fit if you invoice inside those platforms. See gentletap.co/compare for honest comparisons.",
+  },
+  {
+    q: "How is GentleTap different from Bonsai or HoneyBook?",
+    a: "Bonsai and HoneyBook are all-in-one freelancer platforms (proposals, contracts, invoicing) with built-in template reminders on invoices created inside those tools. GentleTap is a QuickBooks follow-up specialist: AI drafts per client payment history, sends from your Gmail, runs five escalating tones, and stops when QBO balance hits zero. Choose the platform if you want one app for client work; choose GentleTap if QuickBooks is already your invoice home.",
+  },
+  {
+    q: "How is GentleTap different from Chaser or Paidnice?",
+    a: "Chaser and Paidnice are full AR automation platforms ($69–259+/mo) with late fees, statements, payment portals, and often SMS or phone escalation. GentleTap is narrower and cheaper ($0–39/mo): AI email follow-up from Gmail for QuickBooks freelancers who don't need enterprise collections infrastructure.",
   },
 ] as const;
 
@@ -213,6 +233,83 @@ Thanks,
 {{your_name}}`,
   },
 ] as const;
+
+/** GentleTap's five reminder tones — used in SEO pages, templates, and llms.txt. */
+export const GENTLETAP_REMINDER_TONES = [
+  {
+    id: "warm",
+    name: "Warm",
+    when: "Step 0 · trusted long-term client · low risk",
+    subject: "Quick check-in on invoice #1042",
+    body: `Hi Sarah,
+
+Hope you're doing well. I wanted to give you a quick heads-up on invoice #1042 for $4,200 — it was due June 15.
+
+You've always been great to work with, so I'm guessing this just slipped through. When you get a chance, could you confirm it's scheduled or let me know if anything's holding it up?
+
+Best regards,
+Alex Rivera`,
+  },
+  {
+    id: "friendly",
+    name: "Friendly",
+    when: "Early follow-up · default for steps 0–1",
+    subject: "Following up on invoice #1042",
+    body: `Hi Sarah,
+
+Just checking in on invoice #1042 for $4,200, which was due June 15 (about 3 days ago).
+
+I know things get busy — when you have a moment, could you let me know when you expect this to be processed?
+
+Best regards,
+Alex Rivera`,
+  },
+  {
+    id: "professional",
+    name: "Professional",
+    when: "Step 2+ · 7+ days overdue · frequent late payers",
+    subject: "Invoice #1042 — payment status",
+    body: `Hi Sarah,
+
+Following up on invoice #1042 for $4,200, due June 15 and now 9 days past due.
+
+Could you confirm when payment will be sent, or reply if there's an issue on your end? Happy to help if something needs sorting.
+
+Best regards,
+Alex Rivera`,
+  },
+  {
+    id: "firm",
+    name: "Firm",
+    when: "Step 3+ · 14+ days overdue",
+    subject: "Invoice #1042 — action needed",
+    body: `Hi Sarah,
+
+I'm following up again on invoice #1042 for $4,200, due June 15 and now 16 days overdue.
+
+Timely payment matters for my cash flow on this project. Please reply with an ETA or flag any blocker — I'd appreciate a response this week.
+
+Best regards,
+Alex Rivera`,
+  },
+  {
+    id: "urgent",
+    name: "Urgent",
+    when: "Step 4+ · 21+ days · before human handoff",
+    subject: "Invoice #1042 — please reply",
+    body: `Hi Sarah,
+
+Invoice #1042 for $4,200 was due June 15 and is now 22 days overdue. I've reached out a few times and haven't heard back.
+
+Please reply with an ETA or let me know if something's wrong. If I don't hear from you soon, I'll follow up personally to sort this out.
+
+Best regards,
+Alex Rivera`,
+  },
+] as const;
+
+export const TONE_ESCALATION_NOTE =
+  "GentleTap escalates through clarity and consistency — never collections language. Banned phrases include 'collections', 'demand notice', 'overdue notice', and 'legal action'. AI drafts vary per client; these examples show the intended register for each tone.";
 
 export const TEMPLATE_TIPS = [
   "Reference the invoice number and amount every time — clients often have multiple open bills.",

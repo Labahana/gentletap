@@ -35,13 +35,17 @@ class IntelligenceEngine:
             return False, "client_responded"
         if not inv.approved:
             return False, "pending_approval"
-        if ctx.email_suppressed and ctx.client_email:
-            return False, "email_suppressed"
 
+        # A usable email is one we actually have AND aren't suppressed from sending to.
+        # Steps 0 and 4 are email-only; steps 1–3 can fall back to a WhatsApp follow-up,
+        # so a suppressed email there shouldn't stall the whole sequence.
+        email_usable = bool(ctx.client_email) and not ctx.email_suppressed
         if step == 0 or step >= 4:
             if not ctx.client_email:
                 return False, "no_client_email"
-        elif not ctx.client_email and not ctx.client_phone:
+            if not email_usable:
+                return False, "email_suppressed"
+        elif not email_usable and not ctx.client_phone:
             return False, "no_client_contact"
         return True, None
 

@@ -66,6 +66,7 @@ class ReminderContext(BaseModel):
     email_suppressed: bool = False
     user_plan: str = "free"
     sender_name: str = "Your freelancer"
+    business_timezone: str = "America/New_York"
     invoice: InvoiceContext
     profile: ClientProfile
     prior_messages_count: int = 0

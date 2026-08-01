@@ -90,7 +90,7 @@ External: QuickBooks API · Gmail API · Resend · OpenAI · Stripe · Inngest (
 | HTTP client | **httpx** | | Async external API calls |
 | QB OAuth | **intuit-oauth** | | Official Intuit OAuth |
 | Google | **google-api-python-client** | | Gmail send |
-| AI / LLM | **OpenAI Python SDK** | | Message generation |
+| AI / LLM | **Kimi (Moonshot)** primary, **z.ai (GLM)** fallback | | Message generation via OpenAI-compatible SDK; templated fallback if both are down |
 | Agent framework | **LangGraph** (optional v1.1) | | Multi-step agent loops |
 | ML / profiling | **pandas**, **scikit-learn** | | Client scoring, prediction (v1.1+) |
 | Encryption | **cryptography** (Fernet) | | Token encryption at rest |
@@ -128,7 +128,7 @@ External: QuickBooks API · Gmail API · Resend · OpenAI · Stripe · Inngest (
 | Intuit Developer | QuickBooks OAuth + webhooks |
 | Google Cloud | Gmail OAuth (`gmail.send`) |
 | Resend | Non-Gmail send + transactional email |
-| OpenAI | `gpt-4o-mini` reminder generation |
+| Kimi (Moonshot) / z.ai (GLM) | Reminder generation (primary + fallback) |
 | Stripe | $19/mo Pro subscription |
 
 ---
@@ -179,13 +179,13 @@ gentletap/
 │       │   ├── intelligence/     # ★ AI-native core
 │       │   │   ├── engine.py           # Main decide() orchestrator
 │       │   │   ├── profiler.py         # Client relationship profiles
-│       │   │   ├── risk_scorer.py      # Low / medium / high risk
+│       │   │   ├── risk_scorer.py      # Baseline (history) + live risk
 │       │   │   ├── tone_selector.py    # Warm → firm progression
-│       │   │   ├── channel_selector.py # Email now; WhatsApp v1.1
-│       │   │   ├── timing_optimizer.py # Send window selection
-│       │   │   ├── message_generator.py# OpenAI integration
+│       │   │   ├── channel_selector.py # Email primary; WhatsApp follow-up (Pro+)
+│       │   │   ├── timing_optimizer.py # Business-hours send window (step 0 immediate)
+│       │   │   ├── message_generator.py# Kimi/z.ai integration + templated fallback
 │       │   │   ├── escalation.py       # Human handoff rules
-│       │   │   ├── prompts/            # System + user prompt templates
+│       │   │   ├── prompt_builder.py   # System + user prompt construction
 │       │   │   └── schemas.py          # Pydantic models for agent I/O
 │       │   │
 │       │   ├── integrations/
@@ -437,24 +437,27 @@ class IntelligenceEngine:
 **Risk scoring (`risk_scorer.py`) — MVP rules, v1.1 ML**
 
 ```python
-# MVP: weighted rules
+# Live risk (score_risk): weighted rules layering invoice urgency on history
 score = (
     0.4 * late_payment_rate +
     0.3 * min(days_overdue / 30, 1.0) +
-    0.2 * (1 if no_response_21d else 0) +
+    0.2 * (1 if days_overdue >= 21 else 0) +
     0.1 * (1 if amount > 10000 else 0)
 )
 # low < 0.3, medium < 0.6, high >= 0.6
+
+# Baseline risk (baseline_risk_from_history): history-only, stored on the client
+# high >= 0.5 late rate, medium >= 0.25, else low
 ```
 
 **v1.1:** Train `sklearn.GradientBoostingClassifier` on `agent_decisions` + payment outcomes.
 
 **Message generation (`message_generator.py`)**
 
-- Model: `gpt-4o-mini`
-- Input: Pydantic `MessageContext` (client, invoice, profile, step, prior messages)
-- Output: `{ subject, body }`
-- Guardrails: post-check for banned words ("collections", "demand", "overdue notice")
+- Model: **Kimi (Moonshot)** primary → **z.ai (GLM)** fallback → deterministic templated fallback
+- Input: `ReminderContext` (client, invoice, profile, step, prior messages) via `prompt_builder.py`
+- Output: JSON `{ subject, body }`
+- Guardrails: post-check for banned words ("collections", "demand notice", "overdue notice", "legal action") + signature placeholder scrubbing
 - All drafts stored before send
 
 ### Profiling (`profiler.py`)

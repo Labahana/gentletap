@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from gentletap.database import Client, QuickBooksConnection
 from gentletap.integrations.quickbooks import client as qb_client
+from gentletap.intelligence.risk_scorer import baseline_risk_from_history
 
 
 def _months_between(start: date, end: date) -> int:
@@ -72,12 +73,7 @@ def profile_client(db: Session, client: Client) -> None:
     avg_days = sum(days_list) / len(days_list) if days_list else None
     tenure = _months_between(first_date, date.today()) if first_date else 0
 
-    if late_rate >= 0.5:
-        risk = "high"
-    elif late_rate >= 0.25:
-        risk = "medium"
-    else:
-        risk = "low"
+    risk = baseline_risk_from_history(late_rate).value
 
     client.avg_days_to_pay = avg_days
     client.late_payment_rate = late_rate

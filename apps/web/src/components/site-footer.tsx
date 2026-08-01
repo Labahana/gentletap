@@ -12,6 +12,7 @@ const FOOTER_SECTIONS = [
         href: "/invoice-follow-up-email-templates-for-freelancers",
         label: "Invoice email templates",
       },
+      { href: "/compare", label: "Compare alternatives" },
       { href: "/quickbooks-reminders-vs-gentletap", label: "QBO vs GentleTap" },
       { href: "/integrations/quickbooks", label: "QuickBooks integration" },
       { href: "/llms.txt", label: "AI / LLM site summary" },
