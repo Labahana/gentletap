@@ -1,4 +1,4 @@
-"""Email the account owner when a QuickBooks invoice is paid."""
+"""Email the account owner when a synced accounting invoice is paid."""
 
 from sqlalchemy.orm import Session
 
@@ -8,10 +8,12 @@ from gentletap.services.email_templates import PaymentReceivedEmailData, render_
 from gentletap.services.invoice_source import invoice_source
 from gentletap.services.platform_email import send_platform_email
 
+_SYNCED_SOURCES = frozenset({"quickbooks", "freshbooks"})
+
 
 def send_qb_payment_received_email(db: Session, user: Profile, invoice: Invoice, *, amount: float) -> bool:
-    """Notify the freelancer by email when a QuickBooks invoice is fully paid."""
-    if invoice_source(invoice) != "quickbooks":
+    """Notify the freelancer by email when a synced invoice is fully paid."""
+    if invoice_source(invoice) not in _SYNCED_SOURCES:
         return False
 
     settings = get_settings()

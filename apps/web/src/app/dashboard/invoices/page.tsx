@@ -124,6 +124,7 @@ function GroupedInvoiceLists({
   }
 
   const qb = items.filter((i) => invoiceSourceOf(i) === "quickbooks");
+  const fb = items.filter((i) => invoiceSourceOf(i) === "freshbooks");
   const upload = items.filter((i) => invoiceSourceOf(i) === "upload");
 
   return (
@@ -135,6 +136,15 @@ function GroupedInvoiceLists({
             <InvoiceList items={qb} variant="mobile" showWhatsappHints={showWhatsappHints} />
           </div>
           <InvoiceList items={qb} variant="desktop" showWhatsappHints={showWhatsappHints} />
+        </div>
+      )}
+      {fb.length > 0 && (
+        <div>
+          <InvoiceSectionHeader title="FreshBooks" subtitle="Auto-synced balances and payment detection" />
+          <div className="lg:hidden">
+            <InvoiceList items={fb} variant="mobile" showWhatsappHints={showWhatsappHints} />
+          </div>
+          <InvoiceList items={fb} variant="desktop" showWhatsappHints={showWhatsappHints} />
         </div>
       )}
       {upload.length > 0 && (
@@ -279,7 +289,7 @@ export default function InvoicesPage() {
   const showGrouped =
     sourceFilter === "all" &&
     filter === "all" &&
-    sourceCounts.quickbooks > 0 &&
+    (sourceCounts.quickbooks > 0 || sourceCounts.freshbooks > 0) &&
     sourceCounts.upload > 0;
   const showWhatsappHints = hasWhatsapp(user.plan);
   const uploadUnpaid = filtered.filter((i) => invoiceSourceOf(i) === "upload" && i.balance > 0);

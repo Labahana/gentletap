@@ -8,13 +8,18 @@ from sqlalchemy.orm import Session
 
 from gentletap.database import Invoice, Profile, ReminderJob
 from gentletap.services.sequences import cancel_invoice_jobs
-from gentletap.tasks.sync import sync_user_invoices
+from gentletap.tasks.sync import sync_user_freshbooks_invoices, sync_user_invoices
 
 STUCK_JOB_MINUTES = 15
 
 
 def admin_force_qb_sync(user_id: UUID) -> dict:
     sync_user_invoices.delay(str(user_id))
+    return {"status": "queued", "user_id": str(user_id)}
+
+
+def admin_force_fb_sync(user_id: UUID) -> dict:
+    sync_user_freshbooks_invoices.delay(str(user_id))
     return {"status": "queued", "user_id": str(user_id)}
 
 

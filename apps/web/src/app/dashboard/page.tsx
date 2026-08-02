@@ -73,16 +73,21 @@ export default function DashboardPage() {
 
   const load = useCallback(async () => {
     try {
-      const [s, inv, notes, sync] = await Promise.all([
+      const [s, inv, notes, qbSync, fbSync] = await Promise.all([
         api.invoicesSummary(),
         api.invoices(),
         api.notifications(),
         api.qbSyncStatus(),
+        api.fbSyncStatus().catch(() => ({ connected: false, last_sync_at: null as string | null })),
       ]);
       setSummary(s);
       setInvoices(inv.items);
       setUnreadAlerts(notes.items.filter((n) => !n.read).length);
-      setLastSyncAt(sync.last_sync_at ?? null);
+      const syncTimes = [qbSync.last_sync_at, fbSync.last_sync_at]
+        .filter((v): v is string => Boolean(v))
+        .map((v) => new Date(v).getTime())
+        .filter((n) => !Number.isNaN(n));
+      setLastSyncAt(syncTimes.length ? new Date(Math.max(...syncTimes)).toISOString() : null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load dashboard");
     }
@@ -184,7 +189,7 @@ export default function DashboardPage() {
               {onboardingWelcome.activated === 1 ? "" : "s"} active
             </p>
             <p className="mt-1 text-sm text-green-800/90">
-              GentleTap will follow up automatically and stop when QuickBooks shows payment received.
+              GentleTap will follow up automatically and stop when QuickBooks or FreshBooks shows payment received.
             </p>
             <Link href="/dashboard/invoices" className="mt-2 inline-block text-sm font-medium text-accent hover:underline">
               View active sequences →
@@ -309,7 +314,7 @@ export default function DashboardPage() {
               <p className="py-8 text-center text-sm text-muted">
                 {invoices.length === 0 ? (
                   <>
-                    No invoices yet. Upload invoices (CSV, spreadsheet) using the button above, or wait for QuickBooks to sync.
+                    No invoices yet. Upload invoices (CSV, spreadsheet) using the button above, or wait for QuickBooks / FreshBooks to sync.
                   </>
                 ) : (
                   "All caught up."

@@ -6,15 +6,18 @@ import { OnboardingImportStats } from "@/components/onboarding-import-stats";
 import { InvoiceImportFormatHelp } from "@/components/invoice-import-format-help";
 import { api } from "@/lib/api";
 
-type ImportChoice = "quickbooks" | "csv";
+type ImportChoice = "quickbooks" | "freshbooks" | "csv";
 type ImportPhase = "choose" | "results";
 
 type Props = {
   onBack: () => void;
   onContinue: () => void;
   onConnectQuickBooks: () => void;
+  onConnectFreshBooks: () => void;
   qbConnecting: boolean;
+  fbConnecting: boolean;
   qbError?: string | null;
+  fbError?: string | null;
   importMessage?: string;
   importSyncing?: boolean;
   invoiceCount?: number;
@@ -74,8 +77,11 @@ export function OnboardingImportStep({
   onBack,
   onContinue,
   onConnectQuickBooks,
+  onConnectFreshBooks,
   qbConnecting,
+  fbConnecting,
   qbError,
+  fbError,
   importMessage,
   importSyncing,
   invoiceCount = 0,
@@ -90,24 +96,31 @@ export function OnboardingImportStep({
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<{ imported: number; skipped: number } | null>(null);
   const [qbConnected, setQbConnected] = useState(false);
+  const [fbConnected, setFbConnected] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const checkQbStatus = useCallback(async () => {
+  const checkAccountingStatus = useCallback(async () => {
     try {
-      const status = await api.qbSyncStatus();
-      setQbConnected(Boolean(status.connected));
+      const [qb, fb] = await Promise.all([
+        api.qbSyncStatus(),
+        api.fbSyncStatus().catch(() => ({ connected: false })),
+      ]);
+      setQbConnected(Boolean(qb.connected));
+      setFbConnected(Boolean(fb.connected));
     } catch {
       setQbConnected(false);
+      setFbConnected(false);
     }
   }, []);
 
   useEffect(() => {
-    void checkQbStatus();
-  }, [checkQbStatus, importSyncing]);
+    void checkAccountingStatus();
+  }, [checkAccountingStatus, importSyncing]);
 
   useEffect(() => {
     if (qbConnected) setChoice("quickbooks");
-  }, [qbConnected]);
+    else if (fbConnected) setChoice("freshbooks");
+  }, [qbConnected, fbConnected]);
 
   useEffect(() => {
     if (uploadResult) setChoice("csv");
@@ -115,6 +128,7 @@ export function OnboardingImportStep({
 
   const importComplete =
     (choice === "quickbooks" && qbConnected && !importSyncing) ||
+    (choice === "freshbooks" && fbConnected && !importSyncing) ||
     (choice === "csv" && uploadResult !== null && !uploading);
 
   useEffect(() => {
@@ -122,11 +136,12 @@ export function OnboardingImportStep({
   }, [importComplete]);
 
   useEffect(() => {
-    if ((qbConnected || invoiceCount > 0) && !importSyncing) {
+    if ((qbConnected || fbConnected || invoiceCount > 0) && !importSyncing) {
       setPhase("results");
       if (qbConnected) setChoice("quickbooks");
+      else if (fbConnected) setChoice("freshbooks");
     }
-  }, [qbConnected, invoiceCount, importSyncing]);
+  }, [qbConnected, fbConnected, invoiceCount, importSyncing]);
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -149,6 +164,7 @@ export function OnboardingImportStep({
   }
 
   const qbReady = qbConnected && !importSyncing;
+  const fbReady = fbConnected && !importSyncing;
 
   let primaryLabel = "Choose an option above";
   let primaryDisabled = !choice;
@@ -166,6 +182,17 @@ export function OnboardingImportStep({
     } else {
       primaryLabel = qbConnecting ? "Connecting…" : "Connect QuickBooks";
       primaryDisabled = qbConnecting;
+    }
+  } else if (choice === "freshbooks") {
+    if (importSyncing) {
+      primaryLabel = "Syncing from FreshBooks…";
+      primaryDisabled = true;
+    } else if (fbReady) {
+      primaryLabel = "See your invoices";
+      primaryDisabled = false;
+    } else {
+      primaryLabel = fbConnecting ? "Connecting…" : "Connect FreshBooks";
+      primaryDisabled = fbConnecting;
     }
   } else if (choice === "csv") {
     primaryLabel = uploading ? "Uploading…" : "Choose a file to upload";
@@ -185,6 +212,14 @@ export function OnboardingImportStep({
       }
       onConnectQuickBooks();
     }
+    if (choice === "freshbooks") {
+      if (fbReady) {
+        setPhase("results");
+        onInvoicesChanged?.();
+        return;
+      }
+      onConnectFreshBooks();
+    }
   }
 
   function changeImportMethod() {
@@ -192,18 +227,20 @@ export function OnboardingImportStep({
     setError(null);
   }
 
+  const displayError = qbError || fbError || error;
+
   return (
     <div className="space-y-5">
       {phase === "choose" && (
         <p className="text-sm leading-relaxed text-muted">
-          Bring in your unpaid invoices so GentleTap can draft reminders. Connect QuickBooks for automatic sync, or
-          upload a spreadsheet.
+          Bring in your unpaid invoices so GentleTap can draft reminders. Connect QuickBooks or FreshBooks for
+          automatic sync, or upload a spreadsheet.
         </p>
       )}
 
-      {(qbError || error) && (
+      {displayError && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {qbError || error}
+          {displayError}
         </p>
       )}
 
@@ -227,7 +264,7 @@ export function OnboardingImportStep({
           <OptionCard
             selected={choice === "quickbooks"}
             onSelect={() => setChoice("quickbooks")}
-            badge="Recommended"
+            badge="Popular"
             title="Connect QuickBooks"
             description="Import unpaid invoices automatically. Read-only — nothing is changed in QuickBooks."
             icon={
@@ -248,6 +285,38 @@ export function OnboardingImportStep({
           </OptionCard>
 
           <OptionCard
+            selected={choice === "freshbooks"}
+            onSelect={() => setChoice("freshbooks")}
+            title="Connect FreshBooks"
+            description="Import outstanding invoices automatically. Read-only — nothing is changed in FreshBooks."
+            icon={
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h16M4 17h10" />
+              </svg>
+            }
+          >
+            {choice === "freshbooks" && !fbConnected && (
+              <div className="mt-4">
+                <button
+                  type="button"
+                  className="btn-primary w-full text-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onConnectFreshBooks();
+                  }}
+                  disabled={fbConnecting}
+                >
+                  {fbConnecting ? "Connecting…" : "Connect FreshBooks"}
+                </button>
+              </div>
+            )}
+            {fbConnected && <p className="mt-2 text-xs text-green">FreshBooks connected</p>}
+            {choice === "freshbooks" && importSyncing && (
+              <p className="mt-2 text-xs text-muted animate-pulse">{importMessage ?? "Syncing…"}</p>
+            )}
+          </OptionCard>
+
+          <OptionCard
             selected={choice === "csv"}
             onSelect={() => setChoice("csv")}
             title="Upload invoice spreadsheet"
@@ -259,38 +328,40 @@ export function OnboardingImportStep({
             }
           >
             {choice === "csv" && (
-              <div className="mt-4 space-y-3">
+              <div className="mt-4 space-y-3" onClick={(e) => e.stopPropagation()}>
                 <InvoiceImportFormatHelp />
-                <label className="btn-secondary inline-flex cursor-pointer py-2 text-sm">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+                <button
+                  type="button"
+                  className="btn-secondary w-full text-sm"
+                  disabled={uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                >
                   {uploading ? "Uploading…" : "Choose file"}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    className="hidden"
-                    onChange={handleFileUpload}
-                    disabled={uploading}
-                  />
-                </label>
-                {uploadResult && (
-                  <p className="text-sm text-muted">
-                    Imported {uploadResult.imported} invoice{uploadResult.imported === 1 ? "" : "s"}
-                    {uploadResult.skipped > 0 ? ` · ${uploadResult.skipped} row(s) skipped` : ""}
-                  </p>
-                )}
+                </button>
               </div>
             )}
           </OptionCard>
         </div>
       )}
 
-      <button type="button" className="btn-primary w-full" disabled={primaryDisabled} onClick={handlePrimary}>
-        {primaryLabel}
-      </button>
-
       <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-between">
         <button type="button" className="btn-secondary w-full sm:w-auto" onClick={onBack}>
           Back
+        </button>
+        <button
+          type="button"
+          className="btn-primary w-full sm:w-auto"
+          disabled={primaryDisabled}
+          onClick={handlePrimary}
+        >
+          {primaryLabel}
         </button>
       </div>
     </div>

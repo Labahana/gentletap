@@ -51,6 +51,13 @@ function StepIcon({ id, active, done }: { id: string; active: boolean; done: boo
         d="M4 7h16M4 12h16M4 17h10M8 3v4M14 3v4"
       />
     ),
+    freshbooks: (
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M4 7h16M4 12h16M4 17h10M8 3v4M14 3v4"
+      />
+    ),
     email: (
       <path
         strokeLinecap="round"

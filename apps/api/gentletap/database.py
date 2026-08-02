@@ -257,6 +257,23 @@ class QuickBooksConnection(Base, TimestampMixin):
     disconnected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class FreshBooksConnection(Base, TimestampMixin):
+    __tablename__ = "freshbooks_connections"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), unique=True, index=True, nullable=False)
+    account_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    business_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    business_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    access_token_enc: Mapped[str] = mapped_column(Text, nullable=False)
+    refresh_token_enc: Mapped[str] = mapped_column(Text, nullable=False)
+    token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    webhook_verifier_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    connected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    disconnected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class GoogleConnection(Base, TimestampMixin):
     __tablename__ = "google_connections"
 

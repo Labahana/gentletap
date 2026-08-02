@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
-from gentletap.database import GoogleConnection, QuickBooksConnection, SessionLocal
+from gentletap.database import FreshBooksConnection, GoogleConnection, QuickBooksConnection, SessionLocal
+from gentletap.integrations.freshbooks.oauth import refresh_connection_tokens as refresh_fb_tokens
 from gentletap.integrations.google import oauth as google_oauth
 from gentletap.integrations.quickbooks.oauth import refresh_connection_tokens
 from gentletap.tasks.celery_app import celery_app
@@ -24,6 +25,34 @@ def refresh_qb_tokens() -> dict:
         for conn in connections:
             refresh_connection_tokens(db, conn)
             refreshed += 1
+        return {"refreshed": refreshed}
+    finally:
+        db.close()
+
+
+@celery_app.task(name="gentletap.tasks.tokens.refresh_fb_tokens")
+def refresh_fb_tokens_task() -> dict:
+    """Proactively refresh FreshBooks access tokens (12h / 43,200s TTL; refresh tokens rotate)."""
+    db = SessionLocal()
+    refreshed = 0
+    try:
+        # Beat runs every 30m; refresh anything expiring within 6h so we never hit a dead access token.
+        cutoff = datetime.now(UTC) + timedelta(hours=6)
+        connections = (
+            db.query(FreshBooksConnection)
+            .filter(
+                FreshBooksConnection.disconnected_at.is_(None),
+                FreshBooksConnection.token_expires_at.isnot(None),
+                FreshBooksConnection.token_expires_at <= cutoff,
+            )
+            .all()
+        )
+        for conn in connections:
+            try:
+                refresh_fb_tokens(db, conn)
+                refreshed += 1
+            except Exception:
+                continue
         return {"refreshed": refreshed}
     finally:
         db.close()

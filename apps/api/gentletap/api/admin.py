@@ -10,6 +10,7 @@ from gentletap.database import get_db
 from gentletap.dependencies import AdminUser
 from gentletap.rate_limit import limiter
 from gentletap.services.admin_actions import (
+    admin_force_fb_sync,
     admin_force_qb_sync,
     admin_pause_user_reminders,
     admin_requeue_job,
@@ -151,6 +152,27 @@ def admin_sync_qb(
         db,
         admin=admin,
         action="user.sync_qb",
+        request=request,
+        target_user_id=user_id,
+    )
+    return result
+
+
+@router.post("/users/{user_id}/sync-fb")
+@limiter.limit("10/minute")
+def admin_sync_fb(
+    request: Request,
+    user_id: UUID,
+    admin: AdminUser,
+    db: Session = Depends(get_db),
+) -> dict:
+    if get_admin_user_detail(db, user_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+    result = admin_force_fb_sync(user_id)
+    record_admin_action(
+        db,
+        admin=admin,
+        action="user.sync_fb",
         request=request,
         target_user_id=user_id,
     )

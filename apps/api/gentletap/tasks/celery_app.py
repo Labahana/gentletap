@@ -37,6 +37,11 @@ celery_app.conf.update(
             "task": "gentletap.tasks.tokens.refresh_qb_tokens",
             "schedule": crontab(hour=3, minute=0),
         },
+        "refresh-fb-tokens": {
+            "task": "gentletap.tasks.tokens.refresh_fb_tokens",
+            "schedule": crontab(minute="*/30"),
+            "options": {"expires": 25 * 60},
+        },
         "refresh-google-tokens": {
             "task": "gentletap.tasks.tokens.refresh_google_tokens",
             "schedule": crontab(hour=3, minute=30),

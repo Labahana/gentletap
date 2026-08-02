@@ -7,6 +7,7 @@ export type AdminOverview = {
   stuck_jobs: number;
   failed_jobs: number;
   qb_connected: number;
+  fb_connected: number;
   google_connected: number;
   active_sequences: number;
   recent_signups: AdminRecentSignup[];
@@ -29,6 +30,7 @@ export type AdminUserListItem = {
   onboarding_step: string;
   created_at: string | null;
   qb_connected: boolean;
+  fb_connected: boolean;
   google_connected: boolean;
   last_sync_at: string | null;
 };
@@ -56,6 +58,14 @@ export type AdminUserDetail = {
     token_expires_at: string | null;
     connected_at: string | null;
   } | null;
+  freshbooks: {
+    connected: boolean;
+    account_id: string | null;
+    business_name: string | null;
+    last_sync_at: string | null;
+    token_expires_at: string | null;
+    connected_at: string | null;
+  } | null;
   google: {
     connected: boolean;
     email: string | null;
@@ -69,6 +79,7 @@ export type AdminUserDetail = {
     connected_at: string | null;
   } | null;
   recent_syncs: Array<{
+    source?: string | null;
     status: string;
     message: string | null;
     invoices_synced: number | null;

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, aliased
 
 from gentletap.database import (
     AdminAuditLog,
+    FreshBooksConnection,
     GoogleConnection,
     Invoice,
     Profile,
@@ -62,6 +63,12 @@ def build_admin_overview(db: Session) -> dict:
         .scalar()
         or 0
     )
+    fb_connected = (
+        db.query(func.count(FreshBooksConnection.id))
+        .filter(FreshBooksConnection.disconnected_at.is_(None))
+        .scalar()
+        or 0
+    )
     google_connected = (
         db.query(func.count(GoogleConnection.id))
         .filter(GoogleConnection.disconnected_at.is_(None))
@@ -88,6 +95,7 @@ def build_admin_overview(db: Session) -> dict:
         "stuck_jobs": stuck_jobs,
         "failed_jobs": failed_jobs,
         "qb_connected": qb_connected,
+        "fb_connected": fb_connected,
         "google_connected": google_connected,
         "active_sequences": active_sequences,
         "recent_signups": [
@@ -131,11 +139,16 @@ def search_admin_users(
 
     user_ids = [u.id for u in rows]
     qb_map: dict = {}
+    fb_map: dict = {}
     google_map: dict = {}
     if user_ids:
         qb_map = {
             r.user_id: r
             for r in db.query(QuickBooksConnection).filter(QuickBooksConnection.user_id.in_(user_ids)).all()
+        }
+        fb_map = {
+            r.user_id: r
+            for r in db.query(FreshBooksConnection).filter(FreshBooksConnection.user_id.in_(user_ids)).all()
         }
         google_map = {
             r.user_id: r
@@ -145,7 +158,17 @@ def search_admin_users(
     items = []
     for user in rows:
         qb = qb_map.get(user.id)
+        fb = fb_map.get(user.id)
         google = google_map.get(user.id)
+        last_sync_candidates = [
+            dt
+            for dt in (
+                qb.last_sync_at if qb and qb.disconnected_at is None else None,
+                fb.last_sync_at if fb and fb.disconnected_at is None else None,
+            )
+            if dt is not None
+        ]
+        last_sync_at = max(last_sync_candidates).isoformat() if last_sync_candidates else None
         items.append(
             {
                 "id": str(user.id),
@@ -156,8 +179,9 @@ def search_admin_users(
                 "onboarding_step": user.onboarding_step,
                 "created_at": user.created_at.isoformat() if user.created_at else None,
                 "qb_connected": qb is not None and qb.disconnected_at is None,
+                "fb_connected": fb is not None and fb.disconnected_at is None,
                 "google_connected": google is not None and google.disconnected_at is None,
-                "last_sync_at": qb.last_sync_at.isoformat() if qb and qb.last_sync_at else None,
+                "last_sync_at": last_sync_at,
             }
         )
     return {"items": items, "total": total, "limit": limit, "offset": offset}
@@ -169,6 +193,7 @@ def get_admin_user_detail(db: Session, user_id: UUID) -> dict | None:
         return None
 
     qb = db.query(QuickBooksConnection).filter(QuickBooksConnection.user_id == user.id).one_or_none()
+    fb = db.query(FreshBooksConnection).filter(FreshBooksConnection.user_id == user.id).one_or_none()
     google = db.query(GoogleConnection).filter(GoogleConnection.user_id == user.id).one_or_none()
     wa = db.query(WhatsappConnection).filter(WhatsappConnection.user_id == user.id).one_or_none()
 
@@ -233,6 +258,16 @@ def get_admin_user_detail(db: Session, user_id: UUID) -> dict | None:
             "token_expires_at": _iso(qb.token_expires_at),
             "connected_at": _iso(qb.connected_at),
         },
+        "freshbooks": None
+        if fb is None
+        else {
+            "connected": fb.disconnected_at is None,
+            "account_id": fb.account_id,
+            "business_name": fb.business_name,
+            "last_sync_at": _iso(fb.last_sync_at),
+            "token_expires_at": _iso(fb.token_expires_at),
+            "connected_at": _iso(fb.connected_at),
+        },
         "google": None
         if google is None
         else {
@@ -251,6 +286,7 @@ def get_admin_user_detail(db: Session, user_id: UUID) -> dict | None:
         },
         "recent_syncs": [
             {
+                "source": row.source,
                 "status": row.status,
                 "message": row.message,
                 "invoices_synced": row.invoices_synced,

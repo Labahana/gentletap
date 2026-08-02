@@ -510,10 +510,10 @@ export const COMPETITOR_COMPARISONS: Record<CompetitorSlug, CompetitorComparison
   freshbooks: {
     slug: "freshbooks",
     name: "FreshBooks",
-    tagline: "Accounting + basic reminders vs QuickBooks follow-up layer",
+    tagline: "Built-in FreshBooks reminders vs AI follow-up on top of FreshBooks",
     metaTitle: "GentleTap vs FreshBooks — Invoice Reminders Compared",
     metaDescription:
-      "FreshBooks includes automated payment reminders with its invoicing plans. GentleTap adds AI Gmail follow-up on top of QuickBooks. Honest comparison for freelancers choosing a stack.",
+      "FreshBooks includes automated payment reminders with its invoicing plans. GentleTap connects to FreshBooks (and QuickBooks) for AI Gmail follow-up that stops when balances clear. Honest comparison for freelancers.",
     keywords: [
       "GentleTap vs FreshBooks",
       "FreshBooks payment reminders alternative",
@@ -523,20 +523,20 @@ export const COMPETITOR_COMPARISONS: Record<CompetitorSlug, CompetitorComparison
     category: "Freelancer accounting & invoicing",
     competitorUrl: "https://www.freshbooks.com/",
     competitorSummary:
-      "FreshBooks is freelancer-friendly accounting and invoicing software with time tracking, expense management, and automated payment reminders on overdue invoices. Reminders are built into FreshBooks' own invoicing — template-based, sent from FreshBooks. Popular with freelancers who don't use QuickBooks.",
+      "FreshBooks is freelancer-friendly accounting and invoicing software with time tracking, expense management, and automated payment reminders on overdue invoices. Reminders are built into FreshBooks' own invoicing — template-based, sent from FreshBooks.",
     gentletapSummary:
-      "GentleTap does not replace FreshBooks or QuickBooks. It adds AI-personalized, escalating follow-ups for users who invoice through QuickBooks Online and want Gmail-native sending.",
+      "GentleTap does not replace FreshBooks. It connects read-only to FreshBooks (or QuickBooks Online) and adds AI-personalized, escalating follow-ups sent from your Gmail, with automatic stop when outstanding balance hits zero.",
     whenTheyWin:
-      "Choose FreshBooks if you want one platform for invoicing, expenses, time tracking, and basic reminders — and you're not committed to QuickBooks Online.",
+      "Choose FreshBooks alone if you want one platform for invoicing, expenses, time tracking, and basic template reminders — and don't need Gmail-native AI sequences.",
     whenGentletapWins:
-      "Choose GentleTap if you're staying on QuickBooks Online and need smarter follow-up than QBO's built-in reminders — AI drafts, Gmail sending, five-step sequences, WhatsApp on Pro+.",
+      "Choose GentleTap with FreshBooks if you keep invoicing in FreshBooks but want smarter follow-up — AI drafts, Gmail sending, five-step sequences, WhatsApp on Pro+, and payment detection from FreshBooks balances.",
     honestVerdict:
-      "FreshBooks vs GentleTap is usually an either/or on accounting platform, not a head-to-head reminder comparison. FreshBooks users should use FreshBooks reminders unless they migrate to QBO. GentleTap is for the large QuickBooks freelancer segment FreshBooks doesn't serve.",
+      "FreshBooks is the accounting/invoicing system of record; GentleTap is the follow-up layer. Use FreshBooks reminders for simple nudges, or connect GentleTap when you want relationship-aware sequences that stop on payment.",
     pricingNote:
-      "FreshBooks: from ~$21/mo (Lite) with invoicing and reminders included. GentleTap: free Starter, Pro $19/mo (requires separate QBO subscription).",
+      "FreshBooks: from ~$21/mo (Lite) with invoicing and reminders included. GentleTap: free Starter, Pro $19/mo (requires a FreshBooks or QBO account for sync).",
     comparisonRows: [
       { feature: "Accounting & invoicing", competitor: "Yes — full platform", gentletap: "No — follow-up only" },
-      { feature: "Accounting platform", competitor: "FreshBooks", gentletap: "QuickBooks Online" },
+      { feature: "Native FreshBooks sync", competitor: "N/A — is FreshBooks", gentletap: "Yes — read-only OAuth" },
       { feature: "Reminder sophistication", competitor: "Built-in templates", gentletap: "AI sequences from Gmail" },
       { feature: "Send from Gmail", competitor: "FreshBooks-branded", gentletap: "Your Gmail" },
       { feature: "WhatsApp", competitor: "No", gentletap: "Yes — Pro+" },
@@ -544,7 +544,7 @@ export const COMPETITOR_COMPARISONS: Record<CompetitorSlug, CompetitorComparison
     faq: [
       {
         q: "Does GentleTap work with FreshBooks?",
-        a: "Not natively today. GentleTap's primary integration is QuickBooks Online. FreshBooks users should use FreshBooks reminders or export workflows — not GentleTap — unless they switch to QBO.",
+        a: "Yes. Connect FreshBooks via OAuth in onboarding or Settings → Connections. GentleTap imports outstanding invoices, sends reminders from your Gmail, and stops when FreshBooks shows the balance paid.",
       },
     ],
   },

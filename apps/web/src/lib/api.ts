@@ -77,7 +77,7 @@ export type InvoiceItem = {
   last_reminder_at?: string | null;
   last_reminder_channel?: string | null;
   payment_link?: string | null;
-  source?: "quickbooks" | "upload";
+  source?: "quickbooks" | "freshbooks" | "upload";
   source_label?: string;
   needs_attention?: boolean;
   attention_reason?: string | null;
@@ -153,6 +153,7 @@ export type DashboardSummary = {
   avg_days_last_month?: number | null;
   sources?: {
     quickbooks_count: number;
+    freshbooks_count: number;
     upload_count: number;
     upload_needs_attention: number;
   };
@@ -289,7 +290,15 @@ async function request<T>(
       return retry.json() as Promise<T>;
     }
     await clearSession();
-    if (!window.location.pathname.startsWith("/login")) {
+    // Only bounce authenticated app areas. Public pages (landing, signup, etc.)
+    // call api.me() via AuthProvider — a 401 there is normal for guests.
+    const path = window.location.pathname;
+    const isProtectedApp =
+      path.startsWith("/dashboard") ||
+      path.startsWith("/settings") ||
+      path.startsWith("/admin") ||
+      path.startsWith("/onboarding");
+    if (isProtectedApp) {
       window.location.href = "/login";
     }
     throw new Error("Session expired — please log in again");
@@ -436,6 +445,29 @@ export const api = {
       last_sync_at?: string | null;
       auto_activated?: number;
     }>("/quickbooks/sync/status", {}),
+
+  fbConnectUrl: () =>
+    request<{ authorization_url: string }>("/freshbooks/connect-url", {}),
+
+  fbSyncStatus: () =>
+    request<{
+      status: string;
+      progress: number;
+      message: string;
+      connected?: boolean;
+      unpaid_count?: number;
+      total_outstanding?: number;
+      last_sync_at?: string | null;
+      account_id?: string;
+      business_name?: string | null;
+      auto_activated?: number;
+    }>("/freshbooks/sync/status", {}),
+
+  fbSync: () =>
+    request<{ status: string; message: string }>("/freshbooks/sync", { method: "POST" }),
+
+  fbDisconnect: () =>
+    request<{ status: string }>("/freshbooks/disconnect", { method: "POST" }),
 
   googleConnectUrl: (returnTo: "onboarding" | "settings" = "onboarding") =>
     request<{ authorization_url: string }>(
@@ -616,7 +648,7 @@ export const api = {
       dispute_flag: boolean;
       due_date: string | null;
       payment_link: string | null;
-      source: "quickbooks" | "upload";
+      source: "quickbooks" | "freshbooks" | "upload";
       source_label: string;
       needs_attention: boolean;
       attention_reason: string | null;
@@ -822,6 +854,9 @@ export const api = {
 
   adminSyncQb: (userId: string) =>
     request<{ status: string }>(`/admin/users/${userId}/sync-qb`, { method: "POST" }),
+
+  adminSyncFb: (userId: string) =>
+    request<{ status: string }>(`/admin/users/${userId}/sync-fb`, { method: "POST" }),
 
   adminPauseReminders: (userId: string) =>
     request<{ status: string; invoices_paused?: number; jobs_cancelled?: number }>(

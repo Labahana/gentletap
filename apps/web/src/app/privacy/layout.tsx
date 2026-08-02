@@ -5,7 +5,7 @@ import { pageMetadata } from "@/lib/seo";
 export const metadata: Metadata = pageMetadata({
   title: "Privacy Policy",
   description:
-    "GentleTap Privacy Policy — how we collect, use, and protect data for freelancers using automated QuickBooks invoice payment reminders.",
+    "GentleTap Privacy Policy — how we collect, use, and protect data for freelancers using automated QuickBooks and FreshBooks invoice payment reminders.",
   path: "/privacy",
 });
 

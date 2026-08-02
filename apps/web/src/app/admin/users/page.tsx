@@ -115,7 +115,7 @@ export default function AdminUsersPage() {
                 <th className="px-3 py-2">Plan</th>
                 <th className="px-3 py-2">Onboarding</th>
                 <th className="px-3 py-2">Connections</th>
-                <th className="px-3 py-2">Last QB sync</th>
+                <th className="px-3 py-2">Last sync</th>
                 <th className="px-3 py-2">Joined</th>
               </tr>
             </thead>
@@ -137,7 +137,8 @@ export default function AdminUsersPage() {
                   </td>
                   <td className="px-3 py-2">{u.onboarding_step}</td>
                   <td className="px-3 py-2 text-xs text-slate-400">
-                    QB {u.qb_connected ? "✓" : "—"} · Gmail {u.google_connected ? "✓" : "—"}
+                    QB {u.qb_connected ? "✓" : "—"} · FB {u.fb_connected ? "✓" : "—"} · Gmail{" "}
+                    {u.google_connected ? "✓" : "—"}
                   </td>
                   <td className="px-3 py-2 text-slate-400">{formatAdminDate(u.last_sync_at)}</td>
                   <td className="px-3 py-2 text-slate-400">{formatAdminDate(u.created_at)}</td>

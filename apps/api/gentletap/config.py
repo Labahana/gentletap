@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     intuit_environment: str = "sandbox"
     intuit_webhook_verifier_token: str = ""
 
+    freshbooks_client_id: str = ""
+    freshbooks_client_secret: str = ""
+    freshbooks_redirect_uri: str = "http://localhost:8000/v1/freshbooks/callback"
+
     google_client_id: str = ""
     google_client_secret: str = ""
     google_redirect_uri: str = "http://localhost:8000/v1/google/callback"

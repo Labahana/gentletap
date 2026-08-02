@@ -152,6 +152,9 @@ export default function AdminUserDetailPage() {
               <AdminButton disabled={busy} onClick={() => void runAction("Force QuickBooks sync", () => api.adminSyncQb(userId))}>
                 Force QB sync
               </AdminButton>
+              <AdminButton disabled={busy} onClick={() => void runAction("Force FreshBooks sync", () => api.adminSyncFb(userId))}>
+                Force FB sync
+              </AdminButton>
               <AdminButton
                 variant="danger"
                 disabled={busy}
@@ -177,7 +180,7 @@ export default function AdminUserDetailPage() {
             </div>
           </div>
 
-          <div className="mt-6 grid gap-4 lg:grid-cols-3">
+          <div className="mt-6 grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
             <ConnectionCard
               title="QuickBooks"
               connected={detail.quickbooks?.connected ?? false}
@@ -188,6 +191,21 @@ export default function AdminUserDetailPage() {
                       { label: "Last sync", value: formatAdminDate(detail.quickbooks.last_sync_at) },
                       { label: "Token expires", value: formatAdminDate(detail.quickbooks.token_expires_at) },
                       { label: "Connected", value: formatAdminDate(detail.quickbooks.connected_at) },
+                    ]
+                  : []
+              }
+            />
+            <ConnectionCard
+              title="FreshBooks"
+              connected={detail.freshbooks?.connected ?? false}
+              rows={
+                detail.freshbooks
+                  ? [
+                      { label: "Account", value: detail.freshbooks.account_id },
+                      { label: "Business", value: detail.freshbooks.business_name },
+                      { label: "Last sync", value: formatAdminDate(detail.freshbooks.last_sync_at) },
+                      { label: "Token expires", value: formatAdminDate(detail.freshbooks.token_expires_at) },
+                      { label: "Connected", value: formatAdminDate(detail.freshbooks.connected_at) },
                     ]
                   : []
               }
@@ -221,13 +239,14 @@ export default function AdminUserDetailPage() {
           </div>
 
           <div className="mt-6 grid gap-6 lg:grid-cols-2">
-            <AdminSection title="Recent QuickBooks syncs">
+            <AdminSection title="Recent accounting syncs">
               {detail.recent_syncs.length === 0 ? (
                 <AdminEmpty message="No sync history" />
               ) : (
                 <AdminTable>
                   <thead className="bg-slate-950 text-slate-400">
                     <tr>
+                      <th className="px-3 py-2">Source</th>
                       <th className="px-3 py-2">Status</th>
                       <th className="px-3 py-2">Invoices</th>
                       <th className="px-3 py-2">When</th>
@@ -236,8 +255,9 @@ export default function AdminUserDetailPage() {
                   <tbody>
                     {detail.recent_syncs.map((s, i) => (
                       <tr key={i} className="border-t border-slate-800">
+                        <td className="px-3 py-2 text-slate-300">{s.source ?? "—"}</td>
                         <td className="px-3 py-2">
-                          <AdminBadge tone={s.status === "success" ? "ok" : "warn"}>{s.status}</AdminBadge>
+                          <AdminBadge tone={s.status === "success" || s.status === "complete" ? "ok" : "warn"}>{s.status}</AdminBadge>
                           {s.message && <div className="mt-1 text-xs text-slate-500">{s.message}</div>}
                         </td>
                         <td className="px-3 py-2">{s.invoices_synced ?? "—"}</td>

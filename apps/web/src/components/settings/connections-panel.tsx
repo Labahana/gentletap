@@ -23,6 +23,7 @@ function ConnectionsPanelContent({ mode }: { mode: ConnectionsPanelMode }) {
   const [googleEmail, setGoogleEmail] = useState<string | null>(null);
   const [googleConnected, setGoogleConnected] = useState(false);
   const [qbConnected, setQbConnected] = useState(false);
+  const [fbConnected, setFbConnected] = useState(false);
   const [wa, setWa] = useState<WhatsappStatus | null>(null);
   const [waBusy, setWaBusy] = useState(false);
   const [waError, setWaError] = useState<string | null>(null);
@@ -31,6 +32,10 @@ function ConnectionsPanelContent({ mode }: { mode: ConnectionsPanelMode }) {
   const [qbSyncing, setQbSyncing] = useState(false);
   const [qbConnecting, setQbConnecting] = useState(false);
   const [qbLastSyncAt, setQbLastSyncAt] = useState<string | null>(null);
+  const [fbSyncing, setFbSyncing] = useState(false);
+  const [fbConnecting, setFbConnecting] = useState(false);
+  const [fbLastSyncAt, setFbLastSyncAt] = useState<string | null>(null);
+  const [fbBusinessName, setFbBusinessName] = useState<string | null>(null);
   const [resendEmail, setResendEmail] = useState("");
   const [inbound, setInbound] = useState<
     Array<{ id: string; from_phone: string; body: string; invoice_id: string | null }>
@@ -55,9 +60,10 @@ function ConnectionsPanelContent({ mode }: { mode: ConnectionsPanelMode }) {
   async function loadStatus() {
     setLoadError(null);
     try {
-      const [email, qb, whatsapp, replies, google] = await Promise.all([
+      const [email, qb, fb, whatsapp, replies, google] = await Promise.all([
         api.emailStatus(),
         api.qbSyncStatus(),
+        api.fbSyncStatus().catch(() => ({ connected: false, status: "idle", last_sync_at: null })),
         api.whatsappStatus().catch(() => null),
         api.whatsappInbound().catch(() => ({ items: [] })),
         api.googleStatus().catch(() => ({ connected: false, email: undefined })),
@@ -69,6 +75,10 @@ function ConnectionsPanelContent({ mode }: { mode: ConnectionsPanelMode }) {
       setQbConnected(!!qb.connected);
       setQbLastSyncAt(qb.last_sync_at ?? null);
       setQbSyncing(qb.status === "syncing");
+      setFbConnected(!!fb.connected);
+      setFbLastSyncAt(fb.last_sync_at ?? null);
+      setFbSyncing(fb.status === "syncing");
+      setFbBusinessName(fb.business_name ?? null);
       if (whatsapp) setWa(whatsapp);
       setInbound(replies.items);
     } catch (e) {
@@ -81,10 +91,11 @@ function ConnectionsPanelContent({ mode }: { mode: ConnectionsPanelMode }) {
   }, [user]);
 
   useEffect(() => {
-    if (!user || !qbConnected || mode !== "integrations") return;
+    if (!user || mode !== "integrations") return;
+    if (!qbConnected && !fbConnected) return;
     const interval = setInterval(() => void loadStatus(), 60_000);
     return () => clearInterval(interval);
-  }, [user, qbConnected, mode]);
+  }, [user, qbConnected, fbConnected, mode]);
 
   async function connectQb() {
     setQbConnecting(true);
@@ -106,6 +117,29 @@ function ConnectionsPanelContent({ mode }: { mode: ConnectionsPanelMode }) {
       await loadStatus();
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Could not disconnect QuickBooks");
+    }
+  }
+
+  async function connectFb() {
+    setFbConnecting(true);
+    setLoadError(null);
+    try {
+      const { authorization_url } = await api.fbConnectUrl();
+      window.location.href = authorization_url;
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Could not start FreshBooks connection");
+      setFbConnecting(false);
+    }
+  }
+
+  async function disconnectFb() {
+    if (!window.confirm("Disconnect from FreshBooks? Invoice sync and payment detection will stop.")) return;
+    setLoadError(null);
+    try {
+      await api.fbDisconnect();
+      await loadStatus();
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Could not disconnect FreshBooks");
     }
   }
 
@@ -213,7 +247,7 @@ function ConnectionsPanelContent({ mode }: { mode: ConnectionsPanelMode }) {
       <p className="mt-1 text-sm text-muted">
         {mode === "email"
           ? "Connect Gmail or verify a domain email so GentleTap can send payment reminders on your behalf."
-          : "Connect QuickBooks and WhatsApp — invoices sync every 30 minutes. Spreadsheet uploads also run on autopilot once you're live."}
+          : "Connect QuickBooks or FreshBooks and WhatsApp — invoices sync every 30 minutes. Spreadsheet uploads also run on autopilot once you're live."}
       </p>
 
       {purchaseNote && (
@@ -253,6 +287,44 @@ function ConnectionsPanelContent({ mode }: { mode: ConnectionsPanelMode }) {
                 </button>
               ) : (
                 <ConnectQuickBooksButton onClick={connectQb} busy={qbConnecting} size="sm" />
+              )}
+            </div>
+          </div>
+        )}
+
+        {mode === "integrations" && (
+          <div className="card flex items-center justify-between gap-4">
+            <div>
+              <p className="font-semibold">FreshBooks</p>
+              {fbConnected ? (
+                <>
+                  <p className="text-sm font-medium text-green">
+                    Connected{fbBusinessName ? ` · ${fbBusinessName}` : ""} · running automatically
+                  </p>
+                  <p className="mt-1 text-xs text-muted">
+                    Read-only access · {fbSyncing ? "Syncing now…" : autoSyncStatusLine(fbLastSyncAt)}
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-muted">
+                  Not connected — connect to import invoices from FreshBooks
+                </p>
+              )}
+            </div>
+            <div className="flex shrink-0 gap-2">
+              {fbConnected ? (
+                <button type="button" className="btn-secondary text-sm" onClick={disconnectFb}>
+                  Disconnect
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn-primary text-sm"
+                  onClick={connectFb}
+                  disabled={fbConnecting}
+                >
+                  {fbConnecting ? "Connecting…" : "Connect FreshBooks"}
+                </button>
               )}
             </div>
           </div>

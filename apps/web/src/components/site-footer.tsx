@@ -15,6 +15,7 @@ const FOOTER_SECTIONS = [
       { href: "/compare", label: "Compare alternatives" },
       { href: "/quickbooks-reminders-vs-gentletap", label: "QBO vs GentleTap" },
       { href: "/integrations/quickbooks", label: "QuickBooks integration" },
+      { href: "/integrations/freshbooks", label: "FreshBooks integration" },
       { href: "/llms.txt", label: "AI / LLM site summary" },
     ],
   },

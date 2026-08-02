@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from gentletap.config import get_settings
 from gentletap.database import ReminderMessage, WhatsappConnection, get_db
 from gentletap.integrations.paddle import webhooks as paddle_webhooks
+from gentletap.integrations.freshbooks import webhooks as fb_webhooks
 from gentletap.integrations.quickbooks import webhooks as qb_webhooks
 from gentletap.integrations.resend import webhooks as resend_webhooks
 from gentletap.integrations.twilio.phone import normalize_phone_e164, phones_match
@@ -90,6 +91,20 @@ async def quickbooks_webhook(request: Request, db: Session = Depends(get_db)) ->
     data = json.loads(payload.decode())
     qb_webhooks.handle_webhook_event(db, data)
     return {"received": True}
+
+
+@router.post("/freshbooks")
+@limiter.exempt
+async def freshbooks_webhook(request: Request, db: Session = Depends(get_db)) -> dict:
+    payload = await request.body()
+    signature = request.headers.get("X-FreshBooks-Hmac-SHA256") or request.headers.get(
+        "x-freshbooks-hmac-sha256"
+    )
+    form = fb_webhooks.parse_form_body(payload)
+    result = fb_webhooks.handle_webhook_post(db, form=form, signature=signature)
+    if result.get("status") == "invalid_signature":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid signature")
+    return {"received": True, **result}
 
 
 @router.post("/resend")

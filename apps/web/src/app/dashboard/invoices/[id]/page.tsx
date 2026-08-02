@@ -155,6 +155,8 @@ export default function InvoiceDetailPage() {
   }
 
   const isUpload = (invoice?.source ?? "quickbooks") === "upload";
+  const isFreshbooks = (invoice?.source ?? "") === "freshbooks";
+  const accountingLabel = isFreshbooks ? "FreshBooks" : "QuickBooks";
   const hasEmail = Boolean(invoice?.reminder_email || invoice?.client.email);
   const whatsappPlan = hasWhatsapp(user.plan);
 
@@ -317,7 +319,7 @@ export default function InvoiceDetailPage() {
                       Re-upload your spreadsheet to start reminders automatically, or approve this invoice below.
                     </span>
                   ) : (
-                    <span>QuickBooks sync will start reminders automatically on the next sync.</span>
+                    <span>{accountingLabel} sync will start reminders automatically on the next sync.</span>
                   )}
                 </div>
               )}
@@ -351,7 +353,7 @@ export default function InvoiceDetailPage() {
                   <h2 className="text-sm font-semibold">WhatsApp follow-up</h2>
                   <p className="mt-0.5 text-xs text-muted">
                     Add the <span className="font-medium">client&apos;s</span> mobile for quick follow-ups after
-                    email (steps 1–3). Not pulled from QuickBooks.
+                    email (steps 1–3). Not pulled from {accountingLabel}.
                   </p>
                   <form
                     onSubmit={async (e) => {
@@ -443,8 +445,8 @@ export default function InvoiceDetailPage() {
                 </dl>
                 <p className="mt-4 text-[11px] leading-relaxed text-muted">
                   {isUpload
-                    ? "Reminders run on autopilot. Update balance here when paid — QuickBooks won’t sync uploaded rows."
-                    : "QuickBooks balances sync every 30 minutes. Reminders stop when QB shows paid."}
+                    ? "Reminders run on autopilot. Update balance here when paid — accounting sync won’t update uploaded rows."
+                    : `${accountingLabel} balances sync every 30 minutes. Reminders stop when ${isFreshbooks ? "FreshBooks" : "QB"} shows paid.`}
                 </p>
               </div>
             </div>

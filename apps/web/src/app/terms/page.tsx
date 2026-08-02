@@ -4,7 +4,7 @@ import { LEGAL, operatorIntro } from "@/lib/legal";
 
 export default function TermsPage() {
   return (
-    <LegalLayout title="Terms of Service" updated="June 18, 2026">
+    <LegalLayout title="Terms of Service" updated="August 1, 2026">
       <p>
         These Terms of Service (&quot;Terms&quot;) govern your use of {LEGAL.productName} at{" "}
         <a href={LEGAL.websiteUrl} target="_blank" rel="noopener noreferrer">
@@ -20,24 +20,27 @@ export default function TermsPage() {
       <h2>Service description</h2>
       <p>
         {LEGAL.productName} is cloud-based software that helps freelancers and small businesses send
-        AI-assisted payment reminders. The service connects to QuickBooks Online, drafts follow-up
-        messages, and sends them via your connected email or WhatsApp channel. You remain the sender
-        of record to your clients. All features are delivered digitally through your web dashboard —
-        there is no physical goods delivery and no human-managed collection service.
+        AI-assisted payment reminders. The service can connect to QuickBooks Online or FreshBooks,
+        drafts follow-up messages, and sends them via your connected email or WhatsApp channel. You
+        remain the sender of record to your clients. All features are delivered digitally through your
+        web dashboard — there is no physical goods delivery and no human-managed collection service.
       </p>
 
-      <h2>QuickBooks Online integration</h2>
+      <h2>Accounting integrations</h2>
       <p>
         If you connect QuickBooks Online, you authorize {LEGAL.productName} to access accounting data
-        via Intuit&apos;s OAuth 2.0 API. {LEGAL.productName} reads invoices and customer contact
-        information to sync unpaid balances and detect payments. We do not write data back to your
-        QuickBooks company.
+        via Intuit&apos;s OAuth 2.0 API. If you connect FreshBooks, you authorize access via
+        FreshBooks&apos; OAuth 2.0 API and the official FreshBooks SDK. In both cases{" "}
+        {LEGAL.productName} reads invoices and customer contact information to sync unpaid balances
+        and detect payments. We do not write data back to your accounting company, and we do not
+        process client payments on your behalf.
       </p>
       <p>
-        You may disconnect QuickBooks at any time from Settings → Connections or from the QuickBooks
-        Apps menu. Disconnecting revokes OAuth access and stops sync. See our{" "}
-        <a href="/integrations/quickbooks">integration overview</a> and{" "}
-        <a href="/integrations/quickbooks/disconnected">disconnect information</a>.
+        You may disconnect QuickBooks or FreshBooks at any time from Settings → Connections (or from
+        the provider&apos;s connected-apps settings). Disconnecting revokes OAuth access and stops
+        sync. See our{" "}
+        <a href="/integrations/quickbooks">QuickBooks</a> and{" "}
+        <a href="/integrations/freshbooks">FreshBooks</a> integration pages.
       </p>
       <p>
         Your use of QuickBooks through {LEGAL.productName} is also subject to{" "}
@@ -48,7 +51,9 @@ export default function TermsPage() {
         >
           Intuit Developer Terms
         </a>{" "}
-        and Intuit&apos;s applicable end-user terms for QuickBooks Online.
+        and Intuit&apos;s applicable end-user terms for QuickBooks Online. Your use of FreshBooks
+        through {LEGAL.productName} is also subject to FreshBooks&apos; applicable terms and API
+        policies.
       </p>
 
       <h2>Accounts</h2>
@@ -64,7 +69,7 @@ export default function TermsPage() {
       <ul>
         <li>
           <strong>Starter</strong> — free; up to 5 invoice collections per calendar month; email
-          reminders and QuickBooks sync
+          reminders and QuickBooks / FreshBooks sync
         </li>
         <li>
           <strong>Pro</strong> — $19/month or $190/year; unlimited sequences, autonomous email
@@ -158,7 +163,8 @@ export default function TermsPage() {
 
       <h2>Integrations and availability</h2>
       <p>
-        {LEGAL.productName} relies on third-party APIs (QuickBooks, Google, Resend, Paddle, Twilio/Meta).
+        {LEGAL.productName} relies on third-party APIs (QuickBooks, FreshBooks, Google, Resend, Paddle,
+        Twilio/Meta).
         We do not control their uptime or policy changes. We may modify or discontinue features if a
         third-party integration becomes unavailable.
       </p>
@@ -194,7 +200,7 @@ export default function TermsPage() {
       <p>When you cancel or delete your account:</p>
       <ul>
         <li>Autopilot and reminder sending stop immediately</li>
-        <li>Connected integrations (QuickBooks, Gmail, WhatsApp) are revoked</li>
+        <li>Connected integrations (QuickBooks, FreshBooks, Gmail, WhatsApp) are revoked</li>
         <li>
           You may export your data from Profile settings before deletion; deleted account data is
           removed from our active systems within 30 days except where retention is required by law

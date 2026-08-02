@@ -416,6 +416,7 @@ export function SourceFilterChips({
   const chips: { id: InvoiceSourceFilter; label: string }[] = [
     { id: "all", label: "All sources" },
     { id: "quickbooks", label: "QuickBooks" },
+    { id: "freshbooks", label: "FreshBooks" },
     { id: "upload", label: "Uploaded" },
   ];
   return (

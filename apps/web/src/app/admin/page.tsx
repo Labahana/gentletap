@@ -89,6 +89,7 @@ export default function AdminOverviewPage() {
             href="/admin/jobs?status=failed"
           />
           <AdminStatCard label="QB connected" value={overview.qb_connected} />
+          <AdminStatCard label="FB connected" value={overview.fb_connected} />
           <AdminStatCard label="Gmail connected" value={overview.google_connected} />
         </div>
       )}

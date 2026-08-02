@@ -11,6 +11,7 @@ from gentletap.database import (
     EmailPreference,
     EmailDomain,
     EmailSender,
+    FreshBooksConnection,
     GoogleConnection,
     Invoice,
     InvoiceImportBatch,
@@ -64,6 +65,14 @@ def delete_user_account(db: Session, user_id: UUID) -> None:
         _revoke_quickbooks(qb)
         qb.disconnected_at = datetime.now(UTC)
 
+    fb = (
+        db.query(FreshBooksConnection)
+        .filter(FreshBooksConnection.user_id == user_id, FreshBooksConnection.disconnected_at.is_(None))
+        .one_or_none()
+    )
+    if fb:
+        fb.disconnected_at = datetime.now(UTC)
+
     google = (
         db.query(GoogleConnection)
         .filter(GoogleConnection.user_id == user_id, GoogleConnection.disconnected_at.is_(None))
@@ -102,6 +111,7 @@ def delete_user_account(db: Session, user_id: UUID) -> None:
     db.query(UserNotification).filter(UserNotification.user_id == user_id).delete(synchronize_session=False)
     db.query(SyncLog).filter(SyncLog.user_id == user_id).delete(synchronize_session=False)
     db.query(QuickBooksConnection).filter(QuickBooksConnection.user_id == user_id).delete(synchronize_session=False)
+    db.query(FreshBooksConnection).filter(FreshBooksConnection.user_id == user_id).delete(synchronize_session=False)
     db.query(GoogleConnection).filter(GoogleConnection.user_id == user_id).delete(synchronize_session=False)
     db.query(WhatsappConnection).filter(WhatsappConnection.user_id == user_id).delete(synchronize_session=False)
     db.query(EmailSender).filter(EmailSender.user_id == user_id).delete(synchronize_session=False)
@@ -179,6 +189,10 @@ def export_user_data(db: Session, user_id: UUID) -> dict:
         "integrations": {
             "quickbooks_connected": db.query(QuickBooksConnection)
             .filter(QuickBooksConnection.user_id == user_id, QuickBooksConnection.disconnected_at.is_(None))
+            .count()
+            > 0,
+            "freshbooks_connected": db.query(FreshBooksConnection)
+            .filter(FreshBooksConnection.user_id == user_id, FreshBooksConnection.disconnected_at.is_(None))
             .count()
             > 0,
             "google_connected": db.query(GoogleConnection)

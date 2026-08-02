@@ -26,6 +26,11 @@ def test_invoice_source_upload():
     assert invoice_source(_invoice(qb_invoice_id="csv:INV-12")) == "upload"
 
 
+def test_invoice_source_freshbooks():
+    assert invoice_source(_invoice(qb_invoice_id="fb:991")) == "freshbooks"
+    assert invoice_source(_invoice(qb_invoice_id="1042", source="freshbooks")) == "freshbooks"
+
+
 def test_upload_needs_attention_when_overdue_not_active():
     inv = _invoice(
         qb_invoice_id="csv:x",

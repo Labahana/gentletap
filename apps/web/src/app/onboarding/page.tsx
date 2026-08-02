@@ -12,7 +12,7 @@ import { useAuth } from "@/lib/auth-context";
 
 const STEPS = [
   { id: "profile", label: "Your Profile", subtitle: "Name, company & logo" },
-  { id: "import", label: "Import Invoices", subtitle: "QuickBooks or spreadsheet" },
+  { id: "import", label: "Import Invoices", subtitle: "Accounting app or spreadsheet" },
   { id: "email", label: "Email Setup", subtitle: "Send from your inbox" },
   { id: "invoice", label: "Go Live", subtitle: "Turn on autopilot" },
 ];
@@ -45,7 +45,7 @@ function stepHeading(macro: number): { title: string; description: string } {
   if (macro === 1) {
     return {
       title: "Import Invoices",
-      description: "Connect QuickBooks or upload a spreadsheet of unpaid invoices.",
+      description: "Connect QuickBooks or FreshBooks, or upload a spreadsheet of unpaid invoices.",
     };
   }
   if (macro === 2) {
@@ -141,6 +141,8 @@ function OnboardingContent() {
   const [previews, setPreviews] = useState<ReminderPreviewItem[]>([]);
   const [qbConnecting, setQbConnecting] = useState(false);
   const [qbError, setQbError] = useState<string | null>(null);
+  const [fbConnecting, setFbConnecting] = useState(false);
+  const [fbError, setFbError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [senderEmail, setSenderEmail] = useState<string | null>(null);
   const [activating, setActivating] = useState(false);
@@ -151,7 +153,7 @@ function OnboardingContent() {
   const [importSummary, setImportSummary] = useState<ImportSummary>({
     count: 0,
     total: 0,
-    message: "Connect QuickBooks or upload a spreadsheet to import invoices",
+    message: "Connect QuickBooks or FreshBooks, or upload a spreadsheet to import invoices",
     syncing: false,
     oldestDays: 0,
     avgDays: 0,
@@ -184,6 +186,7 @@ function OnboardingContent() {
 
   useEffect(() => {
     const qb = searchParams.get("qb");
+    const fb = searchParams.get("fb");
     const email = searchParams.get("email");
     const message = searchParams.get("message");
     const paid = searchParams.get("paid");
@@ -196,6 +199,14 @@ function OnboardingContent() {
     } else if (qb === "error") {
       setMacroStep(1);
       setQbError(message ?? "QuickBooks connection failed");
+      router.replace("/onboarding");
+    } else if (fb === "connected") {
+      setMacroStep(1);
+      setImportSummary((s) => ({ ...s, message: "Syncing invoices from FreshBooks…", syncing: true }));
+      router.replace("/onboarding");
+    } else if (fb === "error") {
+      setMacroStep(1);
+      setFbError(message ?? "FreshBooks connection failed");
       router.replace("/onboarding");
     } else if (email === "connected") {
       api.googleStatus().then((g) => setSenderEmail(g.email ?? null)).catch(() => {});
@@ -241,17 +252,28 @@ function OnboardingContent() {
   const pollImportStatus = useCallback(async () => {
     if (!user) return false;
     try {
-      const [sync, summary] = await Promise.all([
+      const [qbSync, fbSync, summary] = await Promise.all([
         api.qbSyncStatus(),
+        api.fbSyncStatus().catch(() => ({ status: "idle", message: "", unpaid_count: 0, total_outstanding: 0 })),
         api.invoicesSummary(),
       ]);
-      const syncing = sync.status === "syncing";
+      const activeSync =
+        qbSync.status === "syncing"
+          ? qbSync
+          : fbSync.status === "syncing"
+            ? fbSync
+            : qbSync.connected
+              ? qbSync
+              : fbSync.connected
+                ? fbSync
+                : qbSync;
+      const syncing = qbSync.status === "syncing" || fbSync.status === "syncing";
       setImportSummary({
-        count: summary.overdue_count ?? summary.unpaid_count ?? sync.unpaid_count ?? 0,
-        total: summary.total_outstanding ?? sync.total_outstanding ?? 0,
+        count: summary.overdue_count ?? summary.unpaid_count ?? activeSync.unpaid_count ?? 0,
+        total: summary.total_outstanding ?? activeSync.total_outstanding ?? 0,
         oldestDays: summary.oldest_days_overdue ?? 0,
         avgDays: summary.avg_days_overdue ?? 0,
-        message: sync.message,
+        message: activeSync.message || "Ready",
         syncing,
       });
       return syncing;
@@ -363,6 +385,18 @@ function OnboardingContent() {
     } catch (err) {
       setQbError(err instanceof Error ? err.message : "Failed to start QuickBooks connection");
       setQbConnecting(false);
+    }
+  }
+
+  async function connectFreshBooks() {
+    setFbConnecting(true);
+    setFbError(null);
+    try {
+      const { authorization_url } = await api.fbConnectUrl();
+      window.location.href = authorization_url;
+    } catch (err) {
+      setFbError(err instanceof Error ? err.message : "Failed to start FreshBooks connection");
+      setFbConnecting(false);
     }
   }
 
@@ -626,8 +660,11 @@ function OnboardingContent() {
             onBack={goBack}
             onContinue={continueToEmail}
             onConnectQuickBooks={connectQuickBooks}
+            onConnectFreshBooks={connectFreshBooks}
             qbConnecting={qbConnecting}
+            fbConnecting={fbConnecting}
             qbError={qbError}
+            fbError={fbError}
             importMessage={importSummary.message}
             importSyncing={importSummary.syncing}
             invoiceCount={importSummary.count}

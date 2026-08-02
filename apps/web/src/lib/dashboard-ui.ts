@@ -3,7 +3,8 @@ import { formatLastSync } from "./onboarding";
 
 export type ChaseLabel = NonNullable<InvoiceItem["chase_label"]>;
 export type InvoiceFilter = "all" | "chasing" | "overdue" | "paid";
-export type InvoiceSourceFilter = "all" | "quickbooks" | "upload";
+export type InvoiceSourceFilter = "all" | "quickbooks" | "freshbooks" | "upload";
+export type InvoiceSource = "quickbooks" | "freshbooks" | "upload";
 
 export function greetingName(fullName: string | null | undefined, email: string): string {
   if (fullName?.trim()) return fullName.trim().split(/\s+/)[0]!;
@@ -57,8 +58,8 @@ export function formatActivityTime(iso: string | null | undefined): string {
 export function syncSubline(lastSyncAt: string | null | undefined, mobile = false): string {
   const last = formatLastSync(lastSyncAt);
   if (mobile && last) return `Synced ${last}`;
-  if (last) return `QuickBooks synced ${last} · everything is up to date`;
-  return "QuickBooks syncs automatically every 30 min";
+  if (last) return `Accounting synced ${last} · everything is up to date`;
+  return "QuickBooks / FreshBooks sync automatically every 30 min";
 }
 
 export function lastActionLine(
@@ -151,7 +152,7 @@ export function filterCounts(items: InvoiceItem[]): Record<InvoiceFilter, number
   };
 }
 
-export function invoiceSourceOf(inv: InvoiceItem): "quickbooks" | "upload" {
+export function invoiceSourceOf(inv: InvoiceItem): InvoiceSource {
   return inv.source ?? "quickbooks";
 }
 
@@ -162,12 +163,14 @@ export function filterBySource(items: InvoiceItem[], source: InvoiceSourceFilter
 
 export function sourceFilterCounts(items: InvoiceItem[]): Record<InvoiceSourceFilter, number> {
   const quickbooks = items.filter((i) => invoiceSourceOf(i) === "quickbooks").length;
+  const freshbooks = items.filter((i) => invoiceSourceOf(i) === "freshbooks").length;
   const upload = items.filter((i) => invoiceSourceOf(i) === "upload").length;
-  return { all: items.length, quickbooks, upload };
+  return { all: items.length, quickbooks, freshbooks, upload };
 }
 
-export const SOURCE_BADGE: Record<"quickbooks" | "upload", { label: string; className: string }> = {
+export const SOURCE_BADGE: Record<InvoiceSource, { label: string; className: string }> = {
   quickbooks: { label: "QB", className: "bg-green/15 text-green" },
+  freshbooks: { label: "FB", className: "bg-sky-500/15 text-sky-900 dark:text-sky-100" },
   upload: { label: "Upload", className: "bg-amber-500/15 text-amber-900 dark:text-amber-100" },
 };
 

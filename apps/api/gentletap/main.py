@@ -15,6 +15,7 @@ from gentletap.api import (
     clients,
     core,
     escalations,
+    freshbooks,
     google,
     invoices,
     notifications,
@@ -72,6 +73,7 @@ def create_app() -> FastAPI:
     app.include_router(core.router, prefix=prefix)
     app.include_router(auth.router, prefix=prefix)
     app.include_router(quickbooks.router, prefix=prefix)
+    app.include_router(freshbooks.router, prefix=prefix)
     app.include_router(google.router, prefix=prefix)
     app.include_router(email_router, prefix=prefix)
     app.include_router(invoices.router, prefix=prefix)
