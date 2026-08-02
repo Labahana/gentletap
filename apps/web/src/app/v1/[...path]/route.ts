@@ -8,6 +8,11 @@ const HOP_BY_HOP = new Set([
   "content-length",
   "transfer-encoding",
   "expect",
+  // Forwarded headers are set by nginx; do not pass through client-supplied values.
+  "x-forwarded-for",
+  "x-forwarded-proto",
+  "x-forwarded-host",
+  "x-real-ip",
 ]);
 
 const PROXY_TIMEOUT_MS = 30_000;
