@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ConnectQuickBooksButton } from "@/components/connect-quickbooks-button";
 import { OnboardingImportStats } from "@/components/onboarding-import-stats";
 import { InvoiceImportFormatHelp } from "@/components/invoice-import-format-help";
-import { api } from "@/lib/api";
+import { api, IDLE_FB_SYNC_STATUS } from "@/lib/api";
 
 type ImportChoice = "quickbooks" | "freshbooks" | "csv";
 type ImportPhase = "choose" | "results";
@@ -103,7 +103,7 @@ export function OnboardingImportStep({
     try {
       const [qb, fb] = await Promise.all([
         api.qbSyncStatus(),
-        api.fbSyncStatus().catch(() => ({ connected: false })),
+        api.fbSyncStatus().catch(() => IDLE_FB_SYNC_STATUS),
       ]);
       setQbConnected(Boolean(qb.connected));
       setFbConnected(Boolean(fb.connected));

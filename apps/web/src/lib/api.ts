@@ -32,6 +32,43 @@ export type TokenResponse = {
   token_type: string;
 };
 
+export type QbSyncStatus = {
+  status: string;
+  progress: number;
+  message: string;
+  connected?: boolean;
+  unpaid_count?: number;
+  total_outstanding?: number;
+  last_sync_at?: string | null;
+  auto_activated?: number;
+};
+
+export type FbSyncStatus = {
+  status: string;
+  progress: number;
+  message: string;
+  connected?: boolean;
+  unpaid_count?: number;
+  total_outstanding?: number;
+  last_sync_at?: string | null;
+  account_id?: string;
+  business_name?: string | null;
+  auto_activated?: number;
+};
+
+/** Fallback when FreshBooks status fetch fails (keeps Promise.all unions typed). */
+export const IDLE_FB_SYNC_STATUS: FbSyncStatus = {
+  status: "idle",
+  progress: 0,
+  message: "",
+  connected: false,
+  unpaid_count: 0,
+  total_outstanding: 0,
+  last_sync_at: null,
+  account_id: undefined,
+  business_name: null,
+};
+
 export type EmailDnsRecord = {
   type: string;
   host: string;
@@ -435,33 +472,13 @@ export const api = {
     request<{ authorization_url: string }>("/quickbooks/connect-url", {}),
 
   qbSyncStatus: () =>
-    request<{
-      status: string;
-      progress: number;
-      message: string;
-      connected?: boolean;
-      unpaid_count?: number;
-      total_outstanding?: number;
-      last_sync_at?: string | null;
-      auto_activated?: number;
-    }>("/quickbooks/sync/status", {}),
+    request<QbSyncStatus>("/quickbooks/sync/status", {}),
 
   fbConnectUrl: () =>
     request<{ authorization_url: string }>("/freshbooks/connect-url", {}),
 
   fbSyncStatus: () =>
-    request<{
-      status: string;
-      progress: number;
-      message: string;
-      connected?: boolean;
-      unpaid_count?: number;
-      total_outstanding?: number;
-      last_sync_at?: string | null;
-      account_id?: string;
-      business_name?: string | null;
-      auto_activated?: number;
-    }>("/freshbooks/sync/status", {}),
+    request<FbSyncStatus>("/freshbooks/sync/status", {}),
 
   fbSync: () =>
     request<{ status: string; message: string }>("/freshbooks/sync", { method: "POST" }),

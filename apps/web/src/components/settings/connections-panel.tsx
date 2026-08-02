@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { ConnectQuickBooksButton } from "@/components/connect-quickbooks-button";
-import { api } from "@/lib/api";
+import { api, IDLE_FB_SYNC_STATUS } from "@/lib/api";
 import { openOverlayCheckout } from "@/lib/paddle";
 import { useAuth } from "@/lib/auth-context";
 import { planLabel } from "@/lib/pricing";
@@ -63,7 +63,7 @@ function ConnectionsPanelContent({ mode }: { mode: ConnectionsPanelMode }) {
       const [email, qb, fb, whatsapp, replies, google] = await Promise.all([
         api.emailStatus(),
         api.qbSyncStatus(),
-        api.fbSyncStatus().catch(() => ({ connected: false, status: "idle", last_sync_at: null })),
+        api.fbSyncStatus().catch(() => IDLE_FB_SYNC_STATUS),
         api.whatsappStatus().catch(() => null),
         api.whatsappInbound().catch(() => ({ items: [] })),
         api.googleStatus().catch(() => ({ connected: false, email: undefined })),

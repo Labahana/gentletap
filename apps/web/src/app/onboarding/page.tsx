@@ -6,7 +6,7 @@ import { OnboardingEmailStep } from "@/components/onboarding-email-step";
 import { OnboardingImportStep } from "@/components/onboarding-import-step";
 import { OnboardingPreviewStep } from "@/components/onboarding-preview-step";
 import { OnboardingInfoBox, OnboardingLoadingOverlay, OnboardingShell } from "@/components/onboarding-shell";
-import { api, type ReminderPreviewItem } from "@/lib/api";
+import { api, type ReminderPreviewItem, IDLE_FB_SYNC_STATUS } from "@/lib/api";
 import { openOverlayCheckout, type PaddlePublicConfig } from "@/lib/paddle";
 import { useAuth } from "@/lib/auth-context";
 
@@ -254,14 +254,7 @@ function OnboardingContent() {
     try {
       const [qbSync, fbSync, summary] = await Promise.all([
         api.qbSyncStatus(),
-        api.fbSyncStatus().catch(() => ({
-          status: "idle",
-          progress: 0,
-          message: "",
-          connected: false,
-          unpaid_count: 0,
-          total_outstanding: 0,
-        })),
+        api.fbSyncStatus().catch(() => IDLE_FB_SYNC_STATUS),
         api.invoicesSummary(),
       ]);
       const activeSync =

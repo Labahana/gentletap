@@ -16,7 +16,7 @@ import { DashIcon } from "@/components/dashboard-icons";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { DashboardUpgradeCard } from "@/components/upgrade-prompt";
 import { InvoiceDataSources } from "@/components/invoice-data-sources";
-import { api, type DashboardSummary, type InvoiceItem } from "@/lib/api";
+import { api, IDLE_FB_SYNC_STATUS, type DashboardSummary, type InvoiceItem } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import {
   greetingName,
@@ -78,7 +78,7 @@ export default function DashboardPage() {
         api.invoices(),
         api.notifications(),
         api.qbSyncStatus(),
-        api.fbSyncStatus().catch(() => ({ connected: false, last_sync_at: null as string | null })),
+        api.fbSyncStatus().catch(() => IDLE_FB_SYNC_STATUS),
       ]);
       setSummary(s);
       setInvoices(inv.items);
