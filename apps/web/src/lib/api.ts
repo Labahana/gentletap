@@ -329,12 +329,12 @@ async function request<T>(
     await clearSession();
     // Only bounce authenticated app areas. Public pages (landing, signup, etc.)
     // call api.me() via AuthProvider — a 401 there is normal for guests.
-    const path = window.location.pathname;
+    const currentPath = window.location.pathname;
     const isProtectedApp =
-      path.startsWith("/dashboard") ||
-      path.startsWith("/settings") ||
-      path.startsWith("/admin") ||
-      path.startsWith("/onboarding");
+      currentPath.startsWith("/dashboard") ||
+      currentPath.startsWith("/settings") ||
+      currentPath.startsWith("/admin") ||
+      currentPath.startsWith("/onboarding");
     if (isProtectedApp) {
       window.location.href = "/login";
     }
