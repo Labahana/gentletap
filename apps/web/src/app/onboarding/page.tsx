@@ -254,7 +254,14 @@ function OnboardingContent() {
     try {
       const [qbSync, fbSync, summary] = await Promise.all([
         api.qbSyncStatus(),
-        api.fbSyncStatus().catch(() => ({ status: "idle", message: "", unpaid_count: 0, total_outstanding: 0 })),
+        api.fbSyncStatus().catch(() => ({
+          status: "idle",
+          progress: 0,
+          message: "",
+          connected: false,
+          unpaid_count: 0,
+          total_outstanding: 0,
+        })),
         api.invoicesSummary(),
       ]);
       const activeSync =
