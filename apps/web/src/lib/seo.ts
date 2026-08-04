@@ -343,6 +343,39 @@ export function howToJsonLd(
   };
 }
 
+export function articleJsonLd(input: {
+  title: string;
+  description: string;
+  path: string;
+  datePublished: string;
+  dateModified?: string;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: input.title,
+    description: input.description,
+    url: `${SITE_URL}${input.path}`,
+    datePublished: input.datePublished,
+    dateModified: input.dateModified ?? input.datePublished,
+    author: {
+      "@type": "Organization",
+      name: LEGAL.productName,
+      url: SITE_URL,
+    },
+    publisher: {
+      "@type": "Organization",
+      name: LEGAL.productName,
+      url: SITE_URL,
+      logo: {
+        "@type": "ImageObject",
+        url: `${SITE_URL}/brand/icon-512.png`,
+      },
+    },
+    mainEntityOfPage: { "@type": "WebPage", "@id": `${SITE_URL}${input.path}` },
+  };
+}
+
 /** Public marketing URLs for sitemap.xml */
 export const SITEMAP_PATHS: Array<{ path: string; changeFrequency: "weekly" | "monthly"; priority: number }> = [
   { path: "/", changeFrequency: "weekly", priority: 1 },
@@ -369,7 +402,55 @@ export const SITEMAP_PATHS: Array<{ path: string; changeFrequency: "weekly" | "m
   { path: "/compare/duedrop", changeFrequency: "monthly", priority: 0.88 },
   { path: "/compare/nudgepe", changeFrequency: "monthly", priority: 0.86 },
   { path: "/compare/freshbooks", changeFrequency: "monthly", priority: 0.86 },
+  { path: "/compare/invoicesherpa", changeFrequency: "monthly", priority: 0.86 },
+  { path: "/compare/upflow", changeFrequency: "monthly", priority: 0.86 },
+  { path: "/compare/satago", changeFrequency: "monthly", priority: 0.86 },
+  { path: "/compare/chaseai", changeFrequency: "monthly", priority: 0.86 },
   { path: "/quickbooks-reminders-vs-gentletap", changeFrequency: "weekly", priority: 0.92 },
+  { path: "/quickbooks-invoice-automation", changeFrequency: "weekly", priority: 0.93 },
+  { path: "/freshbooks-invoice-reminders", changeFrequency: "weekly", priority: 0.93 },
+  { path: "/xero-invoice-reminders", changeFrequency: "monthly", priority: 0.88 },
+  { path: "/features", changeFrequency: "monthly", priority: 0.9 },
+  { path: "/features/ai-reminder-drafts", changeFrequency: "monthly", priority: 0.88 },
+  { path: "/features/send-from-gmail", changeFrequency: "monthly", priority: 0.88 },
+  { path: "/features/whatsapp-reminders", changeFrequency: "monthly", priority: 0.88 },
+  { path: "/features/auto-stop-on-payment", changeFrequency: "monthly", priority: 0.88 },
+  { path: "/industries", changeFrequency: "monthly", priority: 0.9 },
+  { path: "/industries/freelancers", changeFrequency: "monthly", priority: 0.88 },
+  { path: "/industries/agencies", changeFrequency: "monthly", priority: 0.88 },
+  { path: "/industries/consultants", changeFrequency: "monthly", priority: 0.88 },
+  { path: "/industries/developers", changeFrequency: "monthly", priority: 0.88 },
+  { path: "/industries/designers", changeFrequency: "monthly", priority: 0.88 },
+  { path: "/industries/photographers", changeFrequency: "monthly", priority: 0.88 },
+  { path: "/industries/contractors", changeFrequency: "monthly", priority: 0.88 },
+  { path: "/industries/accountants", changeFrequency: "monthly", priority: 0.88 },
+  { path: "/industries/coaches", changeFrequency: "monthly", priority: 0.88 },
+  { path: "/industries/lawyers", changeFrequency: "monthly", priority: 0.88 },
+  { path: "/alternatives", changeFrequency: "weekly", priority: 0.9 },
+  { path: "/alternatives/bonsai", changeFrequency: "monthly", priority: 0.86 },
+  { path: "/alternatives/chaser", changeFrequency: "monthly", priority: 0.86 },
+  { path: "/alternatives/melio", changeFrequency: "monthly", priority: 0.86 },
+  { path: "/alternatives/invoice-dunning", changeFrequency: "monthly", priority: 0.84 },
+  { path: "/alternatives/invoicechaser", changeFrequency: "monthly", priority: 0.84 },
+  { path: "/alternatives/landolio", changeFrequency: "monthly", priority: 0.84 },
+  { path: "/alternatives/paidnice", changeFrequency: "monthly", priority: 0.86 },
+  { path: "/alternatives/honeybook", changeFrequency: "monthly", priority: 0.84 },
+  { path: "/alternatives/duedrop", changeFrequency: "monthly", priority: 0.84 },
+  { path: "/alternatives/nudgepe", changeFrequency: "monthly", priority: 0.84 },
+  { path: "/alternatives/freshbooks", changeFrequency: "monthly", priority: 0.84 },
+  { path: "/alternatives/invoicesherpa", changeFrequency: "monthly", priority: 0.84 },
+  { path: "/alternatives/upflow", changeFrequency: "monthly", priority: 0.84 },
+  { path: "/alternatives/satago", changeFrequency: "monthly", priority: 0.84 },
+  { path: "/alternatives/chaseai", changeFrequency: "monthly", priority: 0.84 },
+  { path: "/blog", changeFrequency: "weekly", priority: 0.9 },
+  { path: "/blog/stop-chasing-invoices", changeFrequency: "monthly", priority: 0.88 },
+  { path: "/blog/late-payment-statistics-2026", changeFrequency: "monthly", priority: 0.88 },
+  { path: "/blog/get-paid-faster-freelancer", changeFrequency: "monthly", priority: 0.88 },
+  { path: "/blog/why-clients-pay-late", changeFrequency: "monthly", priority: 0.88 },
+  { path: "/blog/client-wont-pay-what-to-do", changeFrequency: "monthly", priority: 0.88 },
+  { path: "/blog/freelancer-cash-flow-management", changeFrequency: "monthly", priority: 0.86 },
+  { path: "/blog/payment-terms-that-get-you-paid", changeFrequency: "monthly", priority: 0.86 },
+  { path: "/blog/whatsapp-invoice-reminders", changeFrequency: "monthly", priority: 0.86 },
   { path: "/signup", changeFrequency: "monthly", priority: 0.9 },
   { path: "/integrations/quickbooks", changeFrequency: "monthly", priority: 0.85 },
   { path: "/affiliates", changeFrequency: "weekly", priority: 0.92 },

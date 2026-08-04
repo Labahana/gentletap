@@ -37,6 +37,10 @@ export const COMPETITOR_SLUGS = [
   "duedrop",
   "nudgepe",
   "freshbooks",
+  "invoicesherpa",
+  "upflow",
+  "satago",
+  "chaseai",
 ] as const;
 
 export type CompetitorSlug = (typeof COMPETITOR_SLUGS)[number];
@@ -545,6 +549,213 @@ export const COMPETITOR_COMPARISONS: Record<CompetitorSlug, CompetitorComparison
       {
         q: "Does GentleTap work with FreshBooks?",
         a: "Yes. Connect FreshBooks via OAuth in onboarding or Settings → Connections. GentleTap imports outstanding invoices, sends reminders from your Gmail, and stops when FreshBooks shows the balance paid.",
+      },
+    ],
+  },
+
+  invoicesherpa: {
+    slug: "invoicesherpa",
+    name: "InvoiceSherpa",
+    tagline: "SMB AR automation vs freelancer-friendly AI follow-up",
+    metaTitle: "GentleTap vs InvoiceSherpa — AR Reminders Compared (2026)",
+    metaDescription:
+      "Honest InvoiceSherpa vs GentleTap comparison. InvoiceSherpa is SMB accounts-receivable automation from ~$49/mo. GentleTap is AI-drafted follow-up from your Gmail for freelancers, free to start. See which fits.",
+    keywords: [
+      "GentleTap vs InvoiceSherpa",
+      "InvoiceSherpa alternative",
+      "InvoiceSherpa pricing",
+      "invoice chasing software for freelancers",
+    ],
+    category: "SMB accounts receivable automation",
+    competitorUrl: "https://www.invoicesherpa.com/",
+    competitorSummary:
+      "InvoiceSherpa is an established AR automation tool for small and mid-sized businesses. It syncs with QuickBooks and Xero, sends scheduled reminder sequences, offers a customer payment portal, and targets finance teams that manage steady invoice volume.",
+    gentletapSummary:
+      "GentleTap is built for solo freelancers and tiny teams: connect QuickBooks or FreshBooks, and AI drafts polite, client-specific follow-ups that send from your own Gmail — with optional WhatsApp on Pro+ — and stop the moment a balance clears.",
+    whenTheyWin:
+      "Choose InvoiceSherpa if you run a small finance team, want a branded payment portal, and need scheduled reminder cadences across many customers — it's proven SMB AR automation.",
+    whenGentletapWins:
+      "Choose GentleTap if you're a freelancer who wants follow-ups that read like you wrote them, sent from your real Gmail in about five minutes — starting free, with no portal or team overhead.",
+    honestVerdict:
+      "InvoiceSherpa is solid SMB AR automation; GentleTap is the lighter, cheaper, AI-personalized option for freelancers who live in QuickBooks or FreshBooks and just want clients to pay without awkward chases.",
+    pricingNote:
+      "InvoiceSherpa: from ~$49/mo. GentleTap: free Starter (5 collections/mo), Pro $19/mo, Pro+ $39/mo with WhatsApp.",
+    comparisonRows: [
+      { feature: "Primary audience", competitor: "SMB finance teams", gentletap: "Freelancers & small consultancies" },
+      { feature: "Reminder personalization", competitor: "Template sequences", gentletap: "AI drafts per invoice + client history" },
+      { feature: "Send from your Gmail", competitor: "No — InvoiceSherpa servers", gentletap: "Yes — your Gmail address" },
+      { feature: "Payment portal", competitor: "Yes", gentletap: "No — uses your invoice payment links" },
+      { feature: "WhatsApp follow-ups", competitor: "No", gentletap: "Yes — Pro+ and Team" },
+      { feature: "FreshBooks support", competitor: "No", gentletap: "Yes — plus QuickBooks Online" },
+      { feature: "Free tier", competitor: "Trial only", gentletap: "Free Starter — 5 collections/mo" },
+    ],
+    faq: [
+      {
+        q: "Is InvoiceSherpa worth it for a solo freelancer?",
+        a: "Usually not — at ~$49/mo it's priced for businesses with steady AR volume. GentleTap's free Starter covers 5 collections a month, and Pro is $19/mo for unlimited follow-up.",
+      },
+      {
+        q: "Which is easier to set up?",
+        a: "GentleTap: connect QuickBooks or FreshBooks and Gmail, preview your first AI drafts, and go live in about five minutes. InvoiceSherpa setup is also guided, but oriented to team workflows.",
+      },
+      {
+        q: "Can GentleTap replace InvoiceSherpa?",
+        a: "For freelancer-scale invoice chasing, yes — you keep sequences, payment detection, and escalation, and gain AI personalization and Gmail sending. If you rely on InvoiceSherpa's payment portal, that's the one piece GentleTap doesn't replicate.",
+      },
+    ],
+  },
+
+  upflow: {
+    slug: "upflow",
+    name: "Upflow",
+    tagline: "Mid-market AR platform vs solo-friendly follow-up",
+    metaTitle: "GentleTap vs Upflow — AR Automation Compared (2026)",
+    metaDescription:
+      "Honest Upflow vs GentleTap comparison. Upflow is a mid-market AR platform ($275+/mo) for finance teams. GentleTap is AI invoice follow-up from Gmail for freelancers and small businesses, free to start.",
+    keywords: [
+      "GentleTap vs Upflow",
+      "Upflow alternative for small business",
+      "Upflow pricing",
+      "accounts receivable software for freelancers",
+    ],
+    category: "Mid-market accounts receivable platform",
+    competitorUrl: "https://www.upflow.io/",
+    competitorSummary:
+      "Upflow is a full AR management platform for mid-market finance teams: collections workflows, customer portals, payment promises tracking, cash forecasting, analytics dashboards, and deep ERP/accounting integrations.",
+    gentletapSummary:
+      "GentleTap deliberately does far less: it chases your overdue QuickBooks and FreshBooks invoices with AI-personalized emails from your Gmail (plus WhatsApp on Pro+), and stops when clients pay. No portal, no forecasting — just follow-up that works.",
+    whenTheyWin:
+      "Choose Upflow if you have a dedicated AR/finance team, complex collections workflows, multiple entities, or need cash-flow analytics and payment-promise tracking. It's a serious mid-market platform.",
+    whenGentletapWins:
+      "Choose GentleTap if you're a freelancer or small business that finds Upflow's price and scope absurd for chasing a handful of invoices — you want polite, effective follow-up, not an AR department.",
+    honestVerdict:
+      "Upflow and GentleTap barely overlap. Upflow manages AR operations for finance teams; GentleTap gives one person superpowers for invoice follow-up at roughly one-tenth the entry price.",
+    pricingNote:
+      "Upflow: from ~$275/mo (annual contracts typical). GentleTap: free Starter, Pro $19/mo, Pro+ $39/mo, Team $59/mo.",
+    comparisonRows: [
+      { feature: "Primary audience", competitor: "Mid-market finance teams", gentletap: "Freelancers & small businesses" },
+      { feature: "Scope", competitor: "Full AR operations platform", gentletap: "Invoice follow-up specialist" },
+      { feature: "Reminder personalization", competitor: "Workflow templates", gentletap: "AI drafts per invoice + client history" },
+      { feature: "Cash forecasting", competitor: "Yes", gentletap: "No" },
+      { feature: "WhatsApp follow-ups", competitor: "No", gentletap: "Yes — Pro+ and Team" },
+      { feature: "Setup time", competitor: "Weeks, with onboarding", gentletap: "About five minutes" },
+      { feature: "Entry price", competitor: "~$275/mo", gentletap: "Free (5 collections/mo)" },
+    ],
+    faq: [
+      {
+        q: "Is Upflow overkill for a small business?",
+        a: "If you don't have a finance team, almost certainly. Upflow's value is in coordinating collections at scale. For chasing your own overdue invoices, GentleTap does the job for free or $19/mo.",
+      },
+      {
+        q: "Does GentleTap integrate with ERPs like Upflow?",
+        a: "No — GentleTap connects to QuickBooks Online and FreshBooks only. If you run NetSuite or SAP, Upflow is the appropriate class of tool.",
+      },
+      {
+        q: "Can I start on GentleTap and move to Upflow later?",
+        a: "Yes — GentleTap is month-to-month with no lock-in. Businesses that grow into a finance team sometimes graduate to platforms like Upflow; freelancers rarely need to.",
+      },
+    ],
+  },
+
+  satago: {
+    slug: "satago",
+    name: "Satago",
+    tagline: "UK credit-control suite vs simple AI follow-up",
+    metaTitle: "GentleTap vs Satago — Invoice Chasing Compared (2026)",
+    metaDescription:
+      "Honest Satago vs GentleTap comparison. Satago combines credit checking, risk insight, and invoice chasing from ~£83/mo. GentleTap is AI follow-up from Gmail for freelancers on QuickBooks or FreshBooks.",
+    keywords: [
+      "GentleTap vs Satago",
+      "Satago alternative",
+      "Satago pricing",
+      "credit control software for freelancers",
+    ],
+    category: "Credit control & risk management",
+    competitorUrl: "https://www.satago.com/",
+    competitorSummary:
+      "Satago is a UK-focused credit-control platform combining business credit checks, risk monitoring, automated invoice chasing, and optional invoice finance. It's aimed at B2B companies that want to vet customers and systematize collections.",
+    gentletapSummary:
+      "GentleTap skips credit checks and finance products: it connects to QuickBooks or FreshBooks and sends AI-personalized, relationship-preserving follow-ups from your Gmail, stopping when balances clear.",
+    whenTheyWin:
+      "Choose Satago if you need customer credit vetting, risk dashboards, and structured credit control for a UK B2B ledger — or if you want invoice finance options alongside chasing.",
+    whenGentletapWins:
+      "Choose GentleTap if your clients are known entities and the problem is simply getting invoices paid on time — you want friendly, effective follow-up from your own inbox at a fraction of the cost.",
+    honestVerdict:
+      "Satago is credit-risk infrastructure; GentleTap is follow-up automation. Freelancers and small consultancies almost never need Satago's credit-check stack — they need their invoices chased politely and persistently.",
+    pricingNote:
+      "Satago: from ~£83/mo. GentleTap: free Starter (5 collections/mo), Pro $19/mo, Pro+ $39/mo with WhatsApp.",
+    comparisonRows: [
+      { feature: "Core focus", competitor: "Credit risk + collections", gentletap: "Invoice follow-up only" },
+      { feature: "Credit checks", competitor: "Yes — built in", gentletap: "No" },
+      { feature: "Reminder personalization", competitor: "Template sequences", gentletap: "AI drafts per invoice + client history" },
+      { feature: "Send from your Gmail", competitor: "No", gentletap: "Yes — your Gmail address" },
+      { feature: "Invoice finance", competitor: "Optional add-on", gentletap: "No" },
+      { feature: "FreshBooks support", competitor: "No", gentletap: "Yes — plus QuickBooks Online" },
+      { feature: "Entry price", competitor: "~£83/mo", gentletap: "Free (5 collections/mo)" },
+    ],
+    faq: [
+      {
+        q: "Does GentleTap offer credit checking like Satago?",
+        a: "No — GentleTap assumes you already know your clients and focuses purely on getting invoices paid. If you need to vet new customers' creditworthiness, that's Satago's home turf.",
+      },
+      {
+        q: "Is Satago good for freelancers?",
+        a: "It's more than most freelancers need — credit checks and risk dashboards suit B2B companies with many unknown customers. GentleTap's free Starter plan covers typical freelancer chasing.",
+      },
+      {
+        q: "Which works outside the UK?",
+        a: "Both are geography-agnostic SaaS, though Satago's credit data is UK/EU-centric. GentleTap works wherever QuickBooks Online and FreshBooks do.",
+      },
+    ],
+  },
+
+  chaseai: {
+    slug: "chaseai",
+    name: "ChaseAI",
+    tagline: "Budget AI chasing vs relationship-aware follow-up",
+    metaTitle: "GentleTap vs ChaseAI — AI Invoice Chasing Compared (2026)",
+    metaDescription:
+      "Honest ChaseAI vs GentleTap comparison. ChaseAI offers cheap AI invoice chasing at ~$9/mo. GentleTap adds Gmail-native sending, client-history personalization, WhatsApp, and FreshBooks support.",
+    keywords: [
+      "GentleTap vs ChaseAI",
+      "ChaseAI alternative",
+      "ChaseAI app review",
+      "AI invoice chasing software",
+    ],
+    category: "AI invoice chasing (budget tier)",
+    competitorSummary:
+      "ChaseAI is a newer entrant offering AI-generated invoice chasing emails at a budget price point. It covers the basics — connect accounting, generate chases, send on a schedule — aimed at cost-sensitive solo users.",
+    gentletapSummary:
+      "GentleTap plays in the same AI-chasing category with a deeper model: per-invoice drafts shaped by client history and overdue stage, sending from your real Gmail, five-step escalating sequences, WhatsApp follow-ups on Pro+, and both QuickBooks and FreshBooks sync.",
+    whenTheyWin:
+      "Choose ChaseAI if price is the only criterion and you want the cheapest possible AI chasing with minimal features. At ~$9/mo it undercuts nearly everyone.",
+    whenGentletapWins:
+      "Choose GentleTap if you want the chasing to actually preserve client relationships — Gmail-native sending, drafts that reference real context, automatic stop on payment, and a free Starter tier that already covers light chasing.",
+    honestVerdict:
+      "ChaseAI proves the AI-chasing category works at $9/mo. GentleTap is the more complete version: same idea, deeper personalization, more channels, and a free tier that means you may never pay at all.",
+    pricingNote:
+      "ChaseAI: ~$9/mo. GentleTap: free Starter (5 collections/mo), Pro $19/mo, Pro+ $39/mo with WhatsApp, Team $59/mo.",
+    comparisonRows: [
+      { feature: "AI-drafted chases", competitor: "Yes — basic generation", gentletap: "Yes — client history + overdue stage aware" },
+      { feature: "Send from your Gmail", competitor: "No", gentletap: "Yes — replies land in your inbox" },
+      { feature: "Escalation sequences", competitor: "Simple schedules", gentletap: "Five-step polite-to-firm ladder" },
+      { feature: "WhatsApp follow-ups", competitor: "No", gentletap: "Yes — Pro+ and Team" },
+      { feature: "Accounting sync", competitor: "QuickBooks", gentletap: "QuickBooks + FreshBooks" },
+      { feature: "Stop when paid", competitor: "Yes", gentletap: "Yes — balance syncs automatically" },
+      { feature: "Free tier", competitor: "No", gentletap: "Free Starter — 5 collections/mo" },
+    ],
+    faq: [
+      {
+        q: "Is ChaseAI cheaper than GentleTap?",
+        a: "ChaseAI is ~$9/mo; GentleTap Pro is $19/mo — but GentleTap's free Starter plan (5 collections/month) is cheaper than both for light chasing.",
+      },
+      {
+        q: "What does GentleTap do that ChaseAI doesn't?",
+        a: "Send from your actual Gmail address, personalize drafts with client history, escalate through a five-step polite-to-firm sequence, follow up on WhatsApp, and sync FreshBooks as well as QuickBooks.",
+      },
+      {
+        q: "Which is better for client relationships?",
+        a: "GentleTap — chases come from your real inbox with per-client context, so they read like personal follow-ups rather than automated dunning.",
       },
     ],
   },

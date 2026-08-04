@@ -6,17 +6,35 @@ const FOOTER_SECTIONS = [
   {
     title: "Resources",
     links: [
+      { href: "/blog", label: "Blog" },
+      { href: "/features", label: "Features" },
       { href: "/how-to-follow-up-on-overdue-invoices", label: "Overdue invoice guide" },
       { href: "/quickbooks-payment-reminders", label: "QBO payment reminders" },
       {
         href: "/invoice-follow-up-email-templates-for-freelancers",
         label: "Invoice email templates",
       },
-      { href: "/compare", label: "Compare alternatives" },
+      { href: "/llms.txt", label: "AI / LLM site summary" },
+    ],
+  },
+  {
+    title: "Compare",
+    links: [
+      { href: "/compare", label: "Compare tools" },
+      { href: "/alternatives", label: "Alternatives" },
       { href: "/quickbooks-reminders-vs-gentletap", label: "QBO vs GentleTap" },
+      { href: "/compare/freshbooks", label: "FreshBooks vs GentleTap" },
+    ],
+  },
+  {
+    title: "Solutions",
+    links: [
+      { href: "/industries", label: "By industry" },
+      { href: "/quickbooks-invoice-automation", label: "QuickBooks automation" },
+      { href: "/freshbooks-invoice-reminders", label: "FreshBooks reminders" },
+      { href: "/xero-invoice-reminders", label: "Xero reminders" },
       { href: "/integrations/quickbooks", label: "QuickBooks integration" },
       { href: "/integrations/freshbooks", label: "FreshBooks integration" },
-      { href: "/llms.txt", label: "AI / LLM site summary" },
     ],
   },
   {
@@ -46,7 +64,7 @@ export function SiteFooter({ className = "" }: { className?: string }) {
           <Logo height={28} href="/" />
         </div>
 
-        <div className="grid gap-8 sm:grid-cols-3 sm:gap-6">
+        <div className="grid gap-8 sm:grid-cols-3 sm:gap-6 lg:grid-cols-5">
           {FOOTER_SECTIONS.map((section) => (
             <nav key={section.title} aria-labelledby={`footer-${section.title.toLowerCase()}`}>
               <h2
