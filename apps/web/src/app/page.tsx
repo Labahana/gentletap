@@ -6,8 +6,8 @@ import { PreviewDemo } from "@/components/preview-demo";
 import { PricingGrid } from "@/components/pricing-grid";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { HOME_FAQ, SEO_FEATURES, SEO_USE_CASES, AI_DISCOVERY_FAQ, COMPETITOR_COMPARISON, GENTLETAP_DEFINITION } from "@/lib/seo-content";
-import { PRICING_PLANS, PRICING_VALUE_PROPS } from "@/lib/pricing";
+import { HOME_FAQ } from "@/lib/seo-content";
+import { PRICING_PLANS } from "@/lib/pricing";
 import {
   DEFAULT_DESCRIPTION,
   faqJsonLd,
@@ -23,22 +23,111 @@ export const metadata: Metadata = pageMetadata({
   title: "Automated QuickBooks Invoice Reminders for Freelancers | GentleTap",
   description: DEFAULT_DESCRIPTION,
   path: "/",
-  ogTitle: "GentleTap — Get paid. Keep the relationship.",
+  ogTitle: "GentleTap — Stop chasing overdue invoices without sounding pushy.",
 });
 
 const STEPS = [
   {
-    title: "Connect QuickBooks or FreshBooks",
-    body: "We import unpaid invoices — balances, due dates, and client history — so automated payment reminders start from real data.",
+    title: "Connect QuickBooks Online or FreshBooks",
+    body: "Import open invoices and client details without changing how you already invoice.",
   },
   {
-    title: "Preview the message",
-    body: "Read AI-drafted invoice follow-ups for your actual clients. Approve once — they read like you wrote them yourself.",
+    title: "Preview a reminder in your voice",
+    body: "GentleTap drafts a warm-to-firm sequence. Edit or approve before anything sends.",
   },
   {
-    title: "Get paid",
-    body: "Overdue invoice reminders go out on your behalf. They stop the second payment lands in QuickBooks or FreshBooks.",
+    title: "Let the sequence run",
+    body: "Follow-ups send from Gmail and stop the moment the invoice balance is paid.",
   },
+] as const;
+
+const OUTCOMES = [
+  {
+    title: "Get every follow-up sent on time",
+    body: "No invoice disappears because you were busy delivering client work. The cadence runs whether you remember or not.",
+  },
+  {
+    title: "Protect the relationship while you collect",
+    body: "Warm-to-firm escalation that sounds like you — not robotic or threatening collections language.",
+  },
+  {
+    title: "See payment land, then stop automatically",
+    body: "QuickBooks or FreshBooks payment data ends the sequence so clients never get an unnecessary chase.",
+  },
+  {
+    title: "Recover more without a collections job",
+    body: "One dashboard shows what's overdue, what was sent, and what needs your attention.",
+  },
+] as const;
+
+const PAIN = [
+  {
+    title: "Follow-ups get delayed",
+    body: "You're delivering work — chasing invoices slips to next week, then the week after.",
+  },
+  {
+    title: "“Just checking in” feels awkward",
+    body: "Writing the email is harder than the work that earned the invoice.",
+  },
+  {
+    title: "Reminders stay inconsistent",
+    body: "Some clients get chased; others slip through — and you never know which.",
+  },
+] as const;
+
+const PERSONAS = [
+  {
+    title: "Freelancers",
+    body: "Stop spending evenings writing payment follow-ups. Automate the chase and stay in delivery mode.",
+  },
+  {
+    title: "Consultants",
+    body: "Keep client relationships strong while asking for a clear payment date — calmly, on schedule.",
+  },
+  {
+    title: "Small agencies",
+    body: "Give every overdue invoice a consistent next step without hiring a collections team.",
+  },
+] as const;
+
+const INTEGRATIONS = [
+  { name: "QuickBooks Online", status: "Live", href: "/integrations/quickbooks" },
+  { name: "FreshBooks", status: "Live", href: "/integrations/freshbooks" },
+  { name: "CSV import", status: "Available", href: "/signup" },
+  { name: "Xero", status: "Coming soon", href: "/xero-invoice-reminders" },
+] as const;
+
+const COMPARE_ROWS = [
+  { feature: "Uses accounting data", native: "Yes", manual: "No", gentletap: "Yes" },
+  { feature: "Personalized per client", native: "Limited", manual: "Depends on you", gentletap: "Yes" },
+  { feature: "Sends from your inbox", native: "Platform mail", manual: "Yes", gentletap: "Yes — Gmail" },
+  { feature: "Multi-step escalation", native: "Limited", manual: "Manual", gentletap: "Yes" },
+  { feature: "Stops after payment", native: "Platform-dependent", manual: "You track it", gentletap: "Yes — auto" },
+  { feature: "Review before sending", native: "Limited", manual: "Yes", gentletap: "Yes" },
+] as const;
+
+const LANDING_FAQ = [
+  ...HOME_FAQ.slice(0, 5),
+  {
+    q: "Is GentleTap a debt collection agency?",
+    a: "No. GentleTap is invoice follow-up software you control — reminders from your Gmail in your voice. It does not buy debt, threaten clients, or act as a third-party collector.",
+  },
+  {
+    q: "Can I pause one invoice?",
+    a: "Yes. Pause or resume any invoice's sequence anytime. The rest of your follow-ups keep running.",
+  },
+  {
+    q: "Does it send WhatsApp messages?",
+    a: "On Pro+ ($39/mo) and Team: email sends first, then a short WhatsApp nudge ~3 hours later on early steps. Starter and Pro are email-only.",
+  },
+] as const;
+
+const WORKFLOW_PANELS = [
+  { label: "1", title: "Open invoices", detail: "Synced balances & due dates" },
+  { label: "2", title: "AI draft", detail: "Written for this client" },
+  { label: "3", title: "Preview & edit", detail: "You approve first" },
+  { label: "4", title: "Scheduled sequence", detail: "Warm → firm over time" },
+  { label: "5", title: "Paid → stopped", detail: "Balance hits zero" },
 ] as const;
 
 export default function HomePage() {
@@ -48,158 +137,201 @@ export default function HomePage() {
         data={[
           websiteJsonLd(),
           webPageJsonLd(
-            "GentleTap — Automated QuickBooks and FreshBooks invoice reminders for freelancers",
+            "GentleTap — Automated invoice follow-up for freelancers",
             DEFAULT_DESCRIPTION,
             "/",
           ),
           organizationJsonLd(),
           softwareApplicationJsonLd(),
           productPricingJsonLd(),
-          faqJsonLd([...HOME_FAQ, ...AI_DISCOVERY_FAQ]),
+          faqJsonLd(LANDING_FAQ),
         ]}
       />
       <SiteHeader />
       <main className="flex-1">
-        <section className="mx-auto max-w-6xl px-6 py-20 text-center lg:py-28">
-          <p className="mb-4 text-sm font-medium uppercase tracking-widest text-accent">
-            Invoice follow-up for freelancers · QuickBooks & FreshBooks
-          </p>
-          <h1 className="mx-auto max-w-3xl text-4xl font-bold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
-            Get paid.{" "}
-            <span className="text-accent">Keep the relationship.</span>
-          </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-xl font-medium text-foreground/90">
-            AI-powered invoice follow-up for freelancers and consultants on QuickBooks and FreshBooks.
-          </p>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-muted">
-            GentleTap drafts warm-to-firm payment reminders in your voice, sends them from Gmail, and
-            stops automatically when the invoice balance hits zero.
-          </p>
-          <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Link href="/signup" className="btn-primary min-w-[200px]">
-              Try free — no credit card
-            </Link>
-            <Link href="#preview" className="btn-secondary min-w-[200px]">
-              See a sample reminder
-            </Link>
-          </div>
-          <p className="mt-4 text-sm text-muted">
-            Under 5 minutes with Gmail + QuickBooks Online or FreshBooks
-          </p>
-          <p className="mt-3 text-sm">
-            <Link href="/how-to-follow-up-on-overdue-invoices" className="text-accent hover:underline">
-              Overdue invoice follow-up guide
-            </Link>
-            {" · "}
-            <Link href="/quickbooks-payment-reminders" className="text-accent hover:underline">
-              QuickBooks reminders
-            </Link>
-            {" · "}
-            <Link href="/freshbooks-invoice-reminders" className="text-accent hover:underline">
-              FreshBooks reminders
-            </Link>
-            {" · "}
-            <Link
-              href="/invoice-follow-up-email-templates-for-freelancers"
-              className="text-accent hover:underline"
-            >
-              Email templates
-            </Link>
-          </p>
-
-          <div className="mx-auto mt-14 max-w-xl rounded-2xl border border-border bg-card px-6 py-5 text-left shadow-sm">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted">
-              Early access
+        {/* Hero */}
+        <section className="relative overflow-hidden border-b border-border">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-accent/8 via-transparent to-transparent"
+          />
+          <div className="relative mx-auto max-w-6xl px-6 py-16 text-center lg:py-24">
+            <p className="mb-4 text-sm font-medium uppercase tracking-widest text-accent">
+              Invoice follow-up for freelancers and small teams
             </p>
-            <blockquote className="mt-3 text-sm leading-relaxed text-foreground/90">
-              &ldquo;I used to rewrite the same &lsquo;just checking in&rsquo; email for a week.
-              GentleTap sent something I&apos;d actually send — on day five, not day twenty.&rdquo;
-            </blockquote>
-            <p className="mt-3 text-xs text-muted">
-              — Beta user, independent consultant
+            <h1 className="mx-auto max-w-3xl text-4xl font-bold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
+              Stop chasing overdue invoices{" "}
+              <span className="text-accent">without sounding pushy.</span>
+            </h1>
+            <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-muted">
+              GentleTap drafts and sends personalized payment reminders from your Gmail, syncs with
+              QuickBooks Online and FreshBooks, and stops automatically when your client pays.
             </p>
-          </div>
-        </section>
-
-        <section id="what-is-gentletap" className="border-y border-border bg-card/50 py-16 scroll-mt-20">
-          <div className="mx-auto max-w-3xl px-6">
-            <h2 className="text-2xl font-bold">What is GentleTap?</h2>
-            <p className="mt-4 text-lg leading-relaxed text-muted">{GENTLETAP_DEFINITION}</p>
-            <p className="mt-4 text-sm text-muted">
-              <Link href="/quickbooks-reminders-vs-gentletap" className="font-medium text-accent hover:underline">
-                Full comparison vs QuickBooks reminders →
+            <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+              <Link href="/signup" className="btn-primary min-w-[220px]">
+                Start free — no credit card
               </Link>
+              <Link href="#demo" className="btn-secondary min-w-[220px]">
+                See a real reminder
+              </Link>
+            </div>
+            <p className="mt-5 text-sm text-muted">
+              QuickBooks Online + FreshBooks · Gmail-native · Free for 5 collections
             </p>
           </div>
         </section>
 
-        <section className="py-16">
-          <div className="mx-auto max-w-4xl px-6">
-            <h2 className="text-center text-2xl font-bold">How GentleTap compares to alternatives</h2>
-            <p className="mx-auto mt-2 max-w-2xl text-center text-sm text-muted">
-              Built for freelancers who invoice in QuickBooks or FreshBooks — not enterprise AR teams.
+        {/* Pain */}
+        <section className="border-b border-border bg-card/40 py-16">
+          <div className="mx-auto max-w-6xl px-6">
+            <h2 className="mx-auto max-w-2xl text-center text-2xl font-bold sm:text-3xl">
+              You did the work. Why are you still chasing the money?
+            </h2>
+            <div className="mt-10 grid gap-8 md:grid-cols-3">
+              {PAIN.map((item) => (
+                <div key={item.title}>
+                  <h3 className="font-semibold">{item.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted">{item.body}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mx-auto mt-10 max-w-xl text-center text-muted">
+              GentleTap turns invoice follow-up into a quiet, repeatable workflow.
             </p>
-            <div className="mt-10 overflow-x-auto">
-              <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="py-3 pr-4 font-semibold">Alternative</th>
-                    <th className="py-3 pr-4 font-semibold text-muted">Typical limitation</th>
-                    <th className="py-3 font-semibold text-accent">GentleTap advantage</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {COMPETITOR_COMPARISON.map((row) => (
-                    <tr key={row.alternative} className="border-b border-border/70">
-                      <td className="py-3 pr-4 font-medium">{row.alternative}</td>
-                      <td className="py-3 pr-4 text-muted">{row.theirLimitation}</td>
-                      <td className="py-3">{row.gentletapAdvantage}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          </div>
+        </section>
+
+        {/* How it works */}
+        <section id="how-it-works" className="scroll-mt-20 py-16 lg:py-20">
+          <div className="mx-auto max-w-6xl px-6">
+            <h2 className="text-center text-2xl font-bold sm:text-3xl">
+              Connect once. Review the message. Get paid.
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-center text-muted">
+              Three steps. Under five minutes. Then reminders run quietly in the background.
+            </p>
+            <div className="mt-12 grid gap-10 md:grid-cols-3">
+              {STEPS.map((item, i) => (
+                <div key={item.title}>
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-accent/10 text-sm font-semibold text-accent">
+                    {i + 1}
+                  </span>
+                  <h3 className="mt-4 text-lg font-semibold">{item.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted">{item.body}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-10 text-center">
+              <Link href="/signup" className="btn-primary inline-flex">
+                See how it works — start free
+              </Link>
             </div>
           </div>
         </section>
 
-        <section className="border-y border-border bg-card py-16">
-          <div className="mx-auto max-w-3xl px-6 text-center">
-            <h2 className="text-2xl font-bold">Invoice follow-up that respects your clients</h2>
-            <p className="mt-4 text-lg leading-relaxed text-foreground/90 sm:text-xl">
-              You finished the project. You sent the invoice. Now it&apos;s twelve days late and
-              you don&apos;t know whether to follow up or give it another week — because you
-              don&apos;t want to sound pushy, but you also can&apos;t keep floating the cost.
+        {/* Product demo */}
+        <section id="demo" className="scroll-mt-20 border-y border-border bg-card py-16 lg:py-20">
+          <div className="mx-auto max-w-6xl px-6">
+            <h2 className="text-center text-2xl font-bold sm:text-3xl">
+              From overdue invoice to automatic follow-up
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-center text-muted">
+              See exactly what your client sees — and what stops when they pay.
             </p>
-            <p className="mt-6 text-muted">
-              GentleTap handles accounts receivable follow-up so you don&apos;t have to choose
-              between getting paid and keeping the client.
+
+            <ol className="mt-10 grid gap-3 sm:grid-cols-5">
+              {WORKFLOW_PANELS.map((panel) => (
+                <li
+                  key={panel.title}
+                  className="rounded-xl border border-border bg-background/80 px-4 py-4 text-center"
+                >
+                  <span className="text-xs font-semibold uppercase tracking-wide text-accent">
+                    {panel.label}
+                  </span>
+                  <p className="mt-2 text-sm font-semibold">{panel.title}</p>
+                  <p className="mt-1 text-xs text-muted">{panel.detail}</p>
+                </li>
+              ))}
+            </ol>
+
+            <div className="mx-auto mt-10 max-w-2xl">
+              <PreviewDemo />
+            </div>
+            <p className="mt-6 text-center text-sm text-muted">
+              A completed example — your real drafts use your invoice data and client history.
             </p>
+            <div className="mt-8 text-center">
+              <Link href="/signup" className="btn-primary inline-flex">
+                Start free — no credit card
+              </Link>
+            </div>
           </div>
         </section>
 
-        <section className="py-16">
+        {/* Outcomes */}
+        <section id="product" className="scroll-mt-20 py-16 lg:py-20">
           <div className="mx-auto max-w-6xl px-6">
-            <h2 className="text-center text-2xl font-bold">Automated payment reminders, built for QuickBooks</h2>
-            <p className="mt-2 text-center text-sm text-muted">
-              Everything you need to get clients to pay on time — without a collections team.
+            <h2 className="text-center text-2xl font-bold sm:text-3xl">
+              Get paid without writing another awkward email
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-center text-muted">
+              Features framed around what you actually want: cash in, relationship intact, evenings free.
             </p>
-            <div className="mt-12 grid gap-8 sm:grid-cols-2">
-              {SEO_FEATURES.map((item) => (
-                <div key={item.title} className="card text-left">
+            <div className="mt-12 grid gap-6 sm:grid-cols-2">
+              {OUTCOMES.map((item) => (
+                <div key={item.title} className="rounded-xl border border-border bg-card/50 px-6 py-5">
                   <h3 className="text-lg font-semibold">{item.title}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-muted">{item.body}</p>
                 </div>
               ))}
             </div>
+            <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-muted">
+              On Pro+ ($39/mo): WhatsApp nudges after email on early steps — for clients who miss the
+              inbox but still respond on chat.
+            </p>
           </div>
         </section>
 
-        <section className="border-y border-border bg-card/50 py-16">
+        {/* Integrations */}
+        <section id="integrations" className="scroll-mt-20 border-y border-border bg-card/40 py-16">
           <div className="mx-auto max-w-6xl px-6">
-            <h2 className="text-center text-2xl font-bold">Who uses GentleTap</h2>
+            <h2 className="text-center text-2xl font-bold sm:text-3xl">
+              Works with the tools you already use
+            </h2>
+            <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {INTEGRATIONS.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className="rounded-xl border border-border bg-background px-5 py-5 transition-colors hover:border-accent/50"
+                >
+                  <p className="font-semibold">{item.name}</p>
+                  <p
+                    className={`mt-2 text-xs font-medium uppercase tracking-wide ${
+                      item.status === "Live" || item.status === "Available"
+                        ? "text-accent"
+                        : "text-muted"
+                    }`}
+                  >
+                    {item.status}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Personas */}
+        <section className="py-16 lg:py-20">
+          <div className="mx-auto max-w-6xl px-6">
+            <h2 className="text-center text-2xl font-bold sm:text-3xl">Built for owner-operators</h2>
+            <p className="mx-auto mt-3 max-w-xl text-center text-muted">
+              The simplest way to follow up on overdue invoices without becoming a collections
+              department.
+            </p>
             <div className="mt-10 grid gap-8 md:grid-cols-3">
-              {SEO_USE_CASES.map((item) => (
-                <div key={item.title} className="text-center md:text-left">
+              {PERSONAS.map((item) => (
+                <div key={item.title} className="rounded-xl border border-border px-5 py-5">
                   <h3 className="font-semibold">{item.title}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-muted">{item.body}</p>
                 </div>
@@ -208,79 +340,173 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="py-16">
-          <div className="mx-auto max-w-6xl px-6">
-            <h2 className="text-center text-2xl font-bold">How it works</h2>
-            <p className="mt-2 text-center text-sm text-muted">
-              Three steps. Under five minutes. Then invoice reminders run quietly in the background.
+        {/* Early proof */}
+        <section className="border-y border-border bg-card py-16">
+          <div className="mx-auto max-w-3xl px-6 text-center">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted">
+              Early access feedback
             </p>
-            <div className="mt-12 grid gap-10 md:grid-cols-3">
-              {STEPS.map((item, i) => (
-                <div key={item.title} className="text-center md:text-left">
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent/10 text-sm font-semibold text-accent">
-                    {i + 1}
-                  </span>
-                  <h3 className="mt-4 text-lg font-semibold">{item.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-muted">{item.body}</p>
+            <blockquote className="mt-6 text-lg leading-relaxed text-foreground/90 sm:text-xl">
+              &ldquo;I used to rewrite the same &lsquo;just checking in&rsquo; email for a week.
+              GentleTap sent something I&apos;d actually send — on day five, not day twenty.&rdquo;
+            </blockquote>
+            <p className="mt-4 text-sm text-muted">— Beta user, independent consultant</p>
+            <p className="mt-6 text-sm text-muted">
+              Named case studies coming as we measure recoveries with permission. Until then: preview
+              every message, send from your Gmail, stop when paid.
+            </p>
+          </div>
+        </section>
+
+        {/* Comparison */}
+        <section className="py-16 lg:py-20">
+          <div className="mx-auto max-w-4xl px-6">
+            <h2 className="text-center text-2xl font-bold sm:text-3xl">
+              Why not just use QuickBooks or FreshBooks reminders?
+            </h2>
+            <div className="mt-10 overflow-x-auto">
+              <table className="w-full min-w-[560px] border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="py-3 pr-3 font-semibold" />
+                    <th className="py-3 pr-3 font-semibold text-muted">Native reminders</th>
+                    <th className="py-3 pr-3 font-semibold text-muted">Manual follow-up</th>
+                    <th className="py-3 font-semibold text-accent">GentleTap</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {COMPARE_ROWS.map((row) => (
+                    <tr key={row.feature} className="border-b border-border/70">
+                      <td className="py-3 pr-3 font-medium">{row.feature}</td>
+                      <td className="py-3 pr-3 text-muted">{row.native}</td>
+                      <td className="py-3 pr-3 text-muted">{row.manual}</td>
+                      <td className="py-3 font-medium">{row.gentletap}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
+              <Link href="/quickbooks-reminders-vs-gentletap" className="text-sm font-medium text-accent hover:underline">
+                Full QuickBooks comparison →
+              </Link>
+              <Link href="/signup" className="btn-primary">
+                Start free — no credit card
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* Pricing */}
+        <section id="pricing" className="scroll-mt-20 border-y border-border bg-card/40 py-16 lg:py-20">
+          <div className="mx-auto max-w-6xl px-6">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold sm:text-3xl">Simple pricing. Start free.</h2>
+              <p className="mx-auto mt-3 max-w-2xl text-muted">
+                If GentleTap helps recover one overdue invoice, it can pay for itself many times over.
+                No recovery guarantee — just a workflow that actually runs.
+              </p>
+            </div>
+            <div className="mt-10">
+              <PricingGrid
+                plans={PRICING_PLANS.map((p) => ({
+                  ...p,
+                  checkout_monthly_available: false,
+                  checkout_annual_available: false,
+                }))}
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Security / control */}
+        <section className="py-16 lg:py-20">
+          <div className="mx-auto max-w-3xl px-6">
+            <h2 className="text-center text-2xl font-bold sm:text-3xl">
+              You stay in control of every message
+            </h2>
+            <ul className="mt-8 space-y-4 text-sm leading-relaxed text-muted">
+              <li>
+                <strong className="font-medium text-foreground">Read-only accounting access</strong> —
+                QuickBooks Online and FreshBooks sync invoices and balances. We don&apos;t create or
+                edit your books.
+              </li>
+              <li>
+                <strong className="font-medium text-foreground">Gmail sending permission</strong> —
+                reminders send as you; replies come back to your inbox.
+              </li>
+              <li>
+                <strong className="font-medium text-foreground">Preview before go-live</strong> —
+                approve drafts for your real invoices before autopilot starts.
+              </li>
+              <li>
+                <strong className="font-medium text-foreground">Pause anytime</strong> — stop one
+                invoice or the whole sequence without losing history.
+              </li>
+              <li>
+                <strong className="font-medium text-foreground">Payment detection</strong> — when the
+                balance hits zero, email and WhatsApp both stop.
+              </li>
+            </ul>
+            <p className="mt-6 text-center text-sm text-muted">
+              Details on data handling:{" "}
+              <Link href="/privacy" className="text-accent hover:underline">
+                Privacy policy
+              </Link>
+              {" · "}
+              <Link href="/contact" className="text-accent hover:underline">
+                Contact support
+              </Link>
+            </p>
+          </div>
+        </section>
+
+        {/* FAQ */}
+        <section className="border-y border-border bg-card/40 py-16">
+          <div className="mx-auto max-w-2xl px-6">
+            <h2 className="text-center text-2xl font-bold">Common questions</h2>
+            <dl className="mt-10 space-y-5">
+              {LANDING_FAQ.map((item) => (
+                <div key={item.q} className="rounded-xl border border-border bg-background px-5 py-4">
+                  <dt className="font-semibold">{item.q}</dt>
+                  <dd className="mt-2 text-sm leading-relaxed text-muted">{item.a}</dd>
                 </div>
               ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="preview" className="border-y border-border bg-card py-20">
-          <div className="mx-auto max-w-2xl px-6">
-            <h2 className="text-center text-2xl font-bold">Sample overdue invoice reminder email</h2>
-            <p className="mt-2 text-center text-sm text-muted">
-              A completed example — your real drafts use your invoice data and client history.
-            </p>
-            <div className="mt-8">
-              <PreviewDemo />
-            </div>
-          </div>
-        </section>
-
-        <section className="mx-auto max-w-2xl px-6 py-20">
-          <h2 className="text-center text-2xl font-bold">Payment reminder software FAQ</h2>
-          <p className="mt-2 text-center text-sm text-muted">
-            Common questions from freelancers evaluating automated invoice follow up.
-          </p>
-          <dl className="mt-10 space-y-6">
-            {HOME_FAQ.map((item) => (
-              <div key={item.q} className="card">
-                <dt className="font-semibold">{item.q}</dt>
-                <dd className="mt-2 text-sm leading-relaxed text-muted">{item.a}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-
-        <section id="pricing" className="mx-auto max-w-6xl px-6 pb-24 scroll-mt-20">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold">Pricing that pays for itself</h2>
-            <p className="mx-auto mt-2 max-w-2xl text-muted">
-              Start free on up to 5 invoices. Upgrade when you&apos;re ready to automate every
-              follow-up — most freelancers recover the cost with a single late payment.
+            </dl>
+            <p className="mt-8 text-center text-sm text-muted">
+              More reading:{" "}
+              <Link href="/how-to-follow-up-on-overdue-invoices" className="text-accent hover:underline">
+                overdue follow-up guide
+              </Link>
+              {" · "}
+              <Link
+                href="/invoice-follow-up-email-templates-for-freelancers"
+                className="text-accent hover:underline"
+              >
+                email templates
+              </Link>
+              {" · "}
+              <Link href="/compare" className="text-accent hover:underline">
+                compare tools
+              </Link>
             </p>
           </div>
+        </section>
 
-          <div className="mt-10 grid gap-6 md:grid-cols-3">
-            {PRICING_VALUE_PROPS.map((item) => (
-              <div key={item.title} className="rounded-2xl border border-border bg-card/50 px-5 py-4 text-center md:text-left">
-                <h3 className="text-sm font-semibold">{item.title}</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted">{item.body}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-10">
-            <PricingGrid
-              plans={PRICING_PLANS.map((p) => ({
-                ...p,
-                checkout_monthly_available: false,
-                checkout_annual_available: false,
-              }))}
-            />
+        {/* Final CTA */}
+        <section className="py-20 lg:py-28">
+          <div className="mx-auto max-w-2xl px-6 text-center">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Get paid without making invoice follow-up your job
+            </h2>
+            <p className="mx-auto mt-4 max-w-lg text-muted">
+              Start with five free collections. Connect your accounting system, preview your first
+              message, and decide when you&apos;re ready to automate.
+            </p>
+            <Link href="/signup" className="btn-primary mt-8 inline-flex min-w-[220px]">
+              Start free — no credit card
+            </Link>
+            <p className="mt-4 text-sm text-muted">No long setup. No contract. Pause anytime.</p>
           </div>
         </section>
       </main>
