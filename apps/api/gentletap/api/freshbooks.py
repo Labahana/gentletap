@@ -52,11 +52,19 @@ def connect_freshbooks(request: Request, user: CurrentUser) -> RedirectResponse:
 @limiter.limit("60/minute")
 def oauth_callback(
     request: Request,
-    code: str = Query(...),
+    code: str | None = Query(None),
     state: str = Query(...),
+    error: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> RedirectResponse:
     settings = get_settings()
+    if error or not code:
+        # User denied access (or FreshBooks returned an error) — no code is sent.
+        message = quote("FreshBooks connection was cancelled")
+        return RedirectResponse(
+            url=f"{settings.web_url}/onboarding?fb=error&message={message}",
+            status_code=status.HTTP_302_FOUND,
+        )
     try:
         user = fb_oauth.handle_oauth_callback(db, code=code, state=state)
     except ValueError as exc:

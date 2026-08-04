@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
@@ -34,6 +36,8 @@ from gentletap.services.auth import (
 )
 from gentletap.services import affiliates as affiliate_service
 from gentletap.services.password_reset import request_password_reset, reset_password
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -107,16 +111,29 @@ def google_signin_url(intent: str = Query("signup", pattern="^(signup|login)$"))
 
 @router.get("/google/callback")
 def google_signin_callback(
-    code: str = Query(...),
+    code: str | None = Query(None),
     state: str = Query(...),
+    error: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> RedirectResponse:
     settings = get_settings()
+    if error or not code:
+        # User denied access on Google's consent screen — no code is sent.
+        return RedirectResponse(
+            url=f"{settings.web_url}/login?google=error&message={quote('Google sign-in was cancelled')}",
+            status_code=status.HTTP_302_FOUND,
+        )
     try:
         exchange_code = auth_signin.handle_signin_callback(db, code=code, state=state)
     except ValueError as exc:
         return RedirectResponse(
             url=f"{settings.web_url}/login?google=error&message={quote(str(exc))}",
+            status_code=status.HTTP_302_FOUND,
+        )
+    except Exception:
+        logger.exception("Google sign-in callback failed")
+        return RedirectResponse(
+            url=f"{settings.web_url}/login?google=error&message={quote('Google sign-in failed — please try again')}",
             status_code=status.HTTP_302_FOUND,
         )
     return RedirectResponse(

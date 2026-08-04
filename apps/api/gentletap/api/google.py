@@ -49,13 +49,22 @@ def google_connect_url(
 @limiter.limit("60/minute")
 def google_callback(
     request: Request,
-    code: str = Query(...),
+    code: str | None = Query(None),
     state: str = Query(...),
+    error: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> RedirectResponse:
     settings = get_settings()
     stored = google_oauth.get_oauth_state(state)
     return_to = (stored or {}).get("return_to", "onboarding")
+    if error or not code:
+        # User denied access (or Google returned an error) — no code is sent.
+        message = quote("Google connection was cancelled")
+        if return_to == "settings":
+            dest = f"{settings.web_url}/settings/email?email=error&message={message}"
+        else:
+            dest = f"{settings.web_url}/onboarding?email=error&message={message}"
+        return RedirectResponse(url=dest, status_code=status.HTTP_302_FOUND)
     try:
         google_oauth.handle_oauth_callback(db, code=code, state=state)
     except ValueError as exc:
