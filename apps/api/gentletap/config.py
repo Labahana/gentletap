@@ -161,6 +161,8 @@ class Settings(BaseSettings):
 
 def validate_production_settings(settings: Settings) -> None:
     """Fail fast when production runs with dev defaults."""
+    from cryptography.fernet import Fernet
+
     from gentletap.integrations.google import auth_signin
 
     if not settings.is_production:
@@ -172,6 +174,14 @@ def validate_production_settings(settings: Settings) -> None:
         missing.append("JWT_SECRET_KEY")
     if not settings.token_encryption_key.strip():
         missing.append("TOKEN_ENCRYPTION_KEY")
+    else:
+        try:
+            Fernet(settings.token_encryption_key.strip().encode())
+        except ValueError:
+            missing.append(
+                "TOKEN_ENCRYPTION_KEY (not a valid Fernet key — generate with: "
+                "python3 -c \"import base64,os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())\")"
+            )
     if missing:
         raise RuntimeError(
             "Production environment requires secure values for: " + ", ".join(missing)
