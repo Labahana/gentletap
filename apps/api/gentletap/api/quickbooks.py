@@ -66,6 +66,7 @@ def oauth_callback(
     try:
         user = qb_oauth.handle_oauth_callback(db, code=code, state=state, realm_id=realmId)
     except ValueError as exc:
+        logger.warning("QuickBooks OAuth callback rejected: %s", exc)
         return RedirectResponse(
             url=f"{settings.web_url}/onboarding?qb=error&message={quote(str(exc))}",
             status_code=status.HTTP_302_FOUND,

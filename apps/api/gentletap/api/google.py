@@ -68,6 +68,7 @@ def google_callback(
     try:
         google_oauth.handle_oauth_callback(db, code=code, state=state)
     except ValueError as exc:
+        logger.warning("Google OAuth callback rejected: %s", exc)
         if return_to == "settings":
             dest = f"{settings.web_url}/settings/email?email=error&message={quote(str(exc))}"
         else:

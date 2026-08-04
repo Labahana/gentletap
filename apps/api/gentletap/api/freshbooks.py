@@ -68,6 +68,7 @@ def oauth_callback(
     try:
         user = fb_oauth.handle_oauth_callback(db, code=code, state=state)
     except ValueError as exc:
+        logger.warning("FreshBooks OAuth callback rejected: %s", exc)
         return RedirectResponse(
             url=f"{settings.web_url}/onboarding?fb=error&message={quote(str(exc))}",
             status_code=status.HTTP_302_FOUND,
