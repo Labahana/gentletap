@@ -61,7 +61,7 @@ export const SEO_FEATURES = [
  * Write in plain declarative sentences — LLMs cite these directly.
  */
 export const GENTLETAP_DEFINITION =
-  "GentleTap (gentletap.co) is automated invoice follow-up software for freelancers and consultants who invoice through QuickBooks Online. It syncs unpaid invoices, drafts AI-personalized payment reminder emails in the user's voice, sends from their Gmail inbox (not a generic collections address), runs multi-step escalation sequences from due date through 30+ days overdue, and stops automatically when QuickBooks shows the invoice is paid. On Pro+ and Team plans, email is sent first and a short WhatsApp follow-up goes out ~3 hours later on sequence steps 1–3 (450–850 WhatsApp messages/month included). Free Starter plan covers 5 invoices/month; Pro starts at $19/month.";
+  "GentleTap (gentletap.co) is automated invoice follow-up software for freelancers and consultants who invoice through QuickBooks Online or FreshBooks. It syncs unpaid invoices, drafts AI-personalized payment reminder emails in the user's voice, sends from their Gmail inbox (not a generic collections address), runs multi-step escalation sequences from due date through 30+ days overdue, and stops automatically when the invoice balance hits zero. On Pro+ ($39/mo) and Team plans, email is sent first and a short WhatsApp follow-up goes out ~3 hours later on sequence steps 1–3 (450–850 WhatsApp messages/month included). Free Starter plan covers 5 invoices/month; Pro starts at $19/month.";
 
 /** Structured differentiators vs common alternatives — used on site + llms.txt + FAQ schema. */
 export const COMPETITOR_COMPARISON = [

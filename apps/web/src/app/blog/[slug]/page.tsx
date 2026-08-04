@@ -11,7 +11,9 @@ import {
   breadcrumbJsonLd,
   faqJsonLd,
   organizationJsonLd,
+  HOLD_NOINDEX_METADATA,
   pageMetadata,
+  SITEMAP_BLOG_SLUGS,
 } from "@/lib/seo";
 
 type PageProps = {
@@ -28,12 +30,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!post) {
     return { title: "Not found" };
   }
-  return pageMetadata({
+  const meta = pageMetadata({
     title: post.metaTitle,
     description: post.metaDescription,
     path: `/blog/${post.slug}`,
     keywords: post.keywords,
   });
+  const indexed = (SITEMAP_BLOG_SLUGS as readonly string[]).includes(slug);
+  return indexed ? meta : { ...meta, ...HOLD_NOINDEX_METADATA };
 }
 
 export default async function BlogPostPage({ params }: PageProps) {

@@ -20,7 +20,7 @@ import {
 } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
-  title: "GentleTap — QuickBooks Payment Reminders for Freelancers | Gmail",
+  title: "Automated QuickBooks Invoice Reminders for Freelancers | GentleTap",
   description: DEFAULT_DESCRIPTION,
   path: "/",
   ogTitle: "GentleTap — Get paid. Keep the relationship.",
@@ -28,7 +28,7 @@ export const metadata: Metadata = pageMetadata({
 
 const STEPS = [
   {
-    title: "Connect QuickBooks Online",
+    title: "Connect QuickBooks or FreshBooks",
     body: "We import unpaid invoices — balances, due dates, and client history — so automated payment reminders start from real data.",
   },
   {
@@ -37,7 +37,7 @@ const STEPS = [
   },
   {
     title: "Get paid",
-    body: "Overdue invoice reminders go out on your behalf. They stop the second payment lands in QuickBooks.",
+    body: "Overdue invoice reminders go out on your behalf. They stop the second payment lands in QuickBooks or FreshBooks.",
   },
 ] as const;
 
@@ -48,7 +48,7 @@ export default function HomePage() {
         data={[
           websiteJsonLd(),
           webPageJsonLd(
-            "GentleTap — QuickBooks payment reminders for freelancers",
+            "GentleTap — Automated QuickBooks and FreshBooks invoice reminders for freelancers",
             DEFAULT_DESCRIPTION,
             "/",
           ),
@@ -62,15 +62,18 @@ export default function HomePage() {
       <main className="flex-1">
         <section className="mx-auto max-w-6xl px-6 py-20 text-center lg:py-28">
           <p className="mb-4 text-sm font-medium uppercase tracking-widest text-accent">
-            AI payment reminder software · QuickBooks Online
+            Invoice follow-up for freelancers · QuickBooks & FreshBooks
           </p>
           <h1 className="mx-auto max-w-3xl text-4xl font-bold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
             Get paid.{" "}
             <span className="text-accent">Keep the relationship.</span>
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-muted">
-            GentleTap is payment reminder software for freelancers on QuickBooks Online — AI-drafted
-            invoice follow-ups send from your Gmail and stop automatically when clients pay.
+          <p className="mx-auto mt-4 max-w-2xl text-xl font-medium text-foreground/90">
+            AI-powered invoice follow-up for freelancers and consultants on QuickBooks and FreshBooks.
+          </p>
+          <p className="mx-auto mt-4 max-w-2xl text-lg text-muted">
+            GentleTap drafts warm-to-firm payment reminders in your voice, sends them from Gmail, and
+            stops automatically when the invoice balance hits zero.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link href="/signup" className="btn-primary min-w-[200px]">
@@ -81,7 +84,7 @@ export default function HomePage() {
             </Link>
           </div>
           <p className="mt-4 text-sm text-muted">
-            Under 5 minutes with Gmail + QuickBooks Online
+            Under 5 minutes with Gmail + QuickBooks Online or FreshBooks
           </p>
           <p className="mt-3 text-sm">
             <Link href="/how-to-follow-up-on-overdue-invoices" className="text-accent hover:underline">
@@ -89,7 +92,11 @@ export default function HomePage() {
             </Link>
             {" · "}
             <Link href="/quickbooks-payment-reminders" className="text-accent hover:underline">
-              QuickBooks payment reminders
+              QuickBooks reminders
+            </Link>
+            {" · "}
+            <Link href="/freshbooks-invoice-reminders" className="text-accent hover:underline">
+              FreshBooks reminders
             </Link>
             {" · "}
             <Link
@@ -97,10 +104,6 @@ export default function HomePage() {
               className="text-accent hover:underline"
             >
               Email templates
-            </Link>
-            {" · "}
-            <Link href="/quickbooks-reminders-vs-gentletap" className="text-accent hover:underline">
-              vs QBO reminders
             </Link>
           </p>
 
@@ -134,7 +137,7 @@ export default function HomePage() {
           <div className="mx-auto max-w-4xl px-6">
             <h2 className="text-center text-2xl font-bold">How GentleTap compares to alternatives</h2>
             <p className="mx-auto mt-2 max-w-2xl text-center text-sm text-muted">
-              Built for freelancers who invoice in QuickBooks — not enterprise collections teams.
+              Built for freelancers who invoice in QuickBooks or FreshBooks — not enterprise AR teams.
             </p>
             <div className="mt-10 overflow-x-auto">
               <table className="w-full min-w-[640px] border-collapse text-left text-sm">
@@ -161,7 +164,7 @@ export default function HomePage() {
 
         <section className="border-y border-border bg-card py-16">
           <div className="mx-auto max-w-3xl px-6 text-center">
-            <h2 className="text-2xl font-bold">Invoice collection software that respects your clients</h2>
+            <h2 className="text-2xl font-bold">Invoice follow-up that respects your clients</h2>
             <p className="mt-4 text-lg leading-relaxed text-foreground/90 sm:text-xl">
               You finished the project. You sent the invoice. Now it&apos;s twelve days late and
               you don&apos;t know whether to follow up or give it another week — because you

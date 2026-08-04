@@ -13,11 +13,35 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.join(__dirname),
   },
+  async redirects() {
+    return [
+      // Audit: /compare and /alternatives cannibalize — one primary URL per competitor.
+      {
+        source: "/alternatives",
+        destination: "/compare",
+        permanent: true,
+      },
+      {
+        source: "/alternatives/:slug",
+        destination: "/compare/:slug",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
         source: "/:path*",
         headers: securityHeaders,
+      },
+      {
+        source: "/sitemap.xml",
+        headers: [
+          {
+            key: "Content-Type",
+            value: "application/xml; charset=utf-8",
+          },
+        ],
       },
     ];
   },

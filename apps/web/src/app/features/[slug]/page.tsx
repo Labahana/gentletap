@@ -11,6 +11,7 @@ import {
   faqJsonLd,
   howToJsonLd,
   organizationJsonLd,
+  HOLD_NOINDEX_METADATA,
   pageMetadata,
   webPageJsonLd,
 } from "@/lib/seo";
@@ -18,6 +19,14 @@ import {
 type PageProps = {
   params: Promise<{ slug: string }>;
 };
+
+/** Core feature pages kept in the public sitemap / indexable. */
+const INDEXED_FEATURE_SLUGS = [
+  "ai-reminder-drafts",
+  "send-from-gmail",
+  "auto-stop-on-payment",
+  "whatsapp-reminders",
+] as const;
 
 export function generateStaticParams() {
   return FEATURE_SLUGS.map((slug) => ({ slug }));
@@ -29,12 +38,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!feature) {
     return { title: "Not found" };
   }
-  return pageMetadata({
+  const meta = pageMetadata({
     title: feature.metaTitle,
     description: feature.metaDescription,
     path: `/features/${feature.slug}`,
     keywords: feature.keywords,
   });
+  const indexed = (INDEXED_FEATURE_SLUGS as readonly string[]).includes(slug);
+  return indexed ? meta : { ...meta, ...HOLD_NOINDEX_METADATA };
 }
 
 export default async function FeaturePage({ params }: PageProps) {

@@ -22,7 +22,6 @@ const FOOTER_SECTIONS = [
     links: [
       { href: "/compare", label: "Compare tools" },
       { href: "/compare/chasivo", label: "vs Chasivo" },
-      { href: "/alternatives", label: "Alternatives" },
       { href: "/quickbooks-reminders-vs-gentletap", label: "QBO vs GentleTap" },
       { href: "/compare/freshbooks", label: "FreshBooks vs GentleTap" },
     ],
@@ -30,10 +29,12 @@ const FOOTER_SECTIONS = [
   {
     title: "Solutions",
     links: [
-      { href: "/industries", label: "By industry" },
+      { href: "/industries/freelancers", label: "For freelancers" },
+      { href: "/industries/consultants", label: "For consultants" },
+      { href: "/industries/agencies", label: "For agencies" },
       { href: "/quickbooks-invoice-automation", label: "QuickBooks automation" },
       { href: "/freshbooks-invoice-reminders", label: "FreshBooks reminders" },
-      { href: "/xero-invoice-reminders", label: "Xero reminders" },
+      { href: "/xero-invoice-reminders", label: "Xero (not supported yet)" },
       { href: "/integrations/quickbooks", label: "QuickBooks integration" },
       { href: "/integrations/freshbooks", label: "FreshBooks integration" },
     ],

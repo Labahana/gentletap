@@ -30,20 +30,20 @@
 - GentleTap vs Satago: https://gentletap.co/compare/satago
 - GentleTap vs ChaseAI: https://gentletap.co/compare/chaseai
 - GentleTap vs Wave: https://gentletap.co/compare/wave
-- Alternatives hub: https://gentletap.co/alternatives
+- Alternatives hub: https://gentletap.co/compare
 - Features hub: https://gentletap.co/features
-- AI client profiling: https://gentletap.co/features/ai-client-profiling
-- Multi-channel reminders: https://gentletap.co/features/multi-channel-reminders
-- Industries hub: https://gentletap.co/industries
+- Industries (indexable): freelancers, consultants, agencies — https://gentletap.co/industries
 - Blog: https://gentletap.co/blog
 - Best invoice chasing software 2026: https://gentletap.co/blog/best-invoice-chasing-software-2026
 - QuickBooks invoice automation guide: https://gentletap.co/quickbooks-invoice-automation
 - FreshBooks invoice reminders guide: https://gentletap.co/freshbooks-invoice-reminders
-- Xero invoice reminders (honest options): https://gentletap.co/xero-invoice-reminders
+- Xero invoice reminders (honest — not supported yet): https://gentletap.co/xero-invoice-reminders
 - QuickBooks integration: https://gentletap.co/integrations/quickbooks
 - FreshBooks integration: https://gentletap.co/integrations/freshbooks
 - Affiliate program: https://gentletap.co/affiliates
 - Pricing: https://gentletap.co/#pricing
+
+Note: /alternatives/* permanently redirects to /compare/* (single canonical URL per competitor).
 
 ## Who it's for
 

@@ -61,14 +61,43 @@ export const SEO_KEYWORDS = [
 ] as const;
 
 export const DEFAULT_TITLE =
-  "GentleTap — QuickBooks Payment Reminders for Freelancers | Gmail";
+  "Automated QuickBooks Invoice Reminders for Freelancers | GentleTap";
 export const DEFAULT_DESCRIPTION =
-  "Automated invoice follow-up for freelancers on QuickBooks Online. AI-drafted payment reminders send from your Gmail and stop when clients pay — polite, not pushy. Free for 5 invoices.";
+  "GentleTap drafts and sends personalized QuickBooks and FreshBooks invoice follow-ups from your Gmail, then stops when clients pay. Start free with up to 5 collections.";
+
+/** Competitors kept in the public sitemap — strongest commercial intent only. */
+export const SITEMAP_COMPARE_SLUGS = [
+  "chasivo",
+  "chaser",
+  "paidnice",
+  "bonsai",
+  "freshbooks",
+  "chaseai",
+] as const;
+
+/** Industries kept indexable + in sitemap. Others stay live but noindex. */
+export const INDEXED_INDUSTRY_SLUGS = ["freelancers", "consultants", "agencies"] as const;
+
+/** Blog posts kept in the public sitemap. */
+export const SITEMAP_BLOG_SLUGS = [
+  "best-invoice-chasing-software-2026",
+  "stop-chasing-invoices",
+  "late-payment-statistics-2026",
+  "get-paid-faster-freelancer",
+  "why-clients-pay-late",
+] as const;
 
 export const NOINDEX_ROBOTS: Metadata["robots"] = {
   index: false,
   follow: false,
   googleBot: { index: false, follow: false },
+};
+
+/** Live marketing pages held from the index — still pass link equity. */
+export const HOLD_NOINDEX_ROBOTS: Metadata["robots"] = {
+  index: false,
+  follow: true,
+  googleBot: { index: false, follow: true },
 };
 
 export const INDEX_ROBOTS: Metadata["robots"] = {
@@ -121,6 +150,10 @@ export function pageMetadata({
 
 export const NOINDEX_METADATA: Metadata = {
   robots: NOINDEX_ROBOTS,
+};
+
+export const HOLD_NOINDEX_METADATA: Metadata = {
+  robots: HOLD_NOINDEX_ROBOTS,
 };
 
 export function organizationJsonLd() {
@@ -376,10 +409,13 @@ export function articleJsonLd(input: {
   };
 }
 
-/** Public marketing URLs for sitemap.xml */
+/** Public marketing URLs for sitemap.xml — pruned to high-intent pages (SEO audit Aug 2026). */
 export const SITEMAP_PATHS: Array<{ path: string; changeFrequency: "weekly" | "monthly"; priority: number }> = [
   { path: "/", changeFrequency: "weekly", priority: 1 },
   { path: "/quickbooks-payment-reminders", changeFrequency: "weekly", priority: 0.95 },
+  { path: "/freshbooks-invoice-reminders", changeFrequency: "weekly", priority: 0.94 },
+  { path: "/quickbooks-invoice-automation", changeFrequency: "weekly", priority: 0.93 },
+  { path: "/quickbooks-reminders-vs-gentletap", changeFrequency: "weekly", priority: 0.92 },
   {
     path: "/invoice-follow-up-email-templates-for-freelancers",
     changeFrequency: "weekly",
@@ -390,82 +426,39 @@ export const SITEMAP_PATHS: Array<{ path: string; changeFrequency: "weekly" | "m
     changeFrequency: "weekly",
     priority: 0.94,
   },
-  { path: "/compare", changeFrequency: "weekly", priority: 0.93 },
-  { path: "/compare/chasivo", changeFrequency: "weekly", priority: 0.95 },
-  { path: "/compare/bonsai", changeFrequency: "monthly", priority: 0.9 },
-  { path: "/compare/chaser", changeFrequency: "monthly", priority: 0.9 },
-  { path: "/compare/melio", changeFrequency: "monthly", priority: 0.9 },
-  { path: "/compare/invoice-dunning", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/compare/invoicechaser", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/compare/landolio", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/compare/paidnice", changeFrequency: "monthly", priority: 0.9 },
-  { path: "/compare/honeybook", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/compare/duedrop", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/compare/nudgepe", changeFrequency: "monthly", priority: 0.86 },
-  { path: "/compare/freshbooks", changeFrequency: "monthly", priority: 0.86 },
-  { path: "/compare/invoicesherpa", changeFrequency: "monthly", priority: 0.86 },
-  { path: "/compare/upflow", changeFrequency: "monthly", priority: 0.86 },
-  { path: "/compare/satago", changeFrequency: "monthly", priority: 0.86 },
-  { path: "/compare/chaseai", changeFrequency: "monthly", priority: 0.9 },
-  { path: "/compare/wave", changeFrequency: "monthly", priority: 0.86 },
-  { path: "/quickbooks-reminders-vs-gentletap", changeFrequency: "weekly", priority: 0.92 },
-  { path: "/quickbooks-invoice-automation", changeFrequency: "weekly", priority: 0.93 },
-  { path: "/freshbooks-invoice-reminders", changeFrequency: "weekly", priority: 0.93 },
-  { path: "/xero-invoice-reminders", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/features", changeFrequency: "monthly", priority: 0.9 },
-  { path: "/features/ai-reminder-drafts", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/features/ai-client-profiling", changeFrequency: "monthly", priority: 0.9 },
-  { path: "/features/send-from-gmail", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/features/multi-channel-reminders", changeFrequency: "monthly", priority: 0.9 },
-  { path: "/features/whatsapp-reminders", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/features/auto-stop-on-payment", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/industries", changeFrequency: "monthly", priority: 0.9 },
-  { path: "/industries/freelancers", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/industries/agencies", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/industries/consultants", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/industries/developers", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/industries/designers", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/industries/photographers", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/industries/contractors", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/industries/accountants", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/industries/coaches", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/industries/lawyers", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/alternatives", changeFrequency: "weekly", priority: 0.9 },
-  { path: "/alternatives/chasivo", changeFrequency: "weekly", priority: 0.92 },
-  { path: "/alternatives/bonsai", changeFrequency: "monthly", priority: 0.86 },
-  { path: "/alternatives/chaser", changeFrequency: "monthly", priority: 0.86 },
-  { path: "/alternatives/melio", changeFrequency: "monthly", priority: 0.86 },
-  { path: "/alternatives/invoice-dunning", changeFrequency: "monthly", priority: 0.84 },
-  { path: "/alternatives/invoicechaser", changeFrequency: "monthly", priority: 0.84 },
-  { path: "/alternatives/landolio", changeFrequency: "monthly", priority: 0.84 },
-  { path: "/alternatives/paidnice", changeFrequency: "monthly", priority: 0.86 },
-  { path: "/alternatives/honeybook", changeFrequency: "monthly", priority: 0.84 },
-  { path: "/alternatives/duedrop", changeFrequency: "monthly", priority: 0.84 },
-  { path: "/alternatives/nudgepe", changeFrequency: "monthly", priority: 0.84 },
-  { path: "/alternatives/freshbooks", changeFrequency: "monthly", priority: 0.84 },
-  { path: "/alternatives/invoicesherpa", changeFrequency: "monthly", priority: 0.84 },
-  { path: "/alternatives/upflow", changeFrequency: "monthly", priority: 0.84 },
-  { path: "/alternatives/satago", changeFrequency: "monthly", priority: 0.84 },
-  { path: "/alternatives/chaseai", changeFrequency: "monthly", priority: 0.84 },
-  { path: "/alternatives/wave", changeFrequency: "monthly", priority: 0.84 },
-  { path: "/blog", changeFrequency: "weekly", priority: 0.9 },
-  { path: "/blog/best-invoice-chasing-software-2026", changeFrequency: "weekly", priority: 0.94 },
-  { path: "/blog/stop-chasing-invoices", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/blog/late-payment-statistics-2026", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/blog/get-paid-faster-freelancer", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/blog/why-clients-pay-late", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/blog/client-wont-pay-what-to-do", changeFrequency: "monthly", priority: 0.88 },
-  { path: "/blog/freelancer-cash-flow-management", changeFrequency: "monthly", priority: 0.86 },
-  { path: "/blog/payment-terms-that-get-you-paid", changeFrequency: "monthly", priority: 0.86 },
-  { path: "/blog/whatsapp-invoice-reminders", changeFrequency: "monthly", priority: 0.86 },
+  { path: "/integrations/quickbooks", changeFrequency: "monthly", priority: 0.9 },
+  { path: "/integrations/freshbooks", changeFrequency: "monthly", priority: 0.9 },
+  { path: "/features", changeFrequency: "monthly", priority: 0.85 },
+  { path: "/features/ai-reminder-drafts", changeFrequency: "monthly", priority: 0.84 },
+  { path: "/features/send-from-gmail", changeFrequency: "monthly", priority: 0.84 },
+  { path: "/features/auto-stop-on-payment", changeFrequency: "monthly", priority: 0.84 },
+  { path: "/features/whatsapp-reminders", changeFrequency: "monthly", priority: 0.84 },
+  { path: "/industries", changeFrequency: "monthly", priority: 0.85 },
+  ...INDEXED_INDUSTRY_SLUGS.map((slug) => ({
+    path: `/industries/${slug}` as const,
+    changeFrequency: "monthly" as const,
+    priority: 0.86,
+  })),
+  { path: "/compare", changeFrequency: "weekly", priority: 0.9 },
+  ...SITEMAP_COMPARE_SLUGS.map((slug) => ({
+    path: `/compare/${slug}` as const,
+    changeFrequency: "monthly" as const,
+    priority: slug === "chasivo" ? 0.92 : 0.88,
+  })),
+  { path: "/blog", changeFrequency: "weekly", priority: 0.88 },
+  ...SITEMAP_BLOG_SLUGS.map((slug) => ({
+    path: `/blog/${slug}` as const,
+    changeFrequency: "monthly" as const,
+    priority: slug.startsWith("best-") ? 0.9 : 0.86,
+  })),
+  { path: "/xero-invoice-reminders", changeFrequency: "monthly", priority: 0.7 },
   { path: "/signup", changeFrequency: "monthly", priority: 0.9 },
-  { path: "/integrations/quickbooks", changeFrequency: "monthly", priority: 0.85 },
-  { path: "/affiliates", changeFrequency: "weekly", priority: 0.92 },
-  { path: "/affiliates/terms", changeFrequency: "monthly", priority: 0.75 },
+  { path: "/affiliates", changeFrequency: "weekly", priority: 0.85 },
+  { path: "/affiliates/terms", changeFrequency: "monthly", priority: 0.5 },
   { path: "/contact", changeFrequency: "monthly", priority: 0.5 },
   { path: "/terms", changeFrequency: "monthly", priority: 0.3 },
   { path: "/privacy", changeFrequency: "monthly", priority: 0.3 },
   { path: "/refund", changeFrequency: "monthly", priority: 0.3 },
   { path: "/cookies", changeFrequency: "monthly", priority: 0.2 },
-  { path: "/llms.txt", changeFrequency: "monthly", priority: 0.6 },
+  { path: "/llms.txt", changeFrequency: "monthly", priority: 0.5 },
 ];

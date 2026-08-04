@@ -7,9 +7,11 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { INDUSTRY_SLUGS, getIndustry } from "@/lib/industries";
 import {
+  INDEXED_INDUSTRY_SLUGS,
   breadcrumbJsonLd,
   faqJsonLd,
   organizationJsonLd,
+  HOLD_NOINDEX_METADATA,
   pageMetadata,
   webPageJsonLd,
 } from "@/lib/seo";
@@ -28,12 +30,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!industry) {
     return { title: "Not found" };
   }
-  return pageMetadata({
+  const meta = pageMetadata({
     title: industry.metaTitle,
     description: industry.metaDescription,
     path: `/industries/${industry.slug}`,
     keywords: industry.keywords,
   });
+  const indexed = (INDEXED_INDUSTRY_SLUGS as readonly string[]).includes(slug);
+  return indexed ? meta : { ...meta, ...HOLD_NOINDEX_METADATA };
 }
 
 export default async function IndustryPage({ params }: PageProps) {
