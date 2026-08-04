@@ -26,6 +26,7 @@ export type CompetitorComparison = {
 };
 
 export const COMPETITOR_SLUGS = [
+  "chasivo",
   "bonsai",
   "chaser",
   "melio",
@@ -41,11 +42,74 @@ export const COMPETITOR_SLUGS = [
   "upflow",
   "satago",
   "chaseai",
+  "wave",
 ] as const;
 
 export type CompetitorSlug = (typeof COMPETITOR_SLUGS)[number];
 
 export const COMPETITOR_COMPARISONS: Record<CompetitorSlug, CompetitorComparison> = {
+  chasivo: {
+    slug: "chasivo",
+    name: "Chasivo",
+    tagline: "Promised integrations vs live QuickBooks + FreshBooks sync",
+    metaTitle: "GentleTap vs Chasivo — Invoice Chasing Compared (2026)",
+    metaDescription:
+      "Honest Chasivo vs GentleTap comparison. Both use AI drafts and Gmail sending. GentleTap has live QuickBooks + FreshBooks sync and WhatsApp today; Chasivo lists those as coming soon. Pricing and fit explained.",
+    keywords: [
+      "GentleTap vs Chasivo",
+      "Chasivo alternative",
+      "Chasivo vs GentleTap",
+      "invoice chasing software comparison",
+      "AI invoice chasing software",
+    ],
+    category: "AI invoice chasing (closest feature competitor)",
+    competitorUrl: "https://chasivo.com/",
+    competitorSummary:
+      "Chasivo is AI invoice-chasing software that drafts follow-ups in your voice, sends from Gmail/Outlook, scores invoice risk 0–100, builds customer payment profiles, and offers Autopilot / Copilot / Manual modes. Accounting sync (QuickBooks, FreshBooks, Xero, Wave) and WhatsApp are listed as coming soon on their pricing page — today they rely on CSV import and their own invoice management. Solo is $19/mo; Pro $39/mo; Business $69/mo.",
+    gentletapSummary:
+      "GentleTap is the same category — AI drafts shaped by client history and risk, Gmail-native sending, multi-step escalation — but with live QuickBooks Online and FreshBooks sync already shipping, WhatsApp follow-ups live on Pro+ ($39/mo), and a free Starter plan that includes real AI collections (5/month), not just a UI preview.",
+    whenTheyWin:
+      "Choose Chasivo if you want built-in invoicing + cash-flow forecasting in one product, Outlook/SMTP sending, Twilio SMS reminders, or Autopilot/Copilot/Manual modes per customer — and you're fine importing invoices via CSV until their accounting integrations ship.",
+    whenGentletapWins:
+      "Choose GentleTap if QuickBooks or FreshBooks is already your source of truth and you refuse to re-enter invoices. You get live balance sync, auto-stop when paid, WhatsApp live today (not on a roadmap), and full multi-channel AI follow-up at Pro+ for a flat $39/mo.",
+    honestVerdict:
+      "Chasivo and GentleTap are the closest products in this space — both AI + Gmail + client intelligence. The decisive difference today is delivery vs promises: GentleTap ships QBO + FreshBooks sync and WhatsApp now; Chasivo lists those as coming soon and leads with CSV + its own invoice tool. If you already invoice in accounting software, GentleTap is the lighter, live-integrated layer. If you want a standalone AR app with forecasting and SMS while you wait on sync, Chasivo is a fair pick.",
+    pricingNote:
+      "Chasivo: Free (3 customers / 10 invoices, no AI drafts), Solo $19/mo, Pro $39/mo, Business $69/mo (verify on chasivo.com). GentleTap: free Starter (5 AI collections/mo), Pro $19/mo, Pro+ $39/mo with WhatsApp + priority AI, Team $59/mo.",
+    comparisonRows: [
+      { feature: "Primary job", competitor: "AI chasing + own invoicing + forecasts", gentletap: "AI chasing layer on your accounting" },
+      { feature: "QuickBooks sync", competitor: "Coming soon", gentletap: "Live now (read-only)" },
+      { feature: "FreshBooks sync", competitor: "Coming soon", gentletap: "Live now (read-only)" },
+      { feature: "Invoice data today", competitor: "CSV import + create invoices in-app", gentletap: "Live sync from QBO/FreshBooks (+ CSV)" },
+      { feature: "AI drafts", competitor: "Yes — history + tone modes", gentletap: "Yes — client profile + overdue stage" },
+      { feature: "Risk scoring", competitor: "0–100 per invoice", gentletap: "Yes — risk level drives tone" },
+      { feature: "Send from your email", competitor: "Gmail + Outlook (+ SMTP on Business)", gentletap: "Gmail (+ verified custom domain)" },
+      { feature: "WhatsApp", competitor: "Coming soon", gentletap: "Live on Pro+ ($39) and Team" },
+      { feature: "SMS", competitor: "Twilio SMS on paid plans", gentletap: "No — email + WhatsApp only" },
+      { feature: "Stop when paid", competitor: "Yes (in-app status)", gentletap: "Yes — live balance sync" },
+      { feature: "Free tier that actually chases", competitor: "Preview only — no AI drafts / sending", gentletap: "Starter — 5 AI collections/mo" },
+      { feature: "Full AI + WhatsApp price", competitor: "Pro $39/mo (WhatsApp still coming)", gentletap: "Pro+ $39/mo (WhatsApp live)" },
+    ],
+    faq: [
+      {
+        q: "Is GentleTap better than Chasivo?",
+        a: "If you invoice in QuickBooks or FreshBooks and want live sync plus WhatsApp today, yes. If you want standalone invoicing, SMS, Outlook, and cash-flow scenario modelling while accounting sync is still on their roadmap, Chasivo may fit better.",
+      },
+      {
+        q: "Does Chasivo sync with QuickBooks?",
+        a: "Not yet — their pricing page lists QuickBooks, FreshBooks, Xero, and Wave as coming soon. GentleTap's QuickBooks and FreshBooks sync are live.",
+      },
+      {
+        q: "Both charge $39 for a mid tier — what's the difference?",
+        a: "Chasivo Pro ($39) adds forecasting and view-only seats; WhatsApp is still coming soon. GentleTap Pro+ ($39) is the full follow-up product: priority AI drafts plus live WhatsApp on steps 1–3 (450 msgs/mo).",
+      },
+      {
+        q: "Does GentleTap have Autopilot / Copilot / Manual modes?",
+        a: "GentleTap runs autonomous sequences with preview/approve before go-live, per-invoice pause, and escalation recommendations on Pro+. It doesn't brand three named modes the way Chasivo does — the practical outcome (draft → review → autopilot) is the same idea.",
+      },
+    ],
+  },
+
   bonsai: {
     slug: "bonsai",
     name: "Bonsai",
@@ -740,22 +804,74 @@ export const COMPETITOR_COMPARISONS: Record<CompetitorSlug, CompetitorComparison
       { feature: "Send from your Gmail", competitor: "No", gentletap: "Yes — replies land in your inbox" },
       { feature: "Escalation sequences", competitor: "Simple schedules", gentletap: "Five-step polite-to-firm ladder" },
       { feature: "WhatsApp follow-ups", competitor: "No", gentletap: "Yes — Pro+ and Team" },
-      { feature: "Accounting sync", competitor: "QuickBooks", gentletap: "QuickBooks + FreshBooks" },
+      { feature: "Accounting sync", competitor: "PDF / manual upload (limited sync)", gentletap: "Live QuickBooks + FreshBooks" },
       { feature: "Stop when paid", competitor: "Yes", gentletap: "Yes — balance syncs automatically" },
       { feature: "Free tier", competitor: "No", gentletap: "Free Starter — 5 collections/mo" },
+      { feature: "Full features with WhatsApp", competitor: "Not available", gentletap: "Pro+ $39/mo" },
     ],
     faq: [
       {
         q: "Is ChaseAI cheaper than GentleTap?",
-        a: "ChaseAI is ~$9/mo; GentleTap Pro is $19/mo — but GentleTap's free Starter plan (5 collections/month) is cheaper than both for light chasing.",
+        a: "ChaseAI is ~$9/mo; GentleTap Pro is $19/mo — but GentleTap's free Starter plan (5 collections/month) is cheaper than both for light chasing. Full GentleTap features with WhatsApp are Pro+ at $39/mo.",
       },
       {
         q: "What does GentleTap do that ChaseAI doesn't?",
-        a: "Send from your actual Gmail address, personalize drafts with client history, escalate through a five-step polite-to-firm sequence, follow up on WhatsApp, and sync FreshBooks as well as QuickBooks.",
+        a: "Live QuickBooks and FreshBooks sync (no PDF re-upload), send from your actual Gmail, personalize drafts with client history and risk, escalate through a five-step sequence, and follow up on WhatsApp on Pro+ ($39).",
       },
       {
         q: "Which is better for client relationships?",
         a: "GentleTap — chases come from your real inbox with per-client context, so they read like personal follow-ups rather than automated dunning.",
+      },
+    ],
+  },
+
+  wave: {
+    slug: "wave",
+    name: "Wave",
+    tagline: "Free invoicing with basic reminders vs AI follow-up specialist",
+    metaTitle: "GentleTap vs Wave Reminders — Invoice Follow-Up Compared",
+    metaDescription:
+      "Wave offers free invoicing with basic payment reminders. GentleTap is the AI follow-up layer for freelancers who already invoice elsewhere — or want smarter chasing than Wave's same-for-everyone reminders.",
+    keywords: [
+      "GentleTap vs Wave",
+      "Wave payment reminders alternative",
+      "Wave invoice reminders",
+      "free invoice reminder software",
+    ],
+    category: "Free invoicing platform",
+    competitorUrl: "https://www.waveapps.com/",
+    competitorSummary:
+      "Wave is a popular free accounting and invoicing platform for freelancers and very small businesses. It includes basic payment reminders — typically the same template for every customer — plus optional paid upgrades for payments and bookkeeping features.",
+    gentletapSummary:
+      "GentleTap doesn't replace Wave's invoicing. It automates polite, AI-personalized follow-up from your Gmail (and WhatsApp on Pro+ at $39/mo), synced to QuickBooks or FreshBooks — or via CSV if you invoice elsewhere.",
+    whenTheyWin:
+      "Choose Wave if you need free invoicing and bookkeeping first and basic reminders are enough. Wave wins on price for the accounting layer itself.",
+    whenGentletapWins:
+      "Choose GentleTap when Wave's same-for-all reminders stop recovering invoices — you need per-client AI drafts, Gmail-native sending, multi-step escalation, and WhatsApp. Pair GentleTap with QuickBooks/FreshBooks, or import Wave exports via CSV.",
+    honestVerdict:
+      "Wave solves 'create invoices for free.' GentleTap solves 'get paid without awkward chasing.' They're complementary for most freelancers — unless you're ready to move invoicing into QuickBooks or FreshBooks, where GentleTap syncs live.",
+    pricingNote:
+      "Wave: free invoicing (payments/accounting add-ons extra). GentleTap: free Starter (5 collections/mo), Pro $19/mo, Pro+ $39/mo with WhatsApp, Team $59/mo.",
+    comparisonRows: [
+      { feature: "Primary purpose", competitor: "Free invoicing + bookkeeping", gentletap: "AI payment follow-up only" },
+      { feature: "Reminder personalization", competitor: "Basic / template", gentletap: "AI per client + invoice history" },
+      { feature: "Send from your Gmail", competitor: "Wave-branded / Wave mail", gentletap: "Yes — your Gmail" },
+      { feature: "WhatsApp", competitor: "No", gentletap: "Yes — Pro+ $39/mo" },
+      { feature: "Accounting depth", competitor: "Full Wave books", gentletap: "Syncs QBO / FreshBooks (not Wave-native)" },
+      { feature: "Free tier includes AI chasing", competitor: "No AI chasing", gentletap: "Yes — 5 collections/mo" },
+    ],
+    faq: [
+      {
+        q: "Can GentleTap sync with Wave?",
+        a: "Not natively. Export invoices and import via CSV, or move invoicing to QuickBooks Online or FreshBooks for live sync.",
+      },
+      {
+        q: "Is Wave's free plan enough for reminders?",
+        a: "For light volume and undemanding clients, often yes. When lateness becomes chronic, template reminders underperform AI sequences that escalate and stop on payment.",
+      },
+      {
+        q: "Should I switch from Wave to GentleTap?",
+        a: "You don't switch — Wave keeps creating invoices; GentleTap (via CSV or after moving to QBO/FreshBooks) handles the chase.",
       },
     ],
   },

@@ -22,6 +22,7 @@ export type BlogPost = {
 };
 
 export const BLOG_POST_SLUGS = [
+  "best-invoice-chasing-software-2026",
   "stop-chasing-invoices",
   "late-payment-statistics-2026",
   "get-paid-faster-freelancer",
@@ -35,6 +36,100 @@ export const BLOG_POST_SLUGS = [
 export type BlogPostSlug = (typeof BLOG_POST_SLUGS)[number];
 
 export const BLOG_POSTS: Record<BlogPostSlug, BlogPost> = {
+  "best-invoice-chasing-software-2026": {
+    slug: "best-invoice-chasing-software-2026",
+    title: "Best Invoice Chasing Software in 2026 (Freelancer & SMB Picks)",
+    metaTitle: "Best Invoice Chasing Software 2026 — Freelancer Picks",
+    metaDescription:
+      "Honest 2026 ranking of invoice chasing software for freelancers and small businesses: GentleTap, Chasivo, ChaseAI, Paidnice, Chaser, and built-in QuickBooks/FreshBooks reminders — with pricing and who each tool is for.",
+    keywords: [
+      "best invoice chasing software 2026",
+      "best invoice chasing software",
+      "AI invoice chasing software",
+      "best payment reminder software freelancers",
+      "Chasivo alternative",
+    ],
+    excerpt:
+      "Eight tools that chase unpaid invoices in 2026 — ranked for freelancers who invoice on QuickBooks or FreshBooks, not finance teams with six-figure AR budgets.",
+    datePublished: "2026-08-04",
+    readMinutes: 11,
+    intro:
+      "Invoice chasing software exploded in 2026: AI drafts, Gmail sending, risk scores, WhatsApp. Most listicles still rank enterprise AR tools freelancers will never buy. This guide ranks what actually fits solo operators and small studios — with honest trade-offs, live vs roadmap features, and pricing you can verify.",
+    sections: [
+      {
+        heading: "How we ranked (and what we ignored)",
+        paragraphs: [
+          "Criteria: live accounting sync (not CSV-only), send-from-your-email, AI or smart personalization, freelancers-friendly pricing, and whether WhatsApp/email multi-channel actually ships. We ignored Gartner-leader enterprise suites (HighRadius, Billtrust) — they win broad AR keywords and lose every freelancer budget.",
+          "Prices change; verify on each vendor's site. Figures below are directional as of August 2026.",
+        ],
+      },
+      {
+        heading: "1. Best overall for QuickBooks & FreshBooks freelancers — GentleTap",
+        paragraphs: [
+          "GentleTap is purpose-built follow-up: live QuickBooks Online and FreshBooks sync, AI drafts shaped by client payment history and risk, send from your Gmail, multi-step escalation, auto-stop when the balance clears, and WhatsApp on Pro+ ($39/mo). Free Starter covers 5 collections a month with real AI — not a UI demo.",
+          "Best for: freelancers and small agencies who already invoice in QBO or FreshBooks and want chasing that preserves relationships. Skip if you need SMS blasts, Outlook-first sending, or a full AR department workflow.",
+        ],
+      },
+      {
+        heading: "2. Best AI chasing app if you don't mind CSV — Chasivo",
+        paragraphs: [
+          "Chasivo mirrors the AI + Gmail + profiling category closely: risk scores 0–100, customer intelligence, Autopilot/Copilot/Manual modes, Gmail/Outlook sending. Their pricing is competitive (Solo $19, Pro $39, Business $69). The catch from their own pricing page: QuickBooks, FreshBooks, Xero, Wave, and WhatsApp are still listed as coming soon — today you import via CSV and manage invoices in-app.",
+          "Best for: operators who want forecasting + SMS + named chasing modes and are fine without live ledger sync yet. See our full head-to-head: GentleTap vs Chasivo.",
+        ],
+      },
+      {
+        heading: "3. Best budget AI chaser — ChaseAI (~$9/mo)",
+        paragraphs: [
+          "ChaseAI proves the category works at a low price. Expect simpler personalization and weaker accounting depth than sync-native tools. Fine if cost is the only filter; most freelancers outgrow it when client relationships matter more than the monthly fee.",
+        ],
+      },
+      {
+        heading: "4. Best rules-based AR for Xero/QBO teams — Paidnice",
+        paragraphs: [
+          "Paidnice leans rules engines, late fees, and structured dunning — stronger for businesses enforcing credit policy than for solos who want warm AI copy from Gmail. Expect mid-market pricing versus freelancer flat fees.",
+        ],
+      },
+      {
+        heading: "5. Best full credit-control platform — Chaser",
+        paragraphs: [
+          "Chaser is the grown-up AR suite: SMS, calls, portals, team workflows. Excellent if you have a finance function. Overkill (and usually overpriced) for a freelancer with 12 clients.",
+        ],
+      },
+      {
+        heading: "6–8. Built-in reminders: QuickBooks, FreshBooks, Wave",
+        paragraphs: [
+          "QuickBooks and FreshBooks both ship basic reminder schedules — capped steps, template text, platform-branded sending. Wave's free invoicing includes similarly basic nudges. These are fine checkboxes; they are not AI chasing. Treat GentleTap (or Chasivo, once sync ships) as the power-up layer on top.",
+        ],
+      },
+      {
+        heading: "Quick comparison",
+        paragraphs: [
+          "Live QBO + FreshBooks sync + WhatsApp today: GentleTap (Pro+ $39). AI + Gmail with CSV and roadmap sync: Chasivo (Solo $19 / Pro $39). Cheapest AI: ChaseAI (~$9). Rules/late fees: Paidnice. Enterprise channels: Chaser. Free invoicing only: Wave.",
+          "If you remember one line: own the freelancer + live accounting sync + AI + Gmail intersection. Almost nobody else claims all four with WhatsApp shipping now.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        q: "What is the best invoice chasing software for freelancers in 2026?",
+        a: "For freelancers on QuickBooks or FreshBooks, GentleTap — live sync, Gmail-native AI drafts, free Starter, WhatsApp on Pro+ at $39/mo. Chasivo is the closest AI peer if you're okay with CSV until their integrations ship.",
+      },
+      {
+        q: "Is Chasivo better than GentleTap?",
+        a: "Depends. Chasivo wins on in-app invoicing, forecasting, SMS, and Outlook. GentleTap wins on live QBO/FreshBooks sync and live WhatsApp. Full comparison: /compare/chasivo.",
+      },
+      {
+        q: "Do I need chasing software if QuickBooks has reminders?",
+        a: "Built-in reminders are three generic steps from Intuit's servers. If clients still pay late, AI sequences from your Gmail recover more without sounding like collections.",
+      },
+      {
+        q: "What's the best free invoice reminder option?",
+        a: "GentleTap Starter (5 AI collections/mo) or Wave's basic free reminders. Starter actually runs AI drafts; Wave's free tier is invoicing-first with light nudges.",
+      },
+    ],
+    related: ["stop-chasing-invoices", "whatsapp-invoice-reminders", "late-payment-statistics-2026"],
+  },
+
   "stop-chasing-invoices": {
     slug: "stop-chasing-invoices",
     title: "How to Stop Chasing Invoices: The Complete 2026 Guide",

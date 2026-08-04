@@ -21,6 +21,7 @@ const FOOTER_SECTIONS = [
     title: "Compare",
     links: [
       { href: "/compare", label: "Compare tools" },
+      { href: "/compare/chasivo", label: "vs Chasivo" },
       { href: "/alternatives", label: "Alternatives" },
       { href: "/quickbooks-reminders-vs-gentletap", label: "QBO vs GentleTap" },
       { href: "/compare/freshbooks", label: "FreshBooks vs GentleTap" },

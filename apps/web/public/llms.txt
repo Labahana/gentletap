@@ -13,6 +13,7 @@
 - How to follow up on overdue invoices: https://gentletap.co/how-to-follow-up-on-overdue-invoices
 - QuickBooks reminders vs GentleTap: https://gentletap.co/quickbooks-reminders-vs-gentletap
 - Compare alternatives (hub): https://gentletap.co/compare
+- GentleTap vs Chasivo: https://gentletap.co/compare/chasivo
 - GentleTap vs Bonsai: https://gentletap.co/compare/bonsai
 - GentleTap vs Chaser: https://gentletap.co/compare/chaser
 - GentleTap vs Melio: https://gentletap.co/compare/melio
@@ -28,10 +29,14 @@
 - GentleTap vs Upflow: https://gentletap.co/compare/upflow
 - GentleTap vs Satago: https://gentletap.co/compare/satago
 - GentleTap vs ChaseAI: https://gentletap.co/compare/chaseai
+- GentleTap vs Wave: https://gentletap.co/compare/wave
 - Alternatives hub: https://gentletap.co/alternatives
 - Features hub: https://gentletap.co/features
+- AI client profiling: https://gentletap.co/features/ai-client-profiling
+- Multi-channel reminders: https://gentletap.co/features/multi-channel-reminders
 - Industries hub: https://gentletap.co/industries
 - Blog: https://gentletap.co/blog
+- Best invoice chasing software 2026: https://gentletap.co/blog/best-invoice-chasing-software-2026
 - QuickBooks invoice automation guide: https://gentletap.co/quickbooks-invoice-automation
 - FreshBooks invoice reminders guide: https://gentletap.co/freshbooks-invoice-reminders
 - Xero invoice reminders (honest options): https://gentletap.co/xero-invoice-reminders
@@ -73,10 +78,14 @@ Solo freelance designers, developers, and consultants (2–8 years experience) w
 
 ## Pricing (USD)
 
-- Starter: Free — 5 invoice collections/month, no credit card
-- Pro: $19/month — unlimited collections
-- Pro+: $39/month — includes WhatsApp follow-ups
-- Team: $59/month — team features
+- Starter: Free — 5 invoice collections/month with AI drafts, no credit card
+- Pro: $19/month — unlimited collections, autopilot email
+- Pro+: $39/month — **full features** — WhatsApp follow-ups (450/mo) + priority AI (GPT-4o) + escalation dashboard
+- Team: $59/month — 3 seats, 850 WhatsApp/mo
+
+## Closest competitor note (Chasivo)
+
+Chasivo offers similar AI drafts, Gmail sending, and risk profiling. Per chasivo.com/pricing (Aug 2026), QuickBooks, FreshBooks, Xero, Wave, and WhatsApp are still "coming soon" — CSV import today. GentleTap ships live QBO + FreshBooks sync and live WhatsApp on Pro+ ($39). Honest comparison: https://gentletap.co/compare/chasivo
 
 ## How GentleTap differs from alternatives
 

@@ -15,7 +15,9 @@ export type Feature = {
 
 export const FEATURE_SLUGS = [
   "ai-reminder-drafts",
+  "ai-client-profiling",
   "send-from-gmail",
+  "multi-channel-reminders",
   "whatsapp-reminders",
   "auto-stop-on-payment",
 ] as const;
@@ -89,6 +91,72 @@ export const FEATURES: Record<FeatureSlug, Feature> = {
     ],
   },
 
+  "ai-client-profiling": {
+    slug: "ai-client-profiling",
+    name: "AI client profiling",
+    title: "AI Client Payment Profiles — Smarter Follow-Up Per Client",
+    metaTitle: "AI Client Profiling for Invoice Follow-Up | GentleTap",
+    metaDescription:
+      "GentleTap builds a payment profile for every client — average days to pay, late rate, risk level, and preferred channel — then drafts tone and timing accordingly. Included through Pro+ at $39/mo.",
+    keywords: [
+      "AI client profiling invoices",
+      "payment behavior profile",
+      "invoice risk scoring freelancers",
+      "personalized invoice follow up",
+    ],
+    hero: "The same reminder doesn't work for every client. GentleTap learns how each client pays — then writes the follow-up that fits.",
+    benefits: [
+      {
+        title: "Payment history, not guesswork",
+        body: "Average days to pay, on-time vs late counts, tenure, and lifetime value feed every draft — so a reliable client gets warmth and a chronic late payer gets firmer directness.",
+      },
+      {
+        title: "Risk level drives tone",
+        body: "Each invoice context includes a risk signal. Higher risk moves the register toward firm/urgent earlier; low risk stays warm longer.",
+      },
+      {
+        title: "Preferred channel awareness",
+        body: "Profiles track whether email or WhatsApp fits the client relationship — WhatsApp nudges activate on Pro+ ($39/mo) for clients you've set a reminder phone for.",
+      },
+      {
+        title: "Escalation recommendations",
+        body: "On Pro+, the escalation dashboard surfaces invoices that need a human decision — not just another automated email.",
+      },
+    ],
+    howItWorks: [
+      {
+        name: "Sync invoices and clients",
+        text: "Connect QuickBooks or FreshBooks — GentleTap reads payment history from your real ledger.",
+      },
+      {
+        name: "Build the profile",
+        text: "As invoices settle, GentleTap updates late rate, days-to-pay, risk level, and channel preference.",
+      },
+      {
+        name: "Draft with context",
+        text: "AI uses the profile plus days overdue to write the right tone for this client, this invoice, this step.",
+      },
+      {
+        name: "Escalate when needed",
+        text: "Pro+ surfaces recommendations when the pattern says a human should step in.",
+      },
+    ],
+    faq: [
+      {
+        q: "Does GentleTap score invoice risk?",
+        a: "Yes — risk level (informed by payment history and invoice context) shapes tone selection so chronic late payers don't get the same warm nudge as reliable ones.",
+      },
+      {
+        q: "Is client profiling on the free plan?",
+        a: "AI drafts use available client context on every plan, including free Starter. Escalation dashboard recommendations are part of Pro+ ($39/mo).",
+      },
+      {
+        q: "How is this different from Chasivo's profiling?",
+        a: "Both score behavior. GentleTap's profiles sit on live QuickBooks/FreshBooks data and feed WhatsApp + email sequences that already ship — not CSV-only chasing with WhatsApp on a roadmap.",
+      },
+    ],
+  },
+
   "send-from-gmail": {
     slug: "send-from-gmail",
     name: "Send from Gmail",
@@ -148,6 +216,72 @@ export const FEATURES: Record<FeatureSlug, Feature> = {
       {
         q: "What if a client replies to a reminder?",
         a: "It comes straight to your Gmail inbox like any reply — you handle the conversation; GentleTap keeps tracking the balance.",
+      },
+    ],
+  },
+
+  "multi-channel-reminders": {
+    slug: "multi-channel-reminders",
+    name: "Multi-channel reminders",
+    title: "Email + WhatsApp Invoice Reminders — Multi-Channel Follow-Up",
+    metaTitle: "Multi-Channel Invoice Reminders (Email + WhatsApp) | GentleTap",
+    metaDescription:
+      "GentleTap sends AI payment reminders from your Gmail, then WhatsApp nudges on Pro+ ($39/mo). Email carries the facts; WhatsApp gets read. Both stop when the invoice is paid.",
+    keywords: [
+      "multi channel invoice reminders",
+      "email whatsapp invoice follow up",
+      "multi channel invoice chasing",
+      "whatsapp and email payment reminders",
+    ],
+    hero: "One channel leaks money. GentleTap pairs Gmail-native email with WhatsApp nudges — the combo freelancers actually get answered on.",
+    benefits: [
+      {
+        title: "Email for the record",
+        body: "Full reminder — invoice number, amount, payment link — from your Gmail. Replies land in your inbox.",
+      },
+      {
+        title: "WhatsApp for attention",
+        body: "On Pro+ ($39/mo), a short nudge follows ~3 hours later on steps 1–3 — the channel that lands on the home screen.",
+      },
+      {
+        title: "Stops on both channels",
+        body: "When QuickBooks or FreshBooks shows balance zero, email and WhatsApp both go quiet. No awkward post-payment chase.",
+      },
+      {
+        title: "No SMS spam",
+        body: "GentleTap deliberately skips SMS collections blasts. WhatsApp fits international freelancers and existing client chats; SMS stays for tools built for trade crews.",
+      },
+    ],
+    howItWorks: [
+      {
+        name: "Connect Gmail + accounting",
+        text: "Link QuickBooks or FreshBooks and authorize Gmail sending.",
+      },
+      {
+        name: "Email step sends first",
+        text: "AI drafts the full reminder and sends from your address on schedule.",
+      },
+      {
+        name: "WhatsApp on Pro+",
+        text: "Upgrade to Pro+ ($39/mo) and set a reminder phone — WhatsApp follows the early email steps.",
+      },
+      {
+        name: "Auto-stop everywhere",
+        text: "Live balance sync closes both channels the moment payment lands.",
+      },
+    ],
+    faq: [
+      {
+        q: "Does GentleTap send SMS invoice reminders?",
+        a: "No. Channels are email (all plans) and WhatsApp (Pro+ $39/mo and Team). SMS is left to trade-focused tools.",
+      },
+      {
+        q: "What plan unlocks multi-channel?",
+        a: "Email is on every plan including free. WhatsApp unlocks on Pro+ at $39/mo (450 msgs/mo) and Team at $59/mo (850 msgs/mo).",
+      },
+      {
+        q: "Is multi-channel better than email-only?",
+        a: "For clients you already message on WhatsApp, yes — open rates are dramatically higher. For formal enterprise AP, email alone is usually right.",
       },
     ],
   },

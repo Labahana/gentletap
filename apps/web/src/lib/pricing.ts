@@ -54,14 +54,14 @@ export const PRICING_PLANS: Omit<
     monthly_collection_limit: 5,
     value_note: "No credit card required to start",
     features: [
-      "QuickBooks Online sync (read-only)",
+      "QuickBooks Online + FreshBooks sync (read-only)",
       "CSV & Excel invoice upload",
       "Connect Gmail for sending",
       "AI-drafted payment reminder emails",
       "Preview & edit messages before they send",
       "Multi-step email sequences (due date → day 21)",
       "Pause reminders per invoice anytime",
-      "Auto-stop when QuickBooks shows paid",
+      "Auto-stop when invoice balance shows paid",
       "Invoice & client dashboard",
       "5 invoice collections per month",
     ],
@@ -80,7 +80,7 @@ export const PRICING_PLANS: Omit<
       "AI-personalized emails per client & invoice",
       "Sequences from due date through day 21",
       "Send from your Gmail inbox",
-      "QuickBooks sync + spreadsheet re-upload",
+      "QuickBooks + FreshBooks sync + spreadsheet re-upload",
       "Edit upcoming reminders from dashboard",
       "Per-invoice reminder history",
       "Payment-received email notifications",
@@ -94,10 +94,10 @@ export const PRICING_PLANS: Omit<
     price_monthly: 39,
     price_annual: 390,
     active_sequence_limit: null,
-    value_note: "450 WhatsApp messages/mo included",
+    value_note: "Full features — WhatsApp + priority AI · 450 msgs/mo",
     features: [
       "Everything in Pro",
-      "WhatsApp on sequence steps 1–3",
+      "Full feature set: WhatsApp on steps 1–3",
       "450 WhatsApp reminders per month",
       "Email first, WhatsApp hours later",
       "Priority AI (GPT-4o) for sharper copy",
@@ -138,14 +138,14 @@ export function withPlanMarketing(plan: PlanFeature): PlanFeature {
 export const PRICING_VALUE_PROPS = [
   {
     title: "Stops when they pay",
-    body: "QuickBooks balance hits zero → reminders stop. No awkward chase after payment.",
+    body: "Invoice balance hits zero → reminders stop. No awkward chase after payment.",
   },
   {
     title: "Sounds like you wrote it",
     body: "AI drafts reference each invoice and client history — warm, not collections-agency.",
   },
   {
-    title: "Built for QuickBooks freelancers",
-    body: "Sync unpaid invoices, send from Gmail, recover cash without damaging relationships.",
+    title: "Built for freelancers on QBO & FreshBooks",
+    body: "Live sync, send from Gmail, WhatsApp on Pro+ ($39/mo) — get paid without damaging relationships.",
   },
 ] as const;
