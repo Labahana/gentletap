@@ -22,6 +22,9 @@ def apply_invoice_balance_update(
 ) -> Invoice | None:
     invoice = (
         db.query(Invoice)
+        # Row lock: two concurrent syncs/webhooks must not both see balance>0
+        # and send duplicate "payment received" notifications.
+        .with_for_update()
         .filter(Invoice.user_id == user_id, Invoice.qb_invoice_id == qb_invoice_id)
         .one_or_none()
     )

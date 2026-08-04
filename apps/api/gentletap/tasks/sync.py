@@ -9,7 +9,12 @@ from gentletap.tasks.celery_app import celery_app
 logger = logging.getLogger(__name__)
 
 
-@celery_app.task(name="gentletap.tasks.sync.sync_user_invoices")
+@celery_app.task(
+    name="gentletap.tasks.sync.sync_user_invoices",
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},
+)
 def sync_user_invoices(user_id: str) -> dict:
     db = SessionLocal()
     try:
@@ -18,7 +23,12 @@ def sync_user_invoices(user_id: str) -> dict:
         db.close()
 
 
-@celery_app.task(name="gentletap.tasks.sync.sync_user_freshbooks_invoices")
+@celery_app.task(
+    name="gentletap.tasks.sync.sync_user_freshbooks_invoices",
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},
+)
 def sync_user_freshbooks_invoices(user_id: str) -> dict:
     db = SessionLocal()
     try:

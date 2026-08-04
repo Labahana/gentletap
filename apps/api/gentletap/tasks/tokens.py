@@ -1,10 +1,14 @@
 from datetime import UTC, datetime, timedelta
 
+import logging
+
 from gentletap.database import FreshBooksConnection, GoogleConnection, QuickBooksConnection, SessionLocal
 from gentletap.integrations.freshbooks.oauth import refresh_connection_tokens as refresh_fb_tokens
 from gentletap.integrations.google import oauth as google_oauth
 from gentletap.integrations.quickbooks.oauth import refresh_connection_tokens
 from gentletap.tasks.celery_app import celery_app
+
+logger = logging.getLogger(__name__)
 
 
 @celery_app.task(name="gentletap.tasks.tokens.refresh_qb_tokens")
@@ -23,8 +27,13 @@ def refresh_qb_tokens() -> dict:
             .all()
         )
         for conn in connections:
-            refresh_connection_tokens(db, conn)
-            refreshed += 1
+            try:
+                refresh_connection_tokens(db, conn)
+                refreshed += 1
+            except Exception:
+                logger.exception("QuickBooks token refresh failed for connection %s", conn.id)
+                db.rollback()
+                continue
         return {"refreshed": refreshed}
     finally:
         db.close()
@@ -52,6 +61,8 @@ def refresh_fb_tokens_task() -> dict:
                 refresh_fb_tokens(db, conn)
                 refreshed += 1
             except Exception:
+                logger.exception("FreshBooks token refresh failed for connection %s", conn.id)
+                db.rollback()
                 continue
         return {"refreshed": refreshed}
     finally:
@@ -74,8 +85,13 @@ def refresh_google_tokens() -> dict:
             .all()
         )
         for conn in connections:
-            google_oauth.refresh_connection_tokens(db, conn)
-            refreshed += 1
+            try:
+                google_oauth.refresh_connection_tokens(db, conn)
+                refreshed += 1
+            except Exception:
+                logger.exception("Google token refresh failed for connection %s", conn.id)
+                db.rollback()
+                continue
         return {"refreshed": refreshed}
     finally:
         db.close()

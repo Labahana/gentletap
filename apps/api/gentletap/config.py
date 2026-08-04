@@ -97,9 +97,10 @@ class Settings(BaseSettings):
     # determining the client IP for rate limiting and the admin IP allowlist.
     # Enable ONLY when the app is reachable exclusively through a trusted proxy
     # (the compose files bind web/api to localhost so this holds in production).
-    # If the app is ever exposed directly, set this to false or clients can
-    # spoof their IP to bypass rate limits and the admin allowlist.
-    trust_proxy_headers: bool = True
+    # If the app is ever exposed directly, leave this false or clients can
+    # spoof their IP to bypass rate limits and the admin allowlist. Set true
+    # only when nginx/another trusted proxy terminates TLS in front.
+    trust_proxy_headers: bool = False
 
     cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
 

@@ -21,6 +21,9 @@ export async function POST(request: NextRequest) {
   if (!tokens.ok) {
     return NextResponse.json({ detail: tokens.detail }, { status: tokens.status });
   }
+  if (!tokens.data.access_token) {
+    return NextResponse.json({ detail: "Authentication service error" }, { status: 502 });
+  }
 
   const me = await backendJson<User>("/auth/me", {
     headers: { Authorization: `Bearer ${tokens.data.access_token}` },

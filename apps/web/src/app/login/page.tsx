@@ -27,6 +27,10 @@ function LoginForm() {
 
   const resetSuccess = searchParams.get("reset") === "1";
   const googleError = searchParams.get("google") === "error" ? searchParams.get("message") : null;
+  const nextParam = searchParams.get("next");
+  // Same-origin paths only — never honor protocol-relative or external URLs.
+  const safeNext =
+    nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : null;
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -34,7 +38,7 @@ function LoginForm() {
     setLoading(true);
     try {
       const me = await login(email, password);
-      router.push(postAuthPath(me));
+      router.push(safeNext ?? postAuthPath(me));
     } catch (err) {
       setError(
         friendlyLoginError(err instanceof Error ? err.message : "Login failed"),

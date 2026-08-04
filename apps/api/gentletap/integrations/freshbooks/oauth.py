@@ -1,6 +1,7 @@
 """FreshBooks OAuth 2.0 via the official freshbooks-sdk Client."""
 
 import secrets
+import time
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -10,7 +11,14 @@ from sqlalchemy.orm import Session
 from gentletap.config import Settings, get_settings
 from gentletap.database import FreshBooksConnection, Profile
 from gentletap.utils.crypto import decrypt_token, encrypt_token
-from gentletap.utils.redis_client import delete_key, get_json, set_json
+from gentletap.utils.redis_client import (
+    acquire_lock,
+    delete_key,
+    get_json,
+    lock_held,
+    release_lock,
+    set_json,
+)
 
 OAUTH_STATE_TTL = 600
 # FreshBooks access tokens expire in 12 hours; refresh tokens yield a new pair without re-auth.
@@ -118,17 +126,34 @@ def refresh_connection_tokens(
     settings: Settings | None = None,
 ) -> FreshBooksConnection:
     cfg = settings or get_settings()
-    refresh_token = decrypt_token(connection.refresh_token_enc)
-    client = _sdk_client(refresh_token=refresh_token, settings=cfg)
-    tokens = client.refresh_access_token(refresh_token)
+    # FreshBooks rotates refresh tokens — serialize refreshes per connection or
+    # a concurrent worker presents the rotated token and kills the connection.
+    lock_key = f"fb_token_refresh:{connection.id}"
+    if not acquire_lock(lock_key, ttl_seconds=60):
+        _wait_for_refresh(db, connection, lock_key)
+        return connection
+    try:
+        db.refresh(connection)  # pick up tokens a just-finished refresh may have written
+        refresh_token = decrypt_token(connection.refresh_token_enc)
+        client = _sdk_client(refresh_token=refresh_token, settings=cfg)
+        tokens = client.refresh_access_token(refresh_token)
 
-    # Refresh tokens are rotated — always persist the new refresh token with the access token.
-    connection.access_token_enc = encrypt_token(tokens.access_token)
-    connection.refresh_token_enc = encrypt_token(tokens.refresh_token)
-    connection.token_expires_at = _normalize_expires_at(tokens.access_token_expires_at)
-    db.commit()
+        # Refresh tokens are rotated — always persist the new refresh token with the access token.
+        connection.access_token_enc = encrypt_token(tokens.access_token)
+        connection.refresh_token_enc = encrypt_token(tokens.refresh_token)
+        connection.token_expires_at = _normalize_expires_at(tokens.access_token_expires_at)
+        db.commit()
+        db.refresh(connection)
+        return connection
+    finally:
+        release_lock(lock_key)
+
+
+def _wait_for_refresh(db: Session, connection: FreshBooksConnection, lock_key: str) -> None:
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline and lock_held(lock_key):
+        time.sleep(0.5)
     db.refresh(connection)
-    return connection
 
 
 def _pick_business(identity) -> tuple[str | None, int | None, str | None]:

@@ -1,5 +1,6 @@
 import base64
 import secrets
+import time
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlencode
 from uuid import UUID
@@ -10,7 +11,14 @@ from sqlalchemy.orm import Session
 from gentletap.config import Settings, get_settings
 from gentletap.database import Profile, QuickBooksConnection
 from gentletap.utils.crypto import encrypt_token
-from gentletap.utils.redis_client import delete_key, get_json, set_json
+from gentletap.utils.redis_client import (
+    acquire_lock,
+    delete_key,
+    get_json,
+    lock_held,
+    release_lock,
+    set_json,
+)
 
 OAUTH_STATE_TTL = 600
 SCOPE = "com.intuit.quickbooks.accounting"
@@ -109,15 +117,33 @@ def refresh_connection_tokens(
     from gentletap.utils.crypto import decrypt_token
 
     cfg = settings or get_settings()
-    refresh_token = decrypt_token(connection.refresh_token_enc)
-    token_data = _exchange_token(grant_type="refresh_token", refresh_token=refresh_token, settings=cfg)
+    # Intuit rotates refresh tokens — a concurrent refresh (beat worker vs.
+    # sync/webhook worker) would present the rotated token and fail. Serialize
+    # refreshes per connection; losers wait for the winner's tokens.
+    lock_key = f"qb_token_refresh:{connection.id}"
+    if not acquire_lock(lock_key, ttl_seconds=60):
+        _wait_for_refresh(db, connection, lock_key)
+        return connection
+    try:
+        db.refresh(connection)  # pick up tokens a just-finished refresh may have written
+        refresh_token = decrypt_token(connection.refresh_token_enc)
+        token_data = _exchange_token(grant_type="refresh_token", refresh_token=refresh_token, settings=cfg)
 
-    connection.access_token_enc = encrypt_token(token_data["access_token"])
-    connection.refresh_token_enc = encrypt_token(token_data["refresh_token"])
-    connection.token_expires_at = datetime.now(UTC) + timedelta(seconds=int(token_data.get("expires_in", 3600)))
-    db.commit()
+        connection.access_token_enc = encrypt_token(token_data["access_token"])
+        connection.refresh_token_enc = encrypt_token(token_data["refresh_token"])
+        connection.token_expires_at = datetime.now(UTC) + timedelta(seconds=int(token_data.get("expires_in", 3600)))
+        db.commit()
+        db.refresh(connection)
+        return connection
+    finally:
+        release_lock(lock_key)
+
+
+def _wait_for_refresh(db: Session, connection: QuickBooksConnection, lock_key: str) -> None:
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline and lock_held(lock_key):
+        time.sleep(0.5)
     db.refresh(connection)
-    return connection
 
 
 def _upsert_connection(

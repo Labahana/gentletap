@@ -23,6 +23,13 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
+# Multiple tabs/devices and network retries can legitimately present the same
+# refresh token twice within seconds. Strict reuse detection would revoke the
+# whole family and log every session out, so re-rotation is allowed inside a
+# short grace window; reuse after it is treated as token theft.
+REFRESH_REUSE_GRACE = timedelta(seconds=120)
+
+
 def create_access_token(subject: str | UUID, extra: dict[str, Any] | None = None) -> str:
     expire = datetime.now(UTC) + timedelta(minutes=settings.access_token_expire_minutes)
     payload: dict[str, Any] = {"sub": str(subject), "exp": expire, "type": "access"}
@@ -56,12 +63,19 @@ def rotate_refresh_token(db: Session, raw_token: str) -> tuple[str, str] | None:
     row = db.query(RefreshToken).filter(RefreshToken.token_hash == token_hash).one_or_none()
     if row is None:
         return None
-    if row.used or row.expires_at < datetime.now(UTC):
-        if row.used:
+    now = datetime.now(UTC)
+    if row.expires_at < now:
+        return None
+    if row.used:
+        in_grace = row.used_at is not None and (now - row.used_at) <= REFRESH_REUSE_GRACE
+        if not in_grace:
             db.query(RefreshToken).filter(RefreshToken.family_id == row.family_id).update({"used": True})
             db.commit()
-        return None
+            return None
+        # Duplicate delivery within the grace window — rotate again instead of
+        # killing the family.
     row.used = True
+    row.used_at = now
     user_id = row.user_id
     family_id = row.family_id
     new_raw = secrets.token_urlsafe(48)

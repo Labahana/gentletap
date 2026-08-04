@@ -9,14 +9,20 @@ export async function POST() {
   const jar = await cookies();
   const refresh = jar.get(REFRESH_COOKIE)?.value;
 
+  const response = NextResponse.json({ status: "logged_out" });
+  // Clear first — logout must succeed even when the backend is down.
+  clearSessionCookies(response);
+
   if (refresh) {
-    await backendJson("/auth/logout", {
-      method: "POST",
-      body: JSON.stringify({ refresh_token: refresh }),
-    });
+    try {
+      await backendJson("/auth/logout", {
+        method: "POST",
+        body: JSON.stringify({ refresh_token: refresh }),
+      });
+    } catch {
+      // Best-effort server-side revocation; the browser session is already gone.
+    }
   }
 
-  const response = NextResponse.json({ status: "logged_out" });
-  clearSessionCookies(response);
   return response;
 }

@@ -61,6 +61,26 @@ def test_resolve_plan_picks_highest_rank():
     assert paddle_billing.resolve_plan_from_subscription(sub, settings) == "pro_plus"
 
 
+def test_resolve_plan_from_items_reads_nested_price_object():
+    settings = _settings()
+    items = [{"price": {"id": "pri_team_m"}}]
+    assert paddle_billing.resolve_plan_from_items(items, settings) == "team"
+
+
+def test_whatsapp_credits_from_items_maps_price_to_credits():
+    settings = _settings(
+        paddle_price_id_whatsapp_250="pri_wa250",
+        paddle_price_id_whatsapp_500="pri_wa500",
+    )
+    items = [{"price_id": "pri_wa500", "quantity": 2}, {"price_id": "pri_unknown"}]
+    assert paddle_billing.whatsapp_credits_from_items(items, settings) == 1000
+
+
+def test_whatsapp_credits_from_items_ignores_unconfigured_prices():
+    settings = _settings(paddle_price_id_whatsapp_250="pri_wa250")
+    assert paddle_billing.whatsapp_credits_from_items([{"price_id": "pri_pro_m"}], settings) == 0
+
+
 def test_verify_signature_accepts_valid_hmac(monkeypatch):
     secret = "pdl_ntfset_secret"
     monkeypatch.setattr(

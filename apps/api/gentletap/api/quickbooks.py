@@ -1,6 +1,8 @@
 from datetime import UTC, datetime
 from urllib.parse import quote
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy import func
@@ -15,6 +17,8 @@ from gentletap.rate_limit import limiter
 from gentletap.tasks.sync import sync_user_invoices
 from gentletap.utils.crypto import decrypt_token
 from gentletap.utils.redis_client import get_json
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/quickbooks", tags=["quickbooks"])
 
@@ -56,6 +60,12 @@ def oauth_callback(
     except ValueError as exc:
         return RedirectResponse(
             url=f"{settings.web_url}/onboarding?qb=error&message={quote(str(exc))}",
+            status_code=status.HTTP_302_FOUND,
+        )
+    except Exception:
+        logger.exception("QuickBooks OAuth callback failed")
+        return RedirectResponse(
+            url=f"{settings.web_url}/onboarding?qb=error&message={quote('QuickBooks connection failed — please try again')}",
             status_code=status.HTTP_302_FOUND,
         )
 

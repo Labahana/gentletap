@@ -10,7 +10,13 @@ from sqlalchemy.orm import Session
 
 from gentletap.config import get_settings
 from gentletap.database import Affiliate, AffiliateRefreshToken
-from gentletap.services.auth import create_access_token, decode_access_token, hash_password, verify_password
+from gentletap.services.auth import (
+    REFRESH_REUSE_GRACE,
+    create_access_token,
+    decode_access_token,
+    hash_password,
+    verify_password,
+)
 
 settings = get_settings()
 
@@ -68,14 +74,21 @@ def rotate_affiliate_refresh_token(db: Session, raw_token: str) -> tuple[str, st
     row = db.query(AffiliateRefreshToken).filter(AffiliateRefreshToken.token_hash == token_hash).one_or_none()
     if row is None:
         return None
-    if row.used or row.expires_at < datetime.now(UTC):
-        if row.used:
+    now = datetime.now(UTC)
+    if row.expires_at < now:
+        return None
+    if row.used:
+        in_grace = row.used_at is not None and (now - row.used_at) <= REFRESH_REUSE_GRACE
+        if not in_grace:
             db.query(AffiliateRefreshToken).filter(
                 AffiliateRefreshToken.family_id == row.family_id
             ).update({"used": True})
             db.commit()
-        return None
+            return None
+        # Duplicate delivery within the grace window — rotate again instead of
+        # killing the family.
     row.used = True
+    row.used_at = now
     affiliate_id = row.affiliate_id
     family_id = row.family_id
     new_raw = secrets.token_urlsafe(48)

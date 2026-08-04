@@ -1,6 +1,8 @@
 from datetime import UTC, datetime
 from urllib.parse import quote
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy import func
@@ -15,6 +17,8 @@ from gentletap.integrations.freshbooks.sync import sync_status_key
 from gentletap.rate_limit import limiter
 from gentletap.tasks.sync import sync_user_freshbooks_invoices
 from gentletap.utils.redis_client import get_json
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/freshbooks", tags=["freshbooks"])
 
@@ -58,6 +62,12 @@ def oauth_callback(
     except ValueError as exc:
         return RedirectResponse(
             url=f"{settings.web_url}/onboarding?fb=error&message={quote(str(exc))}",
+            status_code=status.HTTP_302_FOUND,
+        )
+    except Exception:
+        logger.exception("FreshBooks OAuth callback failed")
+        return RedirectResponse(
+            url=f"{settings.web_url}/onboarding?fb=error&message={quote('FreshBooks connection failed — please try again')}",
             status_code=status.HTTP_302_FOUND,
         )
 

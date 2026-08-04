@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { api } from "@/lib/api";
-import { formatMoney } from "@/lib/onboarding";
+import { formatMoney, isOnboardingComplete } from "@/lib/onboarding";
 import { useAuth } from "@/lib/auth-context";
 
 export default function EscalationsPage() {
@@ -34,6 +34,9 @@ export default function EscalationsPage() {
   }, []);
 
   useEffect(() => { if (!loading && !user) router.replace("/login"); }, [loading, user, router]);
+  useEffect(() => {
+    if (user && !isOnboardingComplete(user)) router.replace("/onboarding");
+  }, [user, router]);
   useEffect(() => { if (user) load(); }, [user, load]);
 
   if (loading || !user) {

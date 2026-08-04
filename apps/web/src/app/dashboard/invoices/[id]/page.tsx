@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { formatMoney } from "@/lib/onboarding";
+import { formatMoney, isOnboardingComplete } from "@/lib/onboarding";
 import { hasWhatsapp } from "@/lib/pricing";
 
 type InvoiceDetail = Awaited<ReturnType<typeof api.invoiceDetail>>;
@@ -52,6 +52,10 @@ export default function InvoiceDetailPage() {
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
   }, [loading, user, router]);
+
+  useEffect(() => {
+    if (user && !isOnboardingComplete(user)) router.replace("/onboarding");
+  }, [user, router]);
 
   useEffect(() => {
     if (user) load();

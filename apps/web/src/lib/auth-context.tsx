@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { api, clearToken, type User } from "./api";
@@ -25,15 +26,22 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  // Bumped on login/register/logout so a stale in-flight /auth/me cannot
+  // overwrite a fresh session (or clear a just-logged-in user).
+  const sessionGen = useRef(0);
 
   const refresh = useCallback(async () => {
+    const gen = sessionGen.current;
     try {
-      setUser(await api.me());
+      const me = await api.me();
+      if (gen !== sessionGen.current) return;
+      setUser(me);
     } catch {
+      if (gen !== sessionGen.current) return;
       clearToken();
       setUser(null);
     } finally {
-      setLoading(false);
+      if (gen === sessionGen.current) setLoading(false);
     }
   }, []);
 
@@ -44,8 +52,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const { user: me } = await api.login({ email, password });
+    sessionGen.current += 1;
     await tryAttributeFromCookie();
     setUser(me);
+    setLoading(false);
     return me;
   }, []);
 
@@ -57,11 +67,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       full_name: fullName,
       ref_code,
     });
+    sessionGen.current += 1;
     setUser(me);
+    setLoading(false);
     return me;
   }, []);
 
   const logout = useCallback(async () => {
+    sessionGen.current += 1;
     await api.logout();
     clearToken();
     setUser(null);

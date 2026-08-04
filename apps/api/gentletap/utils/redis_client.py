@@ -30,3 +30,16 @@ def get_json(key: str) -> dict[str, Any] | None:
     if not raw:
         return None
     return json.loads(raw)
+
+
+def acquire_lock(key: str, ttl_seconds: int = 60) -> bool:
+    """Best-effort distributed lock (SET NX EX). False when already held."""
+    return bool(get_redis().set(key, "1", nx=True, ex=ttl_seconds))
+
+
+def lock_held(key: str) -> bool:
+    return bool(get_redis().exists(key))
+
+
+def release_lock(key: str) -> None:
+    get_redis().delete(key)

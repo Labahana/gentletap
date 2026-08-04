@@ -110,15 +110,21 @@ def handle_webhook_post(
         except Exception:
             stored_verifier = None
 
-    # If we have a verifier, require a valid signature.
-    if stored_verifier and not verify_signature(form, signature, stored_verifier):
+    # Require the verifier from the handshake — unsigned events could otherwise
+    # mark invoices paid and trigger false "payment received" notifications.
+    if not stored_verifier or not verify_signature(form, signature, stored_verifier):
         return {"status": "invalid_signature"}
 
     object_id = form.get("object_id")
     if not name or not object_id:
         return {"status": "ignored"}
 
-    event_key = f"fb:{account_id}:{name}:{object_id}"
+    # FreshBooks includes a unique event_id per delivery; without it, an
+    # entity-only key would drop every repeat update to the same entity forever.
+    delivery_id = form.get("event_id") or hashlib.sha256(
+        json.dumps(form, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    event_key = f"fb:{account_id}:{name}:{object_id}:{delivery_id}"
     if not _claim_event(db, event_key):
         db.commit()
         return {"status": "duplicate"}

@@ -130,6 +130,7 @@ function OnboardingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const stepSynced = useRef(false);
+  const activationStarted = useRef(false);
   const [macroStep, setMacroStep] = useState(0);
   const [companyName, setCompanyName] = useState("");
   const [emailDisplayName, setEmailDisplayName] = useState("");
@@ -160,7 +161,7 @@ function OnboardingContent() {
   });
 
   useEffect(() => {
-    if (!loading && !user) router.replace("/signup");
+    if (!loading && !user) router.replace("/login?next=/onboarding");
   }, [loading, user, router]);
 
   useEffect(() => {
@@ -230,23 +231,32 @@ function OnboardingContent() {
 
   useEffect(() => {
     if (searchParams.get("paid") !== "1" || !user) return;
+    if (activationStarted.current) return;
+    activationStarted.current = true;
+    let cancelled = false;
     (async () => {
       for (let i = 0; i < 15; i += 1) {
         const me = await api.me();
         if (me.plan !== "free") break;
         await new Promise((r) => setTimeout(r, 2000));
       }
+      if (cancelled) return;
       await refresh();
       setMacroStep(3);
       try {
         const result = await api.onboardingActivate();
+        if (cancelled) return;
         await refresh();
         storeWelcome(result);
         router.replace("/dashboard");
       } catch (err) {
+        if (cancelled) return;
         setEmailError(err instanceof Error ? err.message : "Could not activate reminders");
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [searchParams, user, refresh, router]);
 
   const pollImportStatus = useCallback(async () => {

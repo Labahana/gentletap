@@ -27,7 +27,7 @@ export type User = {
 };
 
 export type TokenResponse = {
-  access_token?: string | null;
+  access_token: string;
   refresh_token?: string | null;
   token_type: string;
 };
@@ -299,10 +299,53 @@ async function pollActivationResult(): Promise<ActivationResult> {
   throw new Error("Activation timed out — check your dashboard in a minute");
 }
 
+async function handleSessionExpired(): Promise<never> {
+  // Public pages (landing, login, signup) probe /auth/me for guests — a 401 is
+  // normal. Never clear cookies there: a late guest probe can race a successful
+  // login/register and wipe the brand-new session.
+  const currentPath = window.location.pathname;
+  const isProtectedApp =
+    currentPath.startsWith("/dashboard") ||
+    currentPath.startsWith("/settings") ||
+    currentPath.startsWith("/admin") ||
+    currentPath.startsWith("/onboarding");
+  if (isProtectedApp) {
+    await clearSession();
+    window.location.href = `/login?next=${encodeURIComponent(currentPath)}`;
+  }
+  throw new Error("Session expired — please log in again");
+}
+
+async function fetchWithRefresh(
+  path: string,
+  options: RequestInit,
+  headers: Record<string, string>,
+): Promise<Response> {
+  const res = await fetch(`${API_URL}/v1${path}`, {
+    ...options,
+    headers,
+    credentials: "include",
+  });
+  if (res.status !== 401) return res;
+  const refreshed = await tryRefreshToken();
+  if (!refreshed) await handleSessionExpired();
+  const retry = await fetch(`${API_URL}/v1${path}`, {
+    ...options,
+    headers,
+    credentials: "include",
+  });
+  if (retry.status === 401) await handleSessionExpired();
+  return retry;
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  if (typeof window === "undefined") {
+    // Browser-only client — server code must use lib/server-api.ts (backendJson).
+    throw new Error("lib/api request() called on the server");
+  }
   const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
   const headers: Record<string, string> = {
     ...(isFormData ? {} : { "Content-Type": "application/json" }),
@@ -310,36 +353,7 @@ async function request<T>(
   };
   // Main app sessions use HttpOnly cookies injected by the /v1 proxy —
   // tokens are never read from JavaScript.
-  const res = await fetch(`${API_URL}/v1${path}`, {
-    ...options,
-    headers,
-    credentials: "include",
-  });
-  if (res.status === 401 && typeof window !== "undefined") {
-    const refreshed = await tryRefreshToken();
-    if (refreshed) {
-      const retry = await fetch(`${API_URL}/v1${path}`, {
-        ...options,
-        headers,
-        credentials: "include",
-      });
-      if (!retry.ok) throw await parseError(retry);
-      return retry.json() as Promise<T>;
-    }
-    await clearSession();
-    // Only bounce authenticated app areas. Public pages (landing, signup, etc.)
-    // call api.me() via AuthProvider — a 401 there is normal for guests.
-    const currentPath = window.location.pathname;
-    const isProtectedApp =
-      currentPath.startsWith("/dashboard") ||
-      currentPath.startsWith("/settings") ||
-      currentPath.startsWith("/admin") ||
-      currentPath.startsWith("/onboarding");
-    if (isProtectedApp) {
-      window.location.href = "/login";
-    }
-    throw new Error("Session expired — please log in again");
-  }
+  const res = await fetchWithRefresh(path, options, headers);
   if (!res.ok) throw await parseError(res);
   return res.json() as Promise<T>;
 }
@@ -791,23 +805,19 @@ export const api = {
       onboarding_completed_at: string | null;
     }>("/auth/me", { method: "PATCH", body: JSON.stringify(body) }),
 
-  changePassword: (currentPassword: string, password: string) =>
-    request<{ message: string }>(
-      "/auth/change-password",
-      { method: "POST", body: JSON.stringify({ current_password: currentPassword, password }) },
-    ),
+  changePassword: async (currentPassword: string, password: string) => {
+    const res = await fetch("/api/session/change-password", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ current_password: currentPassword, password }),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json() as Promise<{ message: string }>;
+  },
 
   exportAccountData: async () => {
-    const res = await fetch(`${API_URL}/v1/auth/me/export`, { credentials: "include" });
-    if (res.status === 401) {
-      const refreshed = await tryRefreshToken();
-      if (!refreshed) throw new Error("Session expired — please log in again");
-      const retry = await fetch(`${API_URL}/v1/auth/me/export`, { credentials: "include" });
-      if (!retry.ok) throw await parseError(retry);
-      const blob = await retry.blob();
-      downloadBlob(blob, "gentletap-data-export.json");
-      return;
-    }
+    const res = await fetchWithRefresh("/auth/me/export", {}, {});
     if (!res.ok) throw await parseError(res);
     const blob = await res.blob();
     downloadBlob(blob, "gentletap-data-export.json");

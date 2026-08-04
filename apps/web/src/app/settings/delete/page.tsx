@@ -39,6 +39,8 @@ export default function DeleteAccountSettingsPage() {
     setDeleteError(null);
     try {
       await api.deleteAccount(deleteConfirm.trim());
+      // Clear session cookies so the deleted account can't self-revive on next probe.
+      await api.logout().catch(() => {});
       clearToken();
       router.replace("/?deleted=1");
     } catch (err) {

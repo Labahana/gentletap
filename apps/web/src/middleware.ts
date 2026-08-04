@@ -16,7 +16,7 @@ export function middleware(request: NextRequest) {
   const access = request.cookies.get(ACCESS_COOKIE)?.value;
   if (!access) {
     const login = new URL("/login", request.url);
-    login.searchParams.set("next", pathname);
+    login.searchParams.set("next", pathname + request.nextUrl.search);
     return NextResponse.redirect(login);
   }
 

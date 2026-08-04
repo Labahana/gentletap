@@ -1,5 +1,7 @@
 from datetime import UTC, datetime
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr, Field
@@ -16,6 +18,8 @@ from gentletap.services.email_platform import domain_from_preview, platform_avai
 from gentletap.services.email_router import get_send_provider
 from gentletap.utils.crypto import decrypt_token
 from urllib.parse import quote
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/google", tags=["google"])
 
@@ -59,6 +63,14 @@ def google_callback(
             dest = f"{settings.web_url}/settings/email?email=error&message={quote(str(exc))}"
         else:
             dest = f"{settings.web_url}/onboarding?email=error&message={quote(str(exc))}"
+        return RedirectResponse(url=dest, status_code=status.HTTP_302_FOUND)
+    except Exception:
+        logger.exception("Google OAuth callback failed")
+        message = quote("Google connection failed — please try again")
+        if return_to == "settings":
+            dest = f"{settings.web_url}/settings/email?email=error&message={message}"
+        else:
+            dest = f"{settings.web_url}/onboarding?email=error&message={message}"
         return RedirectResponse(url=dest, status_code=status.HTTP_302_FOUND)
 
     if return_to == "settings":

@@ -74,11 +74,11 @@ def plan_from_paddle_price(price_id: str, settings: Settings | None = None) -> s
     return build_price_to_plan_map(settings).get(price_id)
 
 
-def resolve_plan_from_subscription(subscription: dict, settings: Settings | None = None) -> str:
+def resolve_plan_from_items(items: list[dict], settings: Settings | None = None) -> str:
     settings = settings or get_settings()
     price_map = build_price_to_plan_map(settings)
     best = "free"
-    for item in subscription.get("items", []) or []:
+    for item in items or []:
         price_id = item.get("price_id") or (item.get("price") or {}).get("id")
         if not price_id:
             continue
@@ -86,6 +86,29 @@ def resolve_plan_from_subscription(subscription: dict, settings: Settings | None
         if plan and PLAN_RANK.get(plan, 0) > PLAN_RANK.get(best, 0):
             best = plan
     return best
+
+
+def resolve_plan_from_subscription(subscription: dict, settings: Settings | None = None) -> str:
+    return resolve_plan_from_items(subscription.get("items", []), settings)
+
+
+def whatsapp_credits_from_items(items: list[dict], settings: Settings | None = None) -> int:
+    """Map purchased price IDs to message credits — never trust custom_data."""
+    from gentletap.plans import WHATSAPP_MESSAGE_PACKS
+
+    settings = settings or get_settings()
+    price_to_credits: dict[str, int] = {}
+    for pack, credits in WHATSAPP_MESSAGE_PACKS.items():
+        price_id = whatsapp_pack_price_id(settings, pack)
+        if price_id:
+            price_to_credits[price_id] = int(credits)
+    total = 0
+    for item in items or []:
+        price_id = item.get("price_id") or (item.get("price") or {}).get("id") or ""
+        credits = price_to_credits.get(price_id)
+        if credits:
+            total += credits * int(item.get("quantity") or 1)
+    return total
 
 
 def get_or_create_customer(db: Session, user: Profile) -> str:

@@ -8,6 +8,8 @@ const HOP_BY_HOP = new Set([
   "content-length",
   "transfer-encoding",
   "expect",
+  // Session cookies must not leak to the API (auth goes via injected Bearer).
+  "cookie",
   // Forwarded headers are set by nginx; do not pass through client-supplied values.
   "x-forwarded-for",
   "x-forwarded-proto",
@@ -70,6 +72,10 @@ async function proxyRequest(
       if (HOP_BY_HOP.has(key.toLowerCase())) return;
       responseHeaders.set(key, value);
     });
+    // Headers.forEach skips set-cookie; forward each one individually.
+    for (const cookie of response.headers.getSetCookie()) {
+      responseHeaders.append("set-cookie", cookie);
+    }
 
     return new NextResponse(response.body, {
       status: response.status,

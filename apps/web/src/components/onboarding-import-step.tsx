@@ -196,7 +196,7 @@ export function OnboardingImportStep({
     }
   } else if (choice === "csv") {
     primaryLabel = uploading ? "Uploading…" : "Choose a file to upload";
-    primaryDisabled = uploading || true;
+    primaryDisabled = uploading;
   }
 
   function handlePrimary() {
@@ -219,6 +219,9 @@ export function OnboardingImportStep({
         return;
       }
       onConnectFreshBooks();
+    }
+    if (choice === "csv") {
+      fileInputRef.current?.click();
     }
   }
 

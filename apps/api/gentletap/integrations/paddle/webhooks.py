@@ -121,19 +121,23 @@ def handle_webhook_event(db: Session, payload: dict, settings: Settings | None =
 
     elif event_type == "transaction.completed":
         custom = _custom_data(data)
+        items = data.get("items") or []
         if custom.get("type") == "whatsapp_credits":
             user = _user_from_custom_data(db, custom) or _user_from_customer(db, data.get("customer_id"))
-            credits = int(custom.get("credits", 0) or 0)
+            # Entitlements derive from the purchased price IDs — custom_data is
+            # attacker-controllable via the publishable Paddle.js client token.
+            credits = paddle_billing.whatsapp_credits_from_items(items, settings)
             if user and credits > 0:
                 paddle_billing.apply_whatsapp_credits(db, str(user.id), credits)
         elif custom.get("type") == "subscription" and custom.get("user_id"):
-            plan = custom.get("plan") or "pro"
-            paddle_billing.apply_subscription_update(
-                db,
-                str(custom["user_id"]),
-                str(plan),
-                subscription_id=data.get("subscription_id"),
-            )
+            plan = paddle_billing.resolve_plan_from_items(items, settings)
+            if plan != "free":
+                paddle_billing.apply_subscription_update(
+                    db,
+                    str(custom["user_id"]),
+                    plan,
+                    subscription_id=data.get("subscription_id"),
+                )
             user = _user_from_custom_data(db, custom) or _user_from_customer(db, data.get("customer_id"))
             if user:
                 txn_id = data.get("id") or payload.get("event_id") or ""

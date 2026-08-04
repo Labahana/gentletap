@@ -16,7 +16,7 @@ export const CONTENT_SECURITY_POLICY = [
   "object-src 'none'",
   "frame-ancestors 'none'",
   "form-action 'self'",
-  `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${PADDLE_HOSTS}`,
+  `script-src 'self' 'unsafe-inline' ${isProd ? "" : "'unsafe-eval' "}${PADDLE_HOSTS}`,
   `style-src 'self' 'unsafe-inline' ${PADDLE_HOSTS}`,
   `img-src 'self' data: blob: ${PADDLE_HOSTS}`,
   "font-src 'self' data:",
@@ -32,7 +32,7 @@ export const SECURITY_HEADER_ENTRIES: { key: string; value: string }[] = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    value: 'camera=(), microphone=(), geolocation=(), payment=(self "https://*.paddle.com"), usb=()',
   },
   // Legacy browsers; modern guidance prefers CSP. Kept for scanner compliance.
   { key: "X-XSS-Protection", value: "1; mode=block" },

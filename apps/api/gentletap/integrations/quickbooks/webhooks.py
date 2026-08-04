@@ -3,6 +3,7 @@
 import base64
 import hashlib
 import hmac
+import json
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
@@ -80,7 +81,17 @@ def handle_webhook_event(db: Session, payload: dict) -> None:
             entity_id = entity.get("id")
             if not entity_id:
                 continue
-            event_key = cloud_event_id or f"qb:{realm_id}:{name}:{entity_id}"
+            if cloud_event_id:
+                event_key = cloud_event_id
+            else:
+                # Legacy payloads carry no unique delivery id — an entity-only key
+                # would drop every future update to the same entity. Use the
+                # entity's lastUpdated (or the whole notification) to distinguish
+                # genuinely new events from identical retries.
+                discriminator = entity.get("lastUpdated") or hashlib.sha256(
+                    json.dumps(notification, sort_keys=True).encode("utf-8")
+                ).hexdigest()
+                event_key = f"qb:{realm_id}:{name}:{entity_id}:{discriminator}"
             if not _claim_event(db, event_key):
                 continue
             if name == "Invoice":
