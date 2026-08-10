@@ -61,3 +61,24 @@ def test_schedule_next_job_reuses_cancelled_job():
     assert job is cancelled
     assert job.status == "pending"
     assert db.flushed is True
+
+
+def test_schedule_next_job_reactivates_sent_job_on_reopen():
+    """A paid-then-reopened invoice must not stall: the stale 'sent' job flips back to pending."""
+    invoice = _invoice()
+    sent = ReminderJob(
+        id=uuid4(),
+        invoice_id=invoice.id,
+        sequence_step=0,
+        status="sent",
+        scheduled_for=datetime(2020, 1, 1, tzinfo=UTC),
+        celery_task_id="abc",
+    )
+    db = _FakeDb(sent)
+
+    job = schedule_next_job(db, invoice, scheduled_for=datetime.now(UTC))
+
+    assert job is sent
+    assert job.status == "pending"
+    assert job.celery_task_id is None
+    assert db.flushed is True
