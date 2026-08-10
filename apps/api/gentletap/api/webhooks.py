@@ -102,8 +102,14 @@ async def freshbooks_webhook(request: Request, db: Session = Depends(get_db)) ->
     )
     form = fb_webhooks.parse_form_body(payload)
     result = fb_webhooks.handle_webhook_post(db, form=form, signature=signature)
-    if result.get("status") == "invalid_signature":
+    status_val = result.get("status")
+    if status_val == "invalid_signature":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid signature")
+    if status_val == "processing_error":
+        # Transient failure — return 500 so FreshBooks retries the delivery.
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Processing error")
+    if status_val == "verification_failed":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Verification failed")
     return {"received": True, **result}
 
 

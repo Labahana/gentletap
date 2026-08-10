@@ -32,3 +32,19 @@ def needs_human(ctx: ReminderContext) -> bool:
         or (float(inv.balance) > 10_000 and inv.days_overdue >= 14)
         or inv.sequence_step >= 4
     )
+
+
+def should_escalate(ctx: ReminderContext) -> bool:
+    """True when the AI should stop and hand off to a human now.
+
+    Step 4 (the final ~day-21 notice) is still SENT — escalation happens on the
+    next evaluation, after the last reminder has gone out. Hence the step guard
+    is >=5 here versus >=4 in needs_human (which also gates the dashboard
+    "needs you" list).
+    """
+    inv = ctx.invoice
+    return (
+        inv.days_overdue >= 21
+        or (float(inv.balance) > 10_000 and inv.days_overdue >= 14)
+        or inv.sequence_step >= 5
+    )

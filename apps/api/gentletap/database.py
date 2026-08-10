@@ -68,6 +68,8 @@ class Profile(Base, TimestampMixin):
     plan: Mapped[str] = mapped_column(String(20), default="free", nullable=False)
     paddle_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     paddle_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    dunning_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    subscription_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     onboarding_step: Mapped[str] = mapped_column(String(50), default="account", nullable=False)
     onboarding_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     timezone: Mapped[str] = mapped_column(String(64), default="America/New_York", nullable=False)
@@ -342,6 +344,7 @@ class Client(Base, TimestampMixin):
     risk_level: Mapped[str] = mapped_column(String(20), default="medium", nullable=False)
     preferred_channel: Mapped[str] = mapped_column(String(20), default="email", nullable=False)
     email_suppressed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    whatsapp_opted_out: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     profile_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
@@ -424,6 +427,8 @@ class ReminderJob(Base, TimestampMixin):
     sequence_step: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
     celery_task_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class AgentDecision(Base):

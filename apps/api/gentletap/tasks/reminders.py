@@ -13,6 +13,42 @@ logger = logging.getLogger(__name__)
 
 # Jobs stuck in "processing" longer than this are presumed orphaned (worker crash) and requeued.
 STUCK_JOB_TIMEOUT = timedelta(minutes=15)
+# Retryable (transient) failures requeue; after this many attempts the job is failed permanently.
+MAX_JOB_ATTEMPTS = 5
+_RETRYABLE_MARKERS = (
+    "429",
+    "rate limit",
+    "ratelimit",
+    "timeout",
+    "timed out",
+    "temporarily",
+    "temporarily_unavailable",
+    "connection",
+    "unavailable",
+    "503",
+    "502",
+    "500",
+)
+
+
+def _is_retryable(exc: Exception) -> bool:
+    text = str(exc).lower()
+    return any(marker in text for marker in _RETRYABLE_MARKERS)
+
+
+def _handle_job_failure(db, job_id: str, exc: Exception) -> None:
+    """Increment attempts; requeue only retryable failures under the cap, else fail."""
+    job = db.query(ReminderJob).filter(ReminderJob.id == job_id).one_or_none()
+    if job is None:
+        return
+    job.attempts = (job.attempts or 0) + 1
+    job.last_error = str(exc)[:1000]
+    if job.status in ("processing", "pending"):
+        if _is_retryable(exc) and job.attempts < MAX_JOB_ATTEMPTS:
+            job.status = "pending"
+        else:
+            job.status = "failed"
+    db.commit()
 
 
 def _requeue_stuck_jobs(db) -> int:
@@ -79,11 +115,8 @@ def send_reminder_job(job_id: str, *, pre_claimed: bool = False) -> None:
                 return
         try:
             process_due_job(db, jid)
-        except Exception:
+        except Exception as exc:
             logger.exception("send_reminder_job failed: %s", job_id)
-            stuck = db.query(ReminderJob).filter(ReminderJob.id == jid).one_or_none()
-            if stuck and stuck.status == "processing":
-                stuck.status = "pending"
-                db.commit()
+            _handle_job_failure(db, jid, exc)
     finally:
         db.close()

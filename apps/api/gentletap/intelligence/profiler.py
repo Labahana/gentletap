@@ -56,12 +56,21 @@ def profile_client(db: Session, client: Client) -> None:
             first_date = d if first_date is None or d < first_date else first_date
         if due_date:
             due = date.fromisoformat(due_date)
+            # QuickBooks doesn't expose a per-invoice paid date on the Invoice row.
+            # Heuristic: LastUpdatedTime usually reflects the payment that zeroed the
+            # balance — but it also moves on ANY later edit. Sanity-bound it: never
+            # earlier than the due date, and cap absurd values so a stray edit months
+            # later doesn't poison the average.
             paid_on = date.fromisoformat(txn_date) if txn_date else due
             meta = row.get("MetaData") or {}
             last_updated = meta.get("LastUpdatedTime")
             if last_updated:
-                paid_on = date.fromisoformat(str(last_updated)[:10])
+                candidate = date.fromisoformat(str(last_updated)[:10])
+                if candidate >= due:
+                    paid_on = candidate
             days = (paid_on - due).days
+            if days < -365 or days > 365:
+                continue  # outlier — skip rather than skew avg_days_to_pay
             days_list.append(days)
             if days <= 0:
                 on_time += 1

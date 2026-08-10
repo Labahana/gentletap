@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import func
+from sqlalchemy import func, update
 from sqlalchemy.orm import Session
 
 from gentletap.plans import has_whatsapp
@@ -24,7 +24,11 @@ from gentletap.intelligence.schemas import Action, Channel
 from gentletap.intelligence.message_generator import generate_message
 from gentletap.scale_limits import ACTIVATION_BATCH, AUTO_ACTIVATE_BATCH
 from gentletap.services.context_builder import build_reminder_context
-from gentletap.services.reminder_contacts import effective_reminder_email, effective_reminder_phone
+from gentletap.services.reminder_contacts import (
+    effective_reminder_email,
+    effective_reminder_phone,
+    whatsapp_send_allowed,
+)
 from gentletap.services.email_router import (
     get_send_provider,
     has_delivery_capability,
@@ -198,7 +202,14 @@ def approve_all_overdue(
         .limit(ACTIVATION_BATCH)
         .all()
     )
-    to_activate = [inv for inv in overdue if not inv.sequence_active and float(inv.balance) > 0]
+    to_activate = [
+        inv
+        for inv in overdue
+        if not inv.sequence_active
+        and not inv.sequence_paused
+        and not inv.dispute_flag
+        and float(inv.balance) > 0
+    ]
 
     # For free plan: cap activation at the monthly limit instead of hard-blocking.
     plan_cap_total = 0
@@ -227,7 +238,8 @@ def approve_all_overdue(
     skipped_other: list[dict] = []
     for inv in to_activate:
         inv.sequence_approved = True
-        inv.sequence_paused = False
+        # Do NOT clear sequence_paused here — a manual pause is user intent and
+        # "approve all" must not silently resume a paused/disputed invoice.
         skip = False
         skip_reason = ""
         if inv.client and (
@@ -539,12 +551,16 @@ def process_due_job(db: Session, job_id: UUID) -> None:
 
     email_required = step == 0 or step >= 4
     can_email = bool(client_email and not email_suppressed and get_send_provider(db, user.id))
-    schedule_wa, _wa_reason = should_schedule_whatsapp_for_step(
-        db,
-        user=user,
-        client_phone=client_phone,
-        sequence_step=step,
-    )
+    wa_allowed = whatsapp_send_allowed(invoice, invoice.client)
+    if wa_allowed:
+        schedule_wa, _wa_reason = should_schedule_whatsapp_for_step(
+            db,
+            user=user,
+            client_phone=client_phone,
+            sequence_step=step,
+        )
+    else:
+        schedule_wa, _wa_reason = False, "opted_out"
 
     if email_required and not can_email:
         job.status = "failed"
@@ -576,6 +592,17 @@ def process_due_job(db: Session, job_id: UUID) -> None:
     sent_whatsapp = False
     try:
         if can_email and (email_required or client_email):
+            # Duplicate-send guard: two workers racing the same job can both reach
+            # here. Atomically claim by flipping status only if still unsent.
+            claimed = db.execute(
+                update(ReminderMessage)
+                .where(ReminderMessage.id == message.id, ReminderMessage.status != "sent")
+                .values(status="sending")
+            )
+            if (claimed.rowcount or 0) != 1:
+                job.status = "sent"
+                db.commit()
+                return
             external_id = send_reminder_message(
                 db,
                 user.id,

@@ -242,11 +242,27 @@ def apply_subscription_update(
     plan: str,
     *,
     subscription_id: str | None = None,
+    occurred_at=None,
 ) -> None:
+    from datetime import UTC, datetime
     from uuid import UUID
 
     user = db.query(Profile).filter(Profile.id == UUID(user_id)).one_or_none()
     if user:
+        if occurred_at is not None:
+            occ = occurred_at
+            if occ.tzinfo is None:
+                occ = occ.replace(tzinfo=UTC)
+            last = user.subscription_updated_at
+            if last is not None:
+                if last.tzinfo is None:
+                    last = last.replace(tzinfo=UTC)
+                if occ < last:
+                    # Out-of-order event — Paddle does not guarantee ordering; an
+                    # older subscription.updated arriving after a cancel must not
+                    # resurrect the paid plan.
+                    return
+            user.subscription_updated_at = occ
         user.plan = normalize_plan(plan) if plan in PLAN_RANK else "free"
         if subscription_id:
             user.paddle_subscription_id = subscription_id

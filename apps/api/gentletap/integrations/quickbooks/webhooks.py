@@ -13,6 +13,7 @@ from gentletap.database import IntegrationWebhookEvent, QuickBooksConnection
 from gentletap.integrations.quickbooks import client as qb_client
 from gentletap.integrations.quickbooks.invoice_fields import payment_link_from_qb
 from gentletap.services.payments import apply_invoice_balance_update
+from gentletap.services.webhook_claims import claim_integration_event
 
 
 def verify_signature(payload: bytes, signature: str | None) -> bool:
@@ -46,17 +47,7 @@ def normalize_payload(payload: dict) -> list[dict]:
 
 
 def _claim_event(db: Session, event_key: str) -> bool:
-    if not event_key:
-        return True
-    if (
-        db.query(IntegrationWebhookEvent)
-        .filter(IntegrationWebhookEvent.event_key == event_key)
-        .one_or_none()
-    ):
-        return False
-    db.add(IntegrationWebhookEvent(event_key=event_key))
-    db.flush()
-    return True
+    return claim_integration_event(db, event_key)
 
 
 def handle_webhook_event(db: Session, payload: dict) -> None:
@@ -82,7 +73,10 @@ def handle_webhook_event(db: Session, payload: dict) -> None:
             if not entity_id:
                 continue
             if cloud_event_id:
-                event_key = cloud_event_id
+                # A single CloudEvent id wraps a batch of entities — key per entity
+                # so a Payment arriving with an Invoice (or two invoices) in one
+                # delivery doesn't silently drop every entity after the first.
+                event_key = f"{cloud_event_id}:{name}:{entity_id}"
             else:
                 # Legacy payloads carry no unique delivery id — an entity-only key
                 # would drop every future update to the same entity. Use the

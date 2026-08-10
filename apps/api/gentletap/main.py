@@ -54,12 +54,17 @@ def create_app() -> FastAPI:
     app.add_middleware(SecurityHeadersMiddleware)
 
     if settings.sentry_dsn:
-        try:
-            import sentry_sdk
+        import sentry_sdk
+        from sentry_sdk.integrations.celery import CeleryIntegration
+        from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
-            sentry_sdk.init(dsn=settings.sentry_dsn, environment=settings.environment)
-        except ImportError:
-            pass
+        sentry_sdk.init(
+            dsn=settings.sentry_dsn,
+            environment=settings.environment,
+            send_default_pii=False,
+            traces_sample_rate=0.1,
+            integrations=[CeleryIntegration(), SqlalchemyIntegration()],
+        )
 
     app.add_middleware(
         CORSMiddleware,

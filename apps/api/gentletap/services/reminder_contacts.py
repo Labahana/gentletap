@@ -23,6 +23,12 @@ def effective_reminder_phone(inv: Invoice, client: Client | None = None) -> str 
     return normalize_phone_e164(raw)
 
 
+def whatsapp_send_allowed(inv: Invoice, client: Client | None = None) -> bool:
+    """False when the client has replied STOP (or a synonym) — TCPA/Twilio opt-out."""
+    c = client or inv.client
+    return not bool(c and c.whatsapp_opted_out)
+
+
 def reminder_contact_payload(inv: Invoice) -> dict:
     phone = effective_reminder_phone(inv)
     return {

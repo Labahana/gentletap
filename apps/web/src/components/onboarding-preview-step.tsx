@@ -169,6 +169,7 @@ export function OnboardingPreviewStep({
 }: Props) {
   const [showAll, setShowAll] = useState(false);
   const featured = pickFeaturedPreview(previews);
+  const isSample = featured == null;
   const display = featured ?? EXAMPLE_PREVIEW;
   const note = toneNote(display);
   const moreCount = Math.max(invoiceCount - 1, 0);
@@ -198,6 +199,17 @@ export function OnboardingPreviewStep({
         </>
       ) : (
         <>
+          {isSample && (
+            <div className="flex items-start gap-2.5 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted">
+              <span className="mt-0.5 inline-block rounded-full bg-border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted" aria-hidden>
+                Sample
+              </span>
+              <p>
+                This is an example reminder. Add a real invoice (connect your accounting app, upload a spreadsheet, or
+                add one manually) and we&apos;ll draft a personalized reminder from that client&apos;s history.
+              </p>
+            </div>
+          )}
           <EmailFrame
             preview={display}
             senderLabel={senderLabel}

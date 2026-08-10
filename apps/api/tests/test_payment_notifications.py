@@ -56,6 +56,7 @@ def test_apply_invoice_balance_update_emails_on_qb_paid(mock_send_email):
     def query_side_effect(model):
         q = MagicMock()
         if model is Invoice:
+            q.with_for_update.return_value = q
             q.filter.return_value.one_or_none.return_value = invoice
         elif model is Profile:
             q.filter.return_value.one.return_value = user

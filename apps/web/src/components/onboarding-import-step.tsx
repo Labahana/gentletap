@@ -6,7 +6,7 @@ import { OnboardingImportStats } from "@/components/onboarding-import-stats";
 import { InvoiceImportFormatHelp } from "@/components/invoice-import-format-help";
 import { api, IDLE_FB_SYNC_STATUS } from "@/lib/api";
 
-type ImportChoice = "quickbooks" | "freshbooks" | "csv";
+type ImportChoice = "quickbooks" | "freshbooks" | "csv" | "manual";
 type ImportPhase = "choose" | "results";
 
 type Props = {
@@ -97,6 +97,13 @@ export function OnboardingImportStep({
   const [uploadResult, setUploadResult] = useState<{ imported: number; skipped: number } | null>(null);
   const [qbConnected, setQbConnected] = useState(false);
   const [fbConnected, setFbConnected] = useState(false);
+  const [manualSaving, setManualSaving] = useState(false);
+  const [manual, setManual] = useState({
+    client_name: "",
+    client_email: "",
+    amount: "",
+    due_date: "",
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const checkAccountingStatus = useCallback(async () => {
@@ -163,6 +170,34 @@ export function OnboardingImportStep({
     }
   }
 
+  async function handleManualAdd(e: React.FormEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setError(null);
+    const amount = parseFloat(manual.amount);
+    if (!manual.client_name.trim() || !manual.client_email.trim() || !manual.due_date || !(amount > 0)) {
+      setError("Enter client name, email, amount, and due date");
+      return;
+    }
+    setManualSaving(true);
+    try {
+      await api.createInvoice({
+        client_name: manual.client_name.trim(),
+        client_email: manual.client_email.trim(),
+        amount,
+        due_date: manual.due_date,
+      });
+      setUploadResult({ imported: 1, skipped: 0 });
+      setChoice("manual");
+      setPhase("results");
+      onInvoicesChanged?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not add invoice");
+    } finally {
+      setManualSaving(false);
+    }
+  }
+
   const qbReady = qbConnected && !importSyncing;
   const fbReady = fbConnected && !importSyncing;
 
@@ -197,6 +232,9 @@ export function OnboardingImportStep({
   } else if (choice === "csv") {
     primaryLabel = uploading ? "Uploading…" : "Choose a file to upload";
     primaryDisabled = uploading;
+  } else if (choice === "manual") {
+    primaryLabel = "Add the invoice above";
+    primaryDisabled = manualSaving;
   }
 
   function handlePrimary() {
@@ -222,6 +260,11 @@ export function OnboardingImportStep({
     }
     if (choice === "csv") {
       fileInputRef.current?.click();
+      return;
+    }
+    if (choice === "manual") {
+      // Submit handled by the inline form's own button.
+      return;
     }
   }
 
@@ -351,6 +394,60 @@ export function OnboardingImportStep({
               </div>
             )}
           </OptionCard>
+
+          <OptionCard
+            selected={choice === "manual"}
+            onSelect={() => setChoice("manual")}
+            title="Add one manually"
+            description="No accounting software or spreadsheet? Type in a single unpaid invoice to get started."
+            icon={
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m-7-7h14" />
+              </svg>
+            }
+          >
+            {choice === "manual" && (
+              <form className="mt-4 space-y-3" onClick={(e) => e.stopPropagation()} onSubmit={handleManualAdd}>
+                <input
+                  className="input w-full text-sm"
+                  placeholder="Client name"
+                  value={manual.client_name}
+                  onChange={(e) => setManual((m) => ({ ...m, client_name: e.target.value }))}
+                  required
+                />
+                <input
+                  className="input w-full text-sm"
+                  type="email"
+                  placeholder="Client email"
+                  value={manual.client_email}
+                  onChange={(e) => setManual((m) => ({ ...m, client_email: e.target.value }))}
+                  required
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    className="input w-full text-sm"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    placeholder="Amount"
+                    value={manual.amount}
+                    onChange={(e) => setManual((m) => ({ ...m, amount: e.target.value }))}
+                    required
+                  />
+                  <input
+                    className="input w-full text-sm"
+                    type="date"
+                    value={manual.due_date}
+                    onChange={(e) => setManual((m) => ({ ...m, due_date: e.target.value }))}
+                    required
+                  />
+                </div>
+                <button type="submit" className="btn-primary w-full text-sm" disabled={manualSaving}>
+                  {manualSaving ? "Adding…" : "Add invoice"}
+                </button>
+              </form>
+            )}
+          </OptionCard>
         </div>
       )}
 
@@ -358,14 +455,25 @@ export function OnboardingImportStep({
         <button type="button" className="btn-secondary w-full sm:w-auto" onClick={onBack}>
           Back
         </button>
-        <button
-          type="button"
-          className="btn-primary w-full sm:w-auto"
-          disabled={primaryDisabled}
-          onClick={handlePrimary}
-        >
-          {primaryLabel}
-        </button>
+        <div className="flex w-full flex-col items-center gap-2 sm:w-auto sm:flex-row">
+          {phase === "choose" && (
+            <button
+              type="button"
+              className="text-sm text-muted underline-offset-2 hover:text-foreground hover:underline"
+              onClick={onContinue}
+            >
+              I don&apos;t have unpaid invoices — skip for now
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn-primary w-full sm:w-auto"
+            disabled={primaryDisabled}
+            onClick={handlePrimary}
+          >
+            {primaryLabel}
+          </button>
+        </div>
       </div>
     </div>
   );

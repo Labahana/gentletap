@@ -319,3 +319,50 @@ def render_payment_received_bodies(data: PaymentReceivedEmailData) -> tuple[str,
     )
     return plain, html_doc
 
+
+@dataclass(frozen=True)
+class PaymentFailedEmailData:
+    full_name: str
+    amount: float
+    currency: str
+    billing_url: str
+
+
+def render_payment_failed_bodies(data: PaymentFailedEmailData) -> tuple[str, str]:
+    amount = format_currency(data.amount, data.currency)
+    name = data.full_name.strip() or "there"
+    plain = "\n".join(
+        [
+            f"Hi {name},",
+            "",
+            f"We couldn't process your GentleTap subscription payment of {amount}.",
+            "Your account stays active for now, but we'll keep retrying the charge.",
+            "To avoid interruption, please update your payment method.",
+            "",
+            f"Update payment method: {data.billing_url}",
+            "",
+            "— GentleTap",
+        ]
+    ).strip() + "\n"
+
+    body_html = (
+        f"<p style=\"margin:0 0 8px;\">Hi {html.escape(name)},</p>"
+        f"<p style=\"margin:0 0 8px;\">We couldn't process your GentleTap subscription "
+        f"payment of <strong>{html.escape(amount)}</strong>.</p>"
+        f"<p style=\"margin:0;font-size:13px;color:#6b6560;\">"
+        f"Your account stays active for now — update your payment method to avoid interruption.</p>"
+    )
+    html_doc = _render_card_html(
+        page_title="Payment failed",
+        header_label="Payment failed",
+        header_value=amount,
+        header_bg="#fbf0ec",
+        header_border="#f3dcd2",
+        header_label_color="#b3401f",
+        body_html=body_html,
+        cta_label="Update payment method",
+        cta_url=data.billing_url,
+        footer_html="GentleTap · Billing",
+    )
+    return plain, html_doc
+

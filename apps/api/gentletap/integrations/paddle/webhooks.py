@@ -13,6 +13,8 @@ from gentletap.config import Settings, get_settings
 from gentletap.database import BillingWebhookEvent, Profile
 from gentletap.integrations.paddle import billing as paddle_billing
 from gentletap.services import affiliates as affiliate_service
+from gentletap.services import payment_notifications
+from gentletap.services.webhook_claims import claim_billing_event
 
 
 def verify_signature(payload: bytes, signature_header: str | None, *, tolerance_seconds: int = 300) -> bool:
@@ -44,22 +46,25 @@ def verify_signature(payload: bytes, signature_header: str | None, *, tolerance_
 
 def _claim_event(db: Session, event_id: str) -> bool:
     """Return True if this event should be processed (first time seen)."""
-    if not event_id:
-        return True
-    if (
-        db.query(BillingWebhookEvent)
-        .filter(BillingWebhookEvent.event_id == event_id)
-        .one_or_none()
-    ):
-        return False
-    db.add(BillingWebhookEvent(event_id=event_id))
-    db.flush()
-    return True
+    return claim_billing_event(db, event_id)
 
 
 def _custom_data(obj: dict) -> dict[str, Any]:
     raw = obj.get("custom_data") or {}
     return raw if isinstance(raw, dict) else {}
+
+
+def _occurred_at(payload: dict):
+    """Parse Paddle's RFC3339 occurred_at for out-of-order event detection."""
+    from datetime import datetime
+
+    raw = payload.get("occurred_at")
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except ValueError:
+        return None
 
 
 def _user_from_customer(db: Session, customer_id: str | None) -> Profile | None:
@@ -105,6 +110,7 @@ def handle_webhook_event(db: Session, payload: dict, settings: Settings | None =
 
     if event_type in ("subscription.created", "subscription.updated", "subscription.activated"):
         sub = data
+        occurred = _occurred_at(payload)
         customer_id = sub.get("customer_id")
         user = _user_from_customer(db, customer_id) or _user_from_custom_data(db, _custom_data(sub))
         if user:
@@ -114,6 +120,7 @@ def handle_webhook_event(db: Session, payload: dict, settings: Settings | None =
                 str(user.id),
                 plan,
                 subscription_id=sub.get("id"),
+                occurred_at=occurred,
             )
             if customer_id and not user.paddle_customer_id:
                 user.paddle_customer_id = customer_id
@@ -157,7 +164,14 @@ def handle_webhook_event(db: Session, payload: dict, settings: Settings | None =
             db.commit()
 
     elif event_type in ("transaction.payment_failed",):
-        pass
+        custom = _custom_data(data)
+        user = _user_from_custom_data(db, custom) or _user_from_customer(db, data.get("customer_id"))
+        if user:
+            gross, currency = affiliate_service.paddle_transaction_gross(data)
+            payment_notifications.send_dunning_email(
+                db, user, amount=float(gross), currency=currency
+            )
+        db.commit()
 
     elif event_type in ("adjustment.created", "adjustment.updated"):
         adjustment = data
@@ -169,8 +183,11 @@ def handle_webhook_event(db: Session, payload: dict, settings: Settings | None =
 
     elif event_type in ("subscription.canceled", "subscription.paused"):
         sub = data
+        occurred = _occurred_at(payload)
         user = _user_from_customer(db, sub.get("customer_id"))
         if user:
             affiliate_service.mark_referral_churned(db, user.id)
-            paddle_billing.apply_subscription_update(db, str(user.id), "free")
+            paddle_billing.apply_subscription_update(
+                db, str(user.id), "free", occurred_at=occurred
+            )
         db.commit()

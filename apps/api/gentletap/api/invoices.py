@@ -26,6 +26,7 @@ from gentletap.services.invoice_source import (
 )
 from gentletap.services.manual_invoices import (
     bulk_mark_upload_invoices_paid,
+    create_manual_invoice,
     mark_upload_invoice_paid,
     update_upload_invoice,
 )
@@ -60,6 +61,47 @@ class InvoiceContactsBody(BaseModel):
 
 class BulkMarkPaidBody(BaseModel):
     invoice_ids: list[UUID] = Field(min_length=1, max_length=100)
+
+
+class CreateInvoiceBody(BaseModel):
+    client_name: str
+    client_email: str
+    amount: float = Field(gt=0)
+    due_date: str
+    client_phone: str | None = None
+    doc_number: str | None = None
+    currency: str = "USD"
+    invoice_date: str | None = None
+    payment_link: str | None = None
+
+
+@router.post("", status_code=status.HTTP_201_CREATED)
+def create_invoice(
+    body: CreateInvoiceBody,
+    user: CurrentUser,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Create a single invoice manually (no accounting software / CSV)."""
+    from gentletap.integrations.quickbooks.sync import _parse_date
+
+    due = _parse_date(body.due_date)
+    if due is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid due_date")
+    inv = create_manual_invoice(
+        db,
+        user.id,
+        client_name=body.client_name,
+        client_email=body.client_email,
+        amount=Decimal(str(body.amount)),
+        due_date=due,
+        client_phone=body.client_phone,
+        doc_number=body.doc_number,
+        currency=body.currency,
+        invoice_date=_parse_date(body.invoice_date) if body.invoice_date else None,
+        payment_link=body.payment_link,
+    )
+    invalidate_dashboard_summary(user.id)
+    return {"id": str(inv.id), "invoice": enrich_invoice_row(inv, None)}
 
 
 @router.get("/import-sample")
