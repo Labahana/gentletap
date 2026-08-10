@@ -1,6 +1,6 @@
 from gentletap.intelligence.channel_selector import select_channel
 from gentletap.intelligence.risk_scorer import score_risk
-from gentletap.intelligence.escalation import needs_human
+from gentletap.intelligence.escalation import should_escalate
 from gentletap.intelligence.schemas import (
     Action,
     Channel,
@@ -56,7 +56,7 @@ class IntelligenceEngine:
 
         channel = select_channel(ctx)
 
-        if needs_human(ctx):
+        if should_escalate(ctx):
             risk = score_risk(ctx)
             tone = select_tone(ctx, risk)
             return DecideResult(

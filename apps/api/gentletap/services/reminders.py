@@ -202,7 +202,14 @@ def approve_all_overdue(
         .limit(ACTIVATION_BATCH)
         .all()
     )
-    to_activate = [inv for inv in overdue if not inv.sequence_active and float(inv.balance) > 0]
+    to_activate = [
+        inv
+        for inv in overdue
+        if not inv.sequence_active
+        and not inv.sequence_paused
+        and not inv.dispute_flag
+        and float(inv.balance) > 0
+    ]
 
     # For free plan: cap activation at the monthly limit instead of hard-blocking.
     plan_cap_total = 0
@@ -231,7 +238,8 @@ def approve_all_overdue(
     skipped_other: list[dict] = []
     for inv in to_activate:
         inv.sequence_approved = True
-        inv.sequence_paused = False
+        # Do NOT clear sequence_paused here — a manual pause is user intent and
+        # "approve all" must not silently resume a paused/disputed invoice.
         skip = False
         skip_reason = ""
         if inv.client and (
