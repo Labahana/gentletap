@@ -82,7 +82,10 @@ def handle_webhook_event(db: Session, payload: dict) -> None:
             if not entity_id:
                 continue
             if cloud_event_id:
-                event_key = cloud_event_id
+                # A single CloudEvent id wraps a batch of entities — key per entity
+                # so a Payment arriving with an Invoice (or two invoices) in one
+                # delivery doesn't silently drop every entity after the first.
+                event_key = f"{cloud_event_id}:{name}:{entity_id}"
             else:
                 # Legacy payloads carry no unique delivery id — an entity-only key
                 # would drop every future update to the same entity. Use the

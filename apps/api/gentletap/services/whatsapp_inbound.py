@@ -6,9 +6,10 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from gentletap.database import Client, Invoice, ReminderMessage, UserNotification, WhatsappInboundMessage
+from gentletap.database import Client, Invoice, ReminderJob, ReminderMessage, UserNotification, WhatsappInboundMessage
 from gentletap.integrations.twilio.phone import normalize_phone_e164, phones_match
 from gentletap.services.payment_claims import is_payment_claim
+from gentletap.services.whatsapp_opt_out import is_whatsapp_opt_out
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,32 @@ def _apply_invoice_reply(
             kind="whatsapp_reply",
             title=f"WhatsApp reply on invoice #{invoice.doc_number or ''}".strip(),
             body=body[:500],
+            invoice_id=invoice.id,
+        )
+    )
+
+
+def _pause_invoice_for_opt_out(db: Session, *, invoice: Invoice, client: Client) -> None:
+    """Stop all reminder jobs on the invoice once the client opts out (TCPA)."""
+    invoice.sequence_paused = True
+    db.query(ReminderJob).filter(
+        ReminderJob.invoice_id == invoice.id,
+        ReminderJob.status == "pending",
+    ).update({"status": "cancelled"}, synchronize_session=False)
+
+
+def _apply_opt_out(db: Session, *, invoice: Invoice, client: Client) -> None:
+    client.whatsapp_opted_out = True
+    _pause_invoice_for_opt_out(db, invoice=invoice, client=client)
+    db.add(
+        UserNotification(
+            user_id=invoice.user_id,
+            kind="whatsapp_opt_out",
+            title=f"{client.name} opted out of WhatsApp reminders",
+            body=(
+                f"{client.name} replied STOP. WhatsApp reminders paused for invoice "
+                f"#{invoice.doc_number or ''}. Email reminders are unaffected."
+            ).strip(),
             invoice_id=invoice.id,
         )
     )
@@ -142,14 +169,22 @@ def handle_inbound_whatsapp(
         invoice_id = invoice.id
         client_id = client.id
         reminder_message_id = message.id
-        _apply_invoice_reply(db, invoice=invoice, client=client, body=body)
+        if is_whatsapp_opt_out(body):
+            _apply_opt_out(db, invoice=invoice, client=client)
+        else:
+            _apply_invoice_reply(db, invoice=invoice, client=client, body=body)
     else:
         fallback = _fallback_client_match(db, normalized_from, user_id=None)
         if fallback:
             client, invoice = fallback
             user_id = client.user_id
             client_id = client.id
-            if invoice:
+            if is_whatsapp_opt_out(body):
+                client.whatsapp_opted_out = True
+                if invoice:
+                    invoice_id = invoice.id
+                    _pause_invoice_for_opt_out(db, invoice=invoice, client=client)
+            elif invoice:
                 invoice_id = invoice.id
                 _apply_invoice_reply(db, invoice=invoice, client=client, body=body)
             else:

@@ -102,10 +102,13 @@ def schedule_next_job(
     if existing:
         if existing.status == "pending":
             return existing
-        if existing.status in ("cancelled", "failed"):
+        if existing.status in ("cancelled", "failed", "sent"):
+            # A previously-sent job at this step means the invoice was paid and
+            # reopened — flip it back to pending so the sequence can re-fire.
             existing.status = "pending"
             existing.scheduled_for = scheduled
             existing.celery_task_id = None
+            existing.last_error = None
             db.flush()
             _dispatch_immediate(existing, scheduled)
             return existing

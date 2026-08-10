@@ -13,6 +13,7 @@ from gentletap.config import Settings, get_settings
 from gentletap.database import BillingWebhookEvent, Profile
 from gentletap.integrations.paddle import billing as paddle_billing
 from gentletap.services import affiliates as affiliate_service
+from gentletap.services import payment_notifications
 
 
 def verify_signature(payload: bytes, signature_header: str | None, *, tolerance_seconds: int = 300) -> bool:
@@ -157,7 +158,14 @@ def handle_webhook_event(db: Session, payload: dict, settings: Settings | None =
             db.commit()
 
     elif event_type in ("transaction.payment_failed",):
-        pass
+        custom = _custom_data(data)
+        user = _user_from_custom_data(db, custom) or _user_from_customer(db, data.get("customer_id"))
+        if user:
+            gross, currency = affiliate_service.paddle_transaction_gross(data)
+            payment_notifications.send_dunning_email(
+                db, user, amount=float(gross), currency=currency
+            )
+        db.commit()
 
     elif event_type in ("adjustment.created", "adjustment.updated"):
         adjustment = data
