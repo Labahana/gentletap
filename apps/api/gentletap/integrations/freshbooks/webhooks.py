@@ -88,7 +88,7 @@ def handle_webhook_post(
                 db.rollback()
                 continue
         logger.warning("FreshBooks webhook verification failed for callback %s", callback_id)
-        return {"status": "error"}
+        return {"status": "verification_failed"}
 
     connection = None
     if account_id:
@@ -141,7 +141,8 @@ def handle_webhook_post(
     except Exception:
         logger.exception("FreshBooks webhook handler failed for %s", event_key)
         db.rollback()
-        return {"status": "error"}
+        # Transient processing error — FreshBooks must retry rather than assume delivery.
+        return {"status": "processing_error"}
 
     return {"status": "ok"}
 
@@ -160,12 +161,11 @@ def _outstanding_balance(invoice) -> Decimal:
 def _handle_invoice_event(db: Session, connection: FreshBooksConnection, invoice_id: str) -> None:
     invoice = fb_client.get_invoice(db, connection, invoice_id)
     if invoice is None:
-        apply_invoice_balance_update(
-            db,
-            user_id=connection.user_id,
-            qb_invoice_id=to_external_invoice_id(invoice_id),
-            balance=Decimal("0"),
-            notify=True,
+        # 404 means deleted/not-found — NOT paid. Marking balance 0 here would
+        # fire a false "payment received" and stop live reminders. Skip; the next
+        # sync reconciles deletions explicitly.
+        logger.warning(
+            "FreshBooks invoice %s not found on webhook; leaving balance unchanged", invoice_id
         )
         return
     balance = _outstanding_balance(invoice)

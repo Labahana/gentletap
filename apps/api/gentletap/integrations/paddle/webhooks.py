@@ -63,6 +63,19 @@ def _custom_data(obj: dict) -> dict[str, Any]:
     return raw if isinstance(raw, dict) else {}
 
 
+def _occurred_at(payload: dict):
+    """Parse Paddle's RFC3339 occurred_at for out-of-order event detection."""
+    from datetime import datetime
+
+    raw = payload.get("occurred_at")
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
 def _user_from_customer(db: Session, customer_id: str | None) -> Profile | None:
     if not customer_id:
         return None
@@ -106,6 +119,7 @@ def handle_webhook_event(db: Session, payload: dict, settings: Settings | None =
 
     if event_type in ("subscription.created", "subscription.updated", "subscription.activated"):
         sub = data
+        occurred = _occurred_at(payload)
         customer_id = sub.get("customer_id")
         user = _user_from_customer(db, customer_id) or _user_from_custom_data(db, _custom_data(sub))
         if user:
@@ -115,6 +129,7 @@ def handle_webhook_event(db: Session, payload: dict, settings: Settings | None =
                 str(user.id),
                 plan,
                 subscription_id=sub.get("id"),
+                occurred_at=occurred,
             )
             if customer_id and not user.paddle_customer_id:
                 user.paddle_customer_id = customer_id
@@ -177,8 +192,11 @@ def handle_webhook_event(db: Session, payload: dict, settings: Settings | None =
 
     elif event_type in ("subscription.canceled", "subscription.paused"):
         sub = data
+        occurred = _occurred_at(payload)
         user = _user_from_customer(db, sub.get("customer_id"))
         if user:
             affiliate_service.mark_referral_churned(db, user.id)
-            paddle_billing.apply_subscription_update(db, str(user.id), "free")
+            paddle_billing.apply_subscription_update(
+                db, str(user.id), "free", occurred_at=occurred
+            )
         db.commit()

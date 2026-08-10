@@ -69,6 +69,7 @@ class Profile(Base, TimestampMixin):
     paddle_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     paddle_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     dunning_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    subscription_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     onboarding_step: Mapped[str] = mapped_column(String(50), default="account", nullable=False)
     onboarding_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     timezone: Mapped[str] = mapped_column(String(64), default="America/New_York", nullable=False)
