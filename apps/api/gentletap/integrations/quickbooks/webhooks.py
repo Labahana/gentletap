@@ -13,6 +13,7 @@ from gentletap.database import IntegrationWebhookEvent, QuickBooksConnection
 from gentletap.integrations.quickbooks import client as qb_client
 from gentletap.integrations.quickbooks.invoice_fields import payment_link_from_qb
 from gentletap.services.payments import apply_invoice_balance_update
+from gentletap.services.webhook_claims import claim_integration_event
 
 
 def verify_signature(payload: bytes, signature: str | None) -> bool:
@@ -46,17 +47,7 @@ def normalize_payload(payload: dict) -> list[dict]:
 
 
 def _claim_event(db: Session, event_key: str) -> bool:
-    if not event_key:
-        return True
-    if (
-        db.query(IntegrationWebhookEvent)
-        .filter(IntegrationWebhookEvent.event_key == event_key)
-        .one_or_none()
-    ):
-        return False
-    db.add(IntegrationWebhookEvent(event_key=event_key))
-    db.flush()
-    return True
+    return claim_integration_event(db, event_key)
 
 
 def handle_webhook_event(db: Session, payload: dict) -> None:

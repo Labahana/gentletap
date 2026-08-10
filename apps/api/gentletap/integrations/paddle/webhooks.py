@@ -14,6 +14,7 @@ from gentletap.database import BillingWebhookEvent, Profile
 from gentletap.integrations.paddle import billing as paddle_billing
 from gentletap.services import affiliates as affiliate_service
 from gentletap.services import payment_notifications
+from gentletap.services.webhook_claims import claim_billing_event
 
 
 def verify_signature(payload: bytes, signature_header: str | None, *, tolerance_seconds: int = 300) -> bool:
@@ -45,17 +46,7 @@ def verify_signature(payload: bytes, signature_header: str | None, *, tolerance_
 
 def _claim_event(db: Session, event_id: str) -> bool:
     """Return True if this event should be processed (first time seen)."""
-    if not event_id:
-        return True
-    if (
-        db.query(BillingWebhookEvent)
-        .filter(BillingWebhookEvent.event_id == event_id)
-        .one_or_none()
-    ):
-        return False
-    db.add(BillingWebhookEvent(event_id=event_id))
-    db.flush()
-    return True
+    return claim_billing_event(db, event_id)
 
 
 def _custom_data(obj: dict) -> dict[str, Any]:

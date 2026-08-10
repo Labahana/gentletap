@@ -15,6 +15,7 @@ from gentletap.integrations.freshbooks import client as fb_client
 from gentletap.integrations.freshbooks.ids import to_external_invoice_id
 from gentletap.integrations.freshbooks.oauth import refresh_connection_tokens
 from gentletap.services.payments import apply_invoice_balance_update
+from gentletap.services.webhook_claims import claim_integration_event
 from gentletap.utils.crypto import decrypt_token, encrypt_token
 
 logger = logging.getLogger(__name__)
@@ -40,17 +41,7 @@ def parse_form_body(body: bytes) -> dict[str, str]:
 
 
 def _claim_event(db: Session, event_key: str) -> bool:
-    if not event_key:
-        return True
-    if (
-        db.query(IntegrationWebhookEvent)
-        .filter(IntegrationWebhookEvent.event_key == event_key)
-        .one_or_none()
-    ):
-        return False
-    db.add(IntegrationWebhookEvent(event_key=event_key))
-    db.flush()
-    return True
+    return claim_integration_event(db, event_key)
 
 
 def handle_webhook_post(
