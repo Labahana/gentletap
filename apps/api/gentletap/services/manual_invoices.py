@@ -1,5 +1,6 @@
 """Manual updates for spreadsheet-uploaded invoices."""
 
+import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID
@@ -7,7 +8,7 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from gentletap.database import Invoice, Profile, UserNotification
+from gentletap.database import Client, Invoice, Profile, UserNotification
 from gentletap.integrations.quickbooks.sync import _invoice_status
 from gentletap.services.invoice_source import invoice_source
 from gentletap.services.sequences import mark_invoice_paid, recalculate_invoice_status
@@ -128,3 +129,71 @@ def update_upload_invoice(
     db.commit()
     db.refresh(inv)
     return inv
+
+
+def create_manual_invoice(
+    db: Session,
+    user_id: UUID,
+    *,
+    client_name: str,
+    client_email: str,
+    amount: Decimal,
+    due_date: date,
+    client_phone: str | None = None,
+    doc_number: str | None = None,
+    currency: str = "USD",
+    invoice_date: date | None = None,
+    payment_link: str | None = None,
+) -> Invoice:
+    """Create a single native invoice (no accounting software / no CSV upload)."""
+    name = client_name.strip()
+    if not name:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Client name is required")
+    email = client_email.strip()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A valid client email is required")
+    if amount is None or amount <= 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Amount must be greater than zero")
+
+    # Reuse an existing manual client (matched by email) or create one.
+    client = (
+        db.query(Client)
+        .filter(Client.user_id == user_id, Client.email == email)
+        .order_by(Client.created_at.asc())
+        .first()
+    )
+    if client is None:
+        client = Client(
+            user_id=user_id,
+            qb_customer_id=f"csv:{uuid.uuid4()}"[:64],
+            name=name,
+            email=email,
+            phone=(client_phone or None),
+        )
+        db.add(client)
+        db.flush()
+    elif client_phone and not client.phone:
+        client.phone = client_phone
+
+    days_overdue, status_value = _invoice_status(due_date, amount)
+    invoice = Invoice(
+        user_id=user_id,
+        client_id=client.id,
+        qb_invoice_id=f"csv:{uuid.uuid4()}"[:64],
+        doc_number=(doc_number.strip() if doc_number else None),
+        amount=amount,
+        balance=amount,
+        currency=(currency or "USD").upper()[:3],
+        invoice_date=invoice_date,
+        due_date=due_date,
+        days_overdue=days_overdue,
+        status=status_value,
+        source="upload",
+        imported_at=datetime.now(UTC),
+        reminder_phone=client_phone,
+        payment_link=(payment_link.strip()[:2048] if payment_link else None),
+    )
+    db.add(invoice)
+    db.commit()
+    db.refresh(invoice)
+    return invoice

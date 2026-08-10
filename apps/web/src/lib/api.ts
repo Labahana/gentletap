@@ -471,6 +471,22 @@ export const api = {
     }>("/invoices/import", { method: "POST", body: form });
   },
 
+  createInvoice: (payload: {
+    client_name: string;
+    client_email: string;
+    amount: number;
+    due_date: string;
+    client_phone?: string;
+    doc_number?: string;
+    currency?: string;
+    invoice_date?: string;
+    payment_link?: string;
+  }) =>
+    request<{ id: string; invoice: unknown }>("/invoices", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
   advanceOnboardingEmail: () =>
     request<{ current_step: string }>("/onboarding/advance-email", { method: "POST" }),
 
