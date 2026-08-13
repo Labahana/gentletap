@@ -1,5 +1,5 @@
 const REF_COOKIE = "gt_affiliate_ref";
-const REF_COOKIE_DAYS = 30;
+const REF_COOKIE_DAYS = 60;
 
 export function getAffiliateRefFromUrl(): string | null {
   if (typeof window === "undefined") return null;

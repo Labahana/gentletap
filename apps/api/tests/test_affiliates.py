@@ -120,3 +120,215 @@ def test_commission_window_expires():
 
     referral.first_paid_at = None
     assert affiliate_service.referral_commission_eligible(referral) is True
+
+
+# --- Program upgrade: first-month bounty, performance tiers, payout rules ---
+
+
+def _make_affiliate_with_referral(db, *, rate: float = 0.30):
+    from gentletap.database import Affiliate, AffiliateReferral, Profile
+
+    suffix = uuid.uuid4().hex[:8]
+    affiliate = Affiliate(
+        id=uuid.uuid4(),
+        email=f"aff-{suffix}@gentletap.dev",
+        password_hash="x",
+        name="Test Affiliate",
+        status="active",
+        ref_code=affiliate_service.unique_ref_code(db, f"aff-{suffix}"),
+        commission_rate=rate,
+        approved_at=datetime.now(UTC),
+    )
+    user = Profile(
+        id=uuid.uuid4(),
+        email=f"usr-{suffix}@gentletap.dev",
+        password_hash="x",
+        plan="pro",
+        referred_by_affiliate_id=affiliate.id,
+    )
+    db.add_all([affiliate, user])
+    db.flush()
+    referral = AffiliateReferral(
+        id=uuid.uuid4(),
+        affiliate_id=affiliate.id,
+        user_id=user.id,
+        ref_code=affiliate.ref_code,
+        status="signed_up",
+        signed_up_at=datetime.now(UTC),
+    )
+    db.add(referral)
+    db.commit()
+    return affiliate, user, referral
+
+
+def _cleanup_affiliate(db, affiliate, user, referral) -> None:
+    from gentletap.database import AffiliateCommission, AffiliatePayout
+
+    db.query(AffiliateCommission).filter(AffiliateCommission.affiliate_id == affiliate.id).delete()
+    db.query(AffiliatePayout).filter(AffiliatePayout.affiliate_id == affiliate.id).delete()
+    db.delete(referral)
+    db.delete(user)
+    db.delete(affiliate)
+    db.commit()
+
+
+def test_first_month_bounty_then_recurring_rate(db_session):
+    affiliate, user, _referral = _make_affiliate_with_referral(db_session)
+    try:
+        first = affiliate_service.record_subscription_commission(
+            db_session,
+            user=user,
+            paddle_transaction_id=f"txn_{uuid.uuid4().hex[:12]}",
+            paddle_subscription_id=None,
+            gross_amount=Decimal("19.00"),
+            currency="USD",
+            event_type="initial",
+        )
+        assert first is not None
+        assert first.commission_amount == Decimal("9.50")  # 50% of first month
+
+        renewal = affiliate_service.record_subscription_commission(
+            db_session,
+            user=user,
+            paddle_transaction_id=f"txn_{uuid.uuid4().hex[:12]}",
+            paddle_subscription_id=None,
+            gross_amount=Decimal("19.00"),
+            currency="USD",
+            event_type="renewal",
+        )
+        assert renewal is not None
+        assert renewal.commission_amount == Decimal("5.70")  # 30% recurring
+    finally:
+        _cleanup_affiliate(db_session, affiliate, user, _referral)
+
+
+def test_performance_tiers_apply_to_renewals(db_session):
+    from gentletap.database import AffiliateCommission
+
+    affiliate, user, referral = _make_affiliate_with_referral(db_session)
+    try:
+        # Seed $600 month-to-date referred revenue -> 35% tier.
+        db_session.add(
+            AffiliateCommission(
+                id=uuid.uuid4(),
+                affiliate_id=affiliate.id,
+                referral_id=referral.id,
+                paddle_transaction_id=f"txn_seed_{uuid.uuid4().hex[:8]}",
+                event_type="renewal",
+                gross_amount=Decimal("600.00"),
+                commission_amount=Decimal("180.00"),
+                currency="USD",
+                status="pending",
+            )
+        )
+        db_session.commit()
+
+        tiered = affiliate_service.record_subscription_commission(
+            db_session,
+            user=user,
+            paddle_transaction_id=f"txn_{uuid.uuid4().hex[:12]}",
+            paddle_subscription_id=None,
+            gross_amount=Decimal("19.00"),
+            currency="USD",
+            event_type="renewal",
+        )
+        assert tiered is not None
+        assert tiered.commission_amount == Decimal("6.65")  # 35% at $500+
+
+        # First-month bounty still beats the tier rate.
+        bounty = affiliate_service.rate_for_event(db_session, affiliate, "initial")
+        assert bounty == Decimal("0.5")
+    finally:
+        _cleanup_affiliate(db_session, affiliate, user, referral)
+
+
+def test_manual_founder_rate_beats_tier(db_session):
+    affiliate, user, referral = _make_affiliate_with_referral(db_session, rate=0.40)
+    try:
+        renewal = affiliate_service.record_subscription_commission(
+            db_session,
+            user=user,
+            paddle_transaction_id=f"txn_{uuid.uuid4().hex[:12]}",
+            paddle_subscription_id=None,
+            gross_amount=Decimal("19.00"),
+            currency="USD",
+            event_type="renewal",
+        )
+        assert renewal is not None
+        assert renewal.commission_amount == Decimal("7.60")  # manual 40% beats default 30%
+
+        initial = affiliate_service.rate_for_event(db_session, affiliate, "initial")
+        assert initial == Decimal("0.5")  # 50% bounty beats manual 40%
+    finally:
+        _cleanup_affiliate(db_session, affiliate, user, referral)
+
+
+def test_payout_minimum_and_method_validation(db_session):
+    affiliate, user, referral = _make_affiliate_with_referral(db_session)
+    try:
+        commission = affiliate_service.record_subscription_commission(
+            db_session,
+            user=user,
+            paddle_transaction_id=f"txn_{uuid.uuid4().hex[:12]}",
+            paddle_subscription_id=None,
+            gross_amount=Decimal("19.00"),
+            currency="USD",
+            event_type="initial",
+        )
+        assert commission is not None  # $9.50 pending, below the $20 minimum
+
+        try:
+            affiliate_service.create_payout(db_session, affiliate.id, amount=9.50)
+            raise AssertionError("expected below-minimum payout to be rejected")
+        except ValueError as exc:
+            assert "minimum" in str(exc)
+
+        try:
+            affiliate_service.create_payout(
+                db_session, affiliate.id, amount=9.50, method="venmo", allow_below_minimum=True
+            )
+            raise AssertionError("expected invalid method to be rejected")
+        except ValueError as exc:
+            assert "method" in str(exc)
+
+        payout = affiliate_service.create_payout(
+            db_session,
+            affiliate.id,
+            amount=9.50,
+            method="wise",
+            allow_below_minimum=True,
+        )
+        assert payout.method == "wise"
+        assert payout.status == "paid"
+    finally:
+        _cleanup_affiliate(db_session, affiliate, user, referral)
+
+
+def test_apply_stores_partner_type_and_payout_fields(db_session):
+    suffix = uuid.uuid4().hex[:8]
+    affiliate = affiliate_service.create_affiliate_application(
+        db_session,
+        email=f"bookkeeper-{suffix}@gentletap.dev",
+        password="securepass123",
+        name="Test Bookkeeper",
+        channel_name=None,
+        channel_url=None,
+        payout_email=None,
+        application_note=None,
+        partner_type="accountant",
+        payout_method="bank_transfer",
+        payout_details="IBAN GB29 NWBK 6016 1331 9268 19",
+    )
+    try:
+        assert affiliate.partner_type == "accountant"
+        assert affiliate.payout_method == "bank_transfer"
+        assert affiliate.payout_details.startswith("IBAN")
+        assert affiliate.payout_email == f"bookkeeper-{suffix}@gentletap.dev"
+
+        # Approved-with-rate sets the manual (founder) commission rate.
+        approved = affiliate_service.approve_affiliate(db_session, affiliate, commission_rate=0.40)
+        assert approved.status == "active"
+        assert float(approved.commission_rate) == 0.40
+    finally:
+        db_session.delete(affiliate)
+        db_session.commit()

@@ -929,6 +929,8 @@ export const api = {
         status: string;
         ref_code: string | null;
         channel_name: string | null;
+        partner_type: string;
+        commission_rate: number;
         signups: number;
         active_subscribers: number;
         lifetime_earnings: number;
@@ -942,10 +944,16 @@ export const api = {
   adminAffiliateDetail: (affiliateId: string) =>
     request<Record<string, unknown>>(`/affiliates/admin/${affiliateId}`, {}),
 
-  adminApproveAffiliate: (affiliateId: string, ref_code?: string) =>
-    request<{ status: string; ref_code: string }>(
+  adminApproveAffiliate: (affiliateId: string, ref_code?: string, commission_rate?: number) =>
+    request<{ status: string; ref_code: string; commission_rate: number }>(
       `/affiliates/admin/${affiliateId}/approve`,
-      { method: "POST", body: JSON.stringify({ ref_code: ref_code ?? null }) },
+      {
+        method: "POST",
+        body: JSON.stringify({
+          ref_code: ref_code ?? null,
+          commission_rate: commission_rate ?? null,
+        }),
+      },
     ),
 
   adminRejectAffiliate: (affiliateId: string) =>
@@ -956,7 +964,13 @@ export const api = {
 
   adminAffiliatePayout: (
     affiliateId: string,
-    body: { amount: number; method?: string; reference?: string; notes?: string },
+    body: {
+      amount: number;
+      method?: string;
+      reference?: string;
+      notes?: string;
+      allow_below_minimum?: boolean;
+    },
   ) =>
     request<{ id: string; amount: number; status: string }>(
       `/affiliates/admin/${affiliateId}/payout`,
@@ -978,7 +992,8 @@ export function getRefreshToken(): string | null {
 }
 
 /** @deprecated No-op — session cookies are set by /api/session/* route handlers. */
-export function setTokens(_access: string, _refresh?: string | null) {
+export function setTokens(...args: [string, (string | null | undefined)?]) {
+  void args;
   if (typeof window !== "undefined") {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_KEY);

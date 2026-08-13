@@ -5,7 +5,7 @@ import { organizationJsonLd, pageMetadata, webPageJsonLd } from "@/lib/seo";
 
 const TITLE = "Affiliate Program Terms";
 const DESCRIPTION =
-  "GentleTap Affiliate Program Terms — 30% commission for 24 months, referral tracking, PayPal payouts, FTC disclosure requirements, and partner responsibilities.";
+  "GentleTap Affiliate Program Terms — 50% first-month bounty plus 30% commission for 24 months, performance tiers, 60-day referral tracking, PayPal/Wise/bank payouts, FTC disclosure requirements, and partner responsibilities.";
 
 export const metadata: Metadata = pageMetadata({
   title: TITLE,

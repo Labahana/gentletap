@@ -454,6 +454,7 @@ export const SITEMAP_PATHS: Array<{ path: string; changeFrequency: "weekly" | "m
   { path: "/xero-invoice-reminders", changeFrequency: "monthly", priority: 0.7 },
   { path: "/signup", changeFrequency: "monthly", priority: 0.9 },
   { path: "/affiliates", changeFrequency: "weekly", priority: 0.85 },
+  { path: "/affiliates/resources", changeFrequency: "monthly", priority: 0.6 },
   { path: "/affiliates/terms", changeFrequency: "monthly", priority: 0.5 },
   { path: "/contact", changeFrequency: "monthly", priority: 0.5 },
   { path: "/terms", changeFrequency: "monthly", priority: 0.3 },

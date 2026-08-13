@@ -37,12 +37,21 @@ def affiliate_program_info() -> dict:
     months = settings.affiliate_commission_months
     discount_pct = int(settings.affiliate_referral_discount_percent * 100)
     discount_months = settings.affiliate_referral_discount_months
+    first_month_pct = int(settings.affiliate_first_month_rate * 100)
+    base_pct = int(settings.affiliate_default_commission_rate * 100)
     return {
         "commission_rate": settings.affiliate_default_commission_rate,
-        "commission_type": "recurring_limited",
+        "first_month_rate": settings.affiliate_first_month_rate,
+        "commission_type": "hybrid_recurring_limited",
         "commission_months": months,
         "cookie_days": settings.affiliate_cookie_days,
-        "payout_method": "PayPal",
+        "payout_methods": list(affiliate_service.PAYOUT_METHODS),
+        "payout_minimum": settings.affiliate_payout_minimum,
+        "performance_tiers": [
+            {"monthly_referred_revenue": 0, "rate": settings.affiliate_default_commission_rate},
+            {"monthly_referred_revenue": settings.affiliate_tier2_threshold, "rate": settings.affiliate_tier2_rate},
+            {"monthly_referred_revenue": settings.affiliate_tier3_threshold, "rate": settings.affiliate_tier3_rate},
+        ],
         "referral_discount_percent": discount_pct,
         "referral_discount_months": discount_months,
         "referral_discount_active": bool(
@@ -51,7 +60,7 @@ def affiliate_program_info() -> dict:
             and settings.paddle_discount_id_affiliate_referral.strip()
         ),
         "description": (
-            f"Earn {int(settings.affiliate_default_commission_rate * 100)}% commission on each "
+            f"Earn {first_month_pct}% of each referral's first month plus {base_pct}% of every "
             f"subscription payment for {months} months per referred customer."
         ),
         "audience_offer": (
@@ -75,6 +84,9 @@ def apply_affiliate(request: Request, body: AffiliateApplyRequest, db: Session =
             channel_url=body.channel_url,
             payout_email=str(body.payout_email) if body.payout_email else None,
             application_note=body.application_note,
+            partner_type=body.partner_type,
+            payout_method=body.payout_method,
+            payout_details=body.payout_details,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
@@ -202,15 +214,25 @@ def admin_approve_affiliate(
     if affiliate is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     ref_code = body.ref_code if body else None
-    affiliate = affiliate_service.approve_affiliate(db, affiliate, ref_code=ref_code)
+    commission_rate = body.commission_rate if body else None
+    try:
+        affiliate = affiliate_service.approve_affiliate(
+            db, affiliate, ref_code=ref_code, commission_rate=commission_rate
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     record_admin_action(
         db,
         admin=admin,
         action="affiliate.approve",
         request=request,
-        metadata={"affiliate_id": str(affiliate_id), "ref_code": affiliate.ref_code},
+        metadata={
+            "affiliate_id": str(affiliate_id),
+            "ref_code": affiliate.ref_code,
+            "commission_rate": float(affiliate.commission_rate),
+        },
     )
-    return {"status": "active", "ref_code": affiliate.ref_code}
+    return {"status": "active", "ref_code": affiliate.ref_code, "commission_rate": float(affiliate.commission_rate)}
 
 
 @router.post("/admin/{affiliate_id}/reject")
@@ -276,6 +298,7 @@ def admin_record_payout(
             method=body.method,
             reference=body.reference,
             notes=body.notes,
+            allow_below_minimum=body.allow_below_minimum,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

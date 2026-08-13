@@ -37,7 +37,7 @@ export default function AdminAffiliatesPage() {
   }, [status]);
 
   useEffect(() => {
-    void load();
+    void Promise.resolve().then(() => load());
   }, [load]);
 
   async function approve(id: string) {
@@ -84,7 +84,7 @@ export default function AdminAffiliatesPage() {
       <AdminTable>
         <thead className="border-b border-slate-800 bg-slate-900/80 text-xs uppercase text-slate-500">
           <tr>
-            {["Creator", "Channel", "Status", "Signups", "Active", "Earnings", "Applied", ""].map((h) => (
+            {["Partner", "Type", "Channel", "Status", "Rate", "Signups", "Active", "Earnings", "Applied", ""].map((h) => (
               <th key={h} className="px-4 py-3 font-medium">
                 {h}
               </th>
@@ -94,7 +94,7 @@ export default function AdminAffiliatesPage() {
         <tbody>
           {items.length === 0 ? (
             <tr>
-              <td colSpan={8}>
+              <td colSpan={10}>
                 <AdminEmpty message="No affiliates in this filter" />
               </td>
             </tr>
@@ -107,11 +107,22 @@ export default function AdminAffiliatesPage() {
                   </Link>
                   <p className="text-xs text-slate-500">{a.email}</p>
                 </td>
+                <td className="px-4 py-3">
+                  <AdminBadge tone={a.partner_type === "accountant" ? "ok" : "neutral"}>
+                    {a.partner_type}
+                  </AdminBadge>
+                </td>
                 <td className="px-4 py-3 text-slate-300">{a.channel_name || "—"}</td>
                 <td className="px-4 py-3">
                   <AdminBadge tone={a.status === "active" ? "ok" : a.status === "pending" ? "warn" : "neutral"}>
                     {a.status}
                   </AdminBadge>
+                </td>
+                <td className="px-4 py-3">
+                  {Math.round(a.commission_rate * 100)}%
+                  {a.commission_rate > 0.3 && (
+                    <span className="ml-1 text-xs text-amber-400">founder</span>
+                  )}
                 </td>
                 <td className="px-4 py-3">{a.signups}</td>
                 <td className="px-4 py-3">{a.active_subscribers}</td>

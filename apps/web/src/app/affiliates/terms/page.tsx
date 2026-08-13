@@ -7,7 +7,7 @@ import { AFFILIATE_COMMISSION_MONTHS, referralDiscountLabel } from "@/lib/affili
 
 export default function AffiliateTermsPage() {
   return (
-    <LegalLayout title="Affiliate Program Terms" updated="June 28, 2026">
+    <LegalLayout title="Affiliate Program Terms" updated="August 11, 2026">
       <p>
         These Affiliate Program Terms (&quot;Affiliate Terms&quot;) govern participation in the{" "}
         {LEGAL.productName} affiliate program (&quot;Program&quot;). By applying, logging into the
@@ -36,9 +36,25 @@ export default function AffiliateTermsPage() {
       <h2>Commission structure</h2>
       <ul>
         <li>
-          <strong>Rate:</strong> 30% of the net subscription amount we receive from each referred
-          customer&apos;s recurring plan payment (before taxes and payment-processor fees, unless
-          otherwise stated in your approval email).
+          <strong>First-month bounty:</strong> 50% of the net subscription amount we receive from a
+          referred customer&apos;s <em>first</em> paid plan payment (before taxes and
+          payment-processor fees, unless otherwise stated in your approval email).
+        </li>
+        <li>
+          <strong>Recurring rate:</strong> 30% of the net subscription amount we receive from each
+          referred customer&apos;s plan payments after the first, within the commission window.
+        </li>
+        <li>
+          <strong>Performance tiers:</strong> When your referred revenue (sum of referred
+          subscription payments, excluding refunds) in a calendar month reaches $500, your renewal
+          rate rises to 35%; at $2,000 it rises to 40%. Tiers are applied automatically at the time
+          each payment is recorded and are visible in your dashboard.
+        </li>
+        <li>
+          <strong>Founder tier:</strong> The first 25 approved Affiliates may receive a 40% manual
+          rate for their first 6 months, set at approval. Where a manual rate and a performance
+          tier differ, the higher rate applies. The first-month bounty always applies at 50%
+          regardless of tier.
         </li>
         <li>
           <strong>Duration:</strong> Commission applies to each successful subscription payment for{" "}
@@ -95,7 +111,7 @@ export default function AffiliateTermsPage() {
           <code>{LEGAL.websiteDisplay}/signup?ref=yourcode</code>).
         </li>
         <li>
-          <strong>Attribution window:</strong> 30 days from the first click on your referral link.
+          <strong>Attribution window:</strong> 60 days from the first click on your referral link.
           If a visitor signs up within that window, the referral is attributed to you.
         </li>
         <li>
@@ -115,15 +131,15 @@ export default function AffiliateTermsPage() {
       <h2>Payouts</h2>
       <ul>
         <li>
-          <strong>Method:</strong> PayPal to the payout email address on your affiliate account,
-          unless we agree otherwise in writing.
+          <strong>Method:</strong> PayPal, Wise, or bank transfer (US/UK/EU) to the payout details
+          on your affiliate account, unless we agree otherwise in writing.
         </li>
         <li>
-          <strong>Schedule:</strong> Payouts are processed monthly, net 30 days after the end of each
-          calendar month, for all commissions marked as payable in our system.
+          <strong>Schedule:</strong> Payouts are processed monthly, net 15 days after the end of
+          each calendar month, for all commissions marked as payable in our system.
         </li>
         <li>
-          <strong>Minimum balance:</strong> $50 USD (or equivalent). Amounts below the minimum roll
+          <strong>Minimum balance:</strong> $20 USD (or equivalent). Amounts below the minimum roll
           forward to the next payout period.
         </li>
         <li>

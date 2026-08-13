@@ -111,9 +111,20 @@ class Settings(BaseSettings):
     admin_ip_allowlist: list[str] = []
 
     affiliate_default_commission_rate: float = 0.30
-    affiliate_cookie_days: int = 30
+    affiliate_cookie_days: int = 60
     # Months of recurring commission per referred customer (from first payment).
     affiliate_commission_months: int = 24
+    # Share of a referred customer's first payment paid as a one-time bounty.
+    affiliate_first_month_rate: float = 0.50
+    # Performance tiers: month-to-date referred revenue (USD) unlocks a higher
+    # renewal rate. The affiliate's per-row commission_rate (e.g. founder tier)
+    # always wins over the tier rate when higher.
+    affiliate_tier2_threshold: float = 500.0
+    affiliate_tier2_rate: float = 0.35
+    affiliate_tier3_threshold: float = 2000.0
+    affiliate_tier3_rate: float = 0.40
+    # Minimum balance required to record a payout.
+    affiliate_payout_minimum: float = 20.0
     # Audience discount when checkout is attributed to an affiliate referral.
     affiliate_referral_discount_percent: float = 0.20
     affiliate_referral_discount_months: int = 3

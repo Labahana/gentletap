@@ -13,6 +13,9 @@ import type { TokenResponse } from "@/lib/api";
 const AFFILIATE_TOKEN_KEY = "gt_affiliate_token";
 const AFFILIATE_REFRESH_KEY = "gt_affiliate_refresh";
 
+export type AffiliatePartnerType = "creator" | "accountant" | "other";
+export type AffiliatePayoutMethod = "paypal" | "wise" | "bank_transfer";
+
 export type AffiliateProfile = {
   id: string;
   name: string;
@@ -21,13 +24,33 @@ export type AffiliateProfile = {
   ref_code: string | null;
   commission_rate: number;
   payout_email: string | null;
+  payout_method?: AffiliatePayoutMethod;
+  payout_details?: string | null;
+  partner_type?: AffiliatePartnerType;
   channel_name: string | null;
   channel_url: string | null;
   approved_at: string | null;
 };
 
+export type AffiliateCommissionInfo = {
+  first_month_rate: number;
+  base_rate: number;
+  manual_rate: number;
+  tier_rate: number;
+  effective_rate: number;
+  month_referred_revenue: number;
+  next_tier_threshold: number | null;
+  tier2_threshold: number;
+  tier2_rate: number;
+  tier3_threshold: number;
+  tier3_rate: number;
+  payout_minimum: number;
+  payout_methods: AffiliatePayoutMethod[];
+};
+
 export type AffiliateDashboard = {
   affiliate: AffiliateProfile;
+  commission?: AffiliateCommissionInfo;
   links: { home: string | null; signup: string | null; pricing: string | null };
   promotion?: {
     audience_discount_percent: number;
@@ -141,7 +164,7 @@ export function AffiliateAuthProvider({ children }: { children: React.ReactNode 
   }, []);
 
   useEffect(() => {
-    void refresh();
+    void Promise.resolve().then(() => refresh());
   }, [refresh]);
 
   const login = useCallback(async (email: string, password: string) => {
@@ -191,6 +214,9 @@ export async function applyAffiliate(body: {
   channel_name?: string;
   channel_url?: string;
   payout_email?: string;
+  payout_method?: AffiliatePayoutMethod;
+  payout_details?: string;
+  partner_type?: AffiliatePartnerType;
   application_note?: string;
 }): Promise<{ status: string; message: string }> {
   return affiliateRequest("/affiliates/apply", { method: "POST", body: JSON.stringify(body) });
@@ -198,8 +224,11 @@ export async function applyAffiliate(body: {
 
 export async function fetchAffiliateProgram(): Promise<{
   commission_rate: number;
+  first_month_rate: number;
   cookie_days: number;
-  payout_method: string;
+  payout_methods: AffiliatePayoutMethod[];
+  payout_minimum: number;
+  performance_tiers: Array<{ monthly_referred_revenue: number; rate: number }>;
 }> {
   return affiliateRequest("/affiliates/program");
 }

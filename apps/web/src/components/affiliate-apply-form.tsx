@@ -1,11 +1,42 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { FormEvent, Suspense, useState } from "react";
 import { PasswordRequirements } from "@/components/password-requirements";
-import { applyAffiliate } from "@/lib/affiliate-auth";
+import {
+  applyAffiliate,
+  type AffiliatePartnerType,
+  type AffiliatePayoutMethod,
+} from "@/lib/affiliate-auth";
+
+const PARTNER_TYPE_OPTIONS: Array<{ value: AffiliatePartnerType; label: string }> = [
+  { value: "creator", label: "Content creator (YouTube, newsletter, blog, course)" },
+  { value: "accountant", label: "Accountant / bookkeeper (referring clients)" },
+  { value: "other", label: "Other" },
+];
+
+const PAYOUT_METHOD_OPTIONS: Array<{ value: AffiliatePayoutMethod; label: string }> = [
+  { value: "paypal", label: "PayPal" },
+  { value: "wise", label: "Wise" },
+  { value: "bank_transfer", label: "Bank transfer (US/UK/EU)" },
+];
+
+function partnerTypeFromParam(raw: string | null): AffiliatePartnerType {
+  if (raw === "accountant" || raw === "creator" || raw === "other") return raw;
+  return "creator";
+}
 
 export function AffiliateApplyForm() {
+  return (
+    <Suspense fallback={<div className="card mt-8 p-6 text-sm text-muted">Loading application…</div>}>
+      <AffiliateApplyFormInner />
+    </Suspense>
+  );
+}
+
+function AffiliateApplyFormInner() {
+  const searchParams = useSearchParams();
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -16,6 +47,9 @@ export function AffiliateApplyForm() {
     channel_name: "",
     channel_url: "",
     payout_email: "",
+    payout_method: "paypal" as AffiliatePayoutMethod,
+    payout_details: "",
+    partner_type: partnerTypeFromParam(searchParams.get("path")),
     application_note: "",
   });
   const [agreedTerms, setAgreedTerms] = useState(false);
@@ -36,6 +70,9 @@ export function AffiliateApplyForm() {
         channel_name: form.channel_name || undefined,
         channel_url: form.channel_url || undefined,
         payout_email: form.payout_email || undefined,
+        payout_method: form.payout_method,
+        payout_details: form.payout_details || undefined,
+        partner_type: form.partner_type,
         application_note: form.application_note || undefined,
       });
       setSubmitted(true);
@@ -63,6 +100,20 @@ export function AffiliateApplyForm() {
 
   return (
     <form onSubmit={onSubmit} className="card mt-8 space-y-4">
+      <label className="block text-sm">
+        I&apos;m applying as a…
+        <select
+          className="input mt-1"
+          value={form.partner_type}
+          onChange={(e) => setForm({ ...form, partner_type: e.target.value as AffiliatePartnerType })}
+        >
+          {PARTNER_TYPE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
       <label className="block text-sm">
         Your name
         <input
@@ -114,7 +165,21 @@ export function AffiliateApplyForm() {
         />
       </label>
       <label className="block text-sm">
-        PayPal payout email
+        Payout method
+        <select
+          className="input mt-1"
+          value={form.payout_method}
+          onChange={(e) => setForm({ ...form, payout_method: e.target.value as AffiliatePayoutMethod })}
+        >
+          {PAYOUT_METHOD_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block text-sm">
+        {form.payout_method === "paypal" ? "PayPal payout email" : "Payout email"}
         <input
           type="email"
           className="input mt-1"
@@ -123,6 +188,17 @@ export function AffiliateApplyForm() {
           onChange={(e) => setForm({ ...form, payout_email: e.target.value })}
         />
       </label>
+      {form.payout_method === "bank_transfer" && (
+        <label className="block text-sm">
+          Bank details (IBAN / account + routing)
+          <textarea
+            className="input mt-1 min-h-[60px]"
+            placeholder="We use this only to send your payouts."
+            value={form.payout_details}
+            onChange={(e) => setForm({ ...form, payout_details: e.target.value })}
+          />
+        </label>
+      )}
       <label className="block text-sm">
         Why is your audience a fit? (optional)
         <textarea

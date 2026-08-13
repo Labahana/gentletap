@@ -8,7 +8,7 @@ import {
   trackAffiliateClick,
 } from "@/lib/affiliate-ref";
 
-/** Captures ?ref= from URL into a 30-day cookie and records a click. */
+/** Captures ?ref= from URL into a 60-day cookie and records a click. */
 export function AffiliateRefTracker() {
   useEffect(() => {
     const fromUrl = getAffiliateRefFromUrl();

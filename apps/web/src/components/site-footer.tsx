@@ -43,6 +43,7 @@ const FOOTER_SECTIONS = [
     title: "Partners",
     links: [
       { href: "/affiliates", label: "Affiliate program" },
+      { href: "/affiliates/resources", label: "Affiliate resource kit" },
       { href: "/affiliates/terms", label: "Affiliate terms" },
       { href: "/affiliates/login", label: "Creator login" },
     ],

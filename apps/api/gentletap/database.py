@@ -89,6 +89,13 @@ class Affiliate(Base, TimestampMixin):
     channel_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     channel_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     payout_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    payout_method: Mapped[str] = mapped_column(
+        String(30), default="paypal", server_default="paypal", nullable=False
+    )
+    payout_details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    partner_type: Mapped[str] = mapped_column(
+        String(30), default="creator", server_default="creator", nullable=False
+    )
     application_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     ref_code: Mapped[str | None] = mapped_column(String(64), unique=True, index=True, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False, index=True)

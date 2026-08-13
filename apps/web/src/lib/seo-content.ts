@@ -420,7 +420,11 @@ export const HOW_TO_FOLLOW_UP_STEPS = [
 export const AFFILIATE_FAQ = [
   {
     q: "How much do GentleTap affiliates earn per referral?",
-    a: "Affiliates earn 30% of every subscription payment for 24 months from each referred customer's first purchase. On the $19/mo Pro plan that's $5.70 per month — up to $136.80 per referral over the full commission window.",
+    a: "Affiliates earn 50% of each referral's first paid month plus 30% of every subscription payment for 24 months. On the $19/mo Pro plan that's $9.50 up front and $5.70 per month — up to $140.60 per referral over the full commission window.",
+  },
+  {
+    q: "Are there higher commission rates for top performers?",
+    a: "Yes. Performance tiers apply automatically: once your referred revenue passes $500 in a calendar month your renewal rate rises to 35%, and at $2,000 per month it rises to 40%. Your dashboard shows your current tier and progress to the next one.",
   },
   {
     q: "Do referred customers get a discount?",
@@ -428,23 +432,23 @@ export const AFFILIATE_FAQ = [
   },
   {
     q: "Who is the GentleTap affiliate program for?",
-    a: "YouTube creators, freelance business educators, newsletter writers, and bloggers whose audience uses QuickBooks or chases overdue invoices. We approve partners whose content genuinely helps freelancers get paid on time.",
+    a: "YouTube creators, freelance business educators, newsletter writers, and bloggers whose audience uses QuickBooks or chases overdue invoices — plus accountants and bookkeepers who want to recommend a tool their freelancer clients need. We approve partners whose content genuinely helps freelancers get paid on time.",
   },
   {
     q: "Is GentleTap a good SaaS affiliate program for YouTube creators?",
-    a: "Yes — if your audience invoices clients and uses QuickBooks Online. GentleTap solves a painful, searchable problem (overdue invoices), offers a free tier for easy trials, and pays 30% recurring commission for 24 months with a built-in audience discount to boost click-through.",
+    a: "Yes — if your audience invoices clients and uses QuickBooks Online. GentleTap solves a painful, searchable problem (overdue invoices), offers a free tier for easy trials, and pays a 50% first-month bounty plus 30% recurring commission for 24 months with a built-in audience discount to boost click-through.",
   },
   {
     q: "How does affiliate tracking work?",
-    a: "You share your unique link (gentletap.co/?ref=yourcode). Clicks and signups are tracked for 30 days via cookie. When someone subscribes, commissions attach to your dashboard automatically through Paddle checkout.",
+    a: "You share your unique link (gentletap.co/?ref=yourcode). Clicks and signups are tracked for 60 days via cookie. When someone subscribes, commissions attach to your dashboard automatically through Paddle checkout.",
   },
   {
     q: "What is the affiliate cookie duration?",
-    a: "30 days from the first click on your referral link. If someone returns within that window and creates an account, the referral is attributed to you (last valid affiliate link before signup wins).",
+    a: "60 days from the first click on your referral link. If someone returns within that window and creates an account, the referral is attributed to you (last valid affiliate link before signup wins).",
   },
   {
     q: "When and how do affiliates get paid?",
-    a: "Commissions are paid monthly via PayPal on a net-30 schedule for all approved, pending earnings above the $50 minimum. View balances and payout history in your creator dashboard.",
+    a: "Commissions are paid via PayPal, Wise, or bank transfer on a net-15 schedule for all pending earnings above the $20 minimum. View balances and payout history in your creator dashboard.",
   },
   {
     q: "Do I need to disclose affiliate links?",
@@ -489,17 +493,18 @@ export const AFFILIATE_WHY_PROMOTE = [
     body: "Every affiliate link includes 20% off the first 3 months — a clear hook for descriptions: 'Use my link to save on automated invoice reminders.'",
   },
   {
-    title: "24 months of recurring commission",
-    body: "Unlike one-time bounty programs, you earn 30% on each renewal payment for two years per referred subscriber.",
+    title: "50% first-month bounty + 24 months recurring",
+    body: "You earn half of each referral's first payment immediately, then 30% on every renewal for two years — with automatic 35–40% tiers once you refer at volume.",
   },
 ] as const;
 
 export const AFFILIATE_PROGRAM_COMPARE = [
-  { label: "Commission", gentletap: "30% recurring", typical: "One-time bounty or 10–20%" },
-  { label: "Duration", gentletap: "24 months per referral", typical: "First payment only" },
+  { label: "Commission", gentletap: "50% of first month + 30% recurring", typical: "One-time bounty or 20–30% flat" },
+  { label: "Duration", gentletap: "24 months per referral", typical: "12 months or first payment only" },
+  { label: "Performance tiers", gentletap: "35–40% for top referrers", typical: "Flat rate for everyone" },
   { label: "Audience offer", gentletap: "20% off first 3 months", typical: "None" },
-  { label: "Cookie window", gentletap: "30 days", typical: "7–30 days" },
-  { label: "Payout", gentletap: "PayPal, net 30", typical: "Varies" },
+  { label: "Cookie window", gentletap: "60 days", typical: "7–30 days" },
+  { label: "Payout", gentletap: "$20 min, net 15, PayPal/Wise/bank", typical: "$50+ min, net 30–60" },
   { label: "Product fit", gentletap: "QuickBooks + Gmail freelancers", typical: "Generic SaaS" },
 ] as const;
 

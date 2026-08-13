@@ -26,6 +26,9 @@ from gentletap.services.affiliate_auth import hash_affiliate_password
 
 REF_CODE_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$")
 
+PARTNER_TYPES = ("creator", "accountant", "other")
+PAYOUT_METHODS = ("paypal", "wise", "bank_transfer")
+
 
 def slugify_ref_code(raw: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", raw.lower()).strip("-")
@@ -212,6 +215,47 @@ def referral_commission_eligible(referral: AffiliateReferral, *, at: datetime | 
     return (at or datetime.now(UTC)) <= end
 
 
+def referred_revenue_this_month(db: Session, affiliate_id: UUID, *, at: datetime | None = None) -> Decimal:
+    """Month-to-date referred gross (initial + renewal payments, excluding clawbacks)."""
+    now = at or datetime.now(UTC)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    total = (
+        db.query(func.coalesce(func.sum(AffiliateCommission.gross_amount), 0))
+        .filter(
+            AffiliateCommission.affiliate_id == affiliate_id,
+            AffiliateCommission.event_type.in_(("initial", "renewal")),
+            AffiliateCommission.status != "clawed_back",
+            AffiliateCommission.created_at >= month_start,
+        )
+        .scalar()
+    )
+    return Decimal(str(total or 0))
+
+
+def tier_rate_for_revenue(revenue: Decimal) -> Decimal:
+    settings = get_settings()
+    if revenue >= Decimal(str(settings.affiliate_tier3_threshold)):
+        return Decimal(str(settings.affiliate_tier3_rate))
+    if revenue >= Decimal(str(settings.affiliate_tier2_threshold)):
+        return Decimal(str(settings.affiliate_tier2_rate))
+    return Decimal(str(settings.affiliate_default_commission_rate))
+
+
+def effective_commission_rate(db: Session, affiliate: Affiliate) -> Decimal:
+    """Higher of the manual per-affiliate rate (e.g. founder tier) and the performance tier."""
+    manual = Decimal(str(affiliate.commission_rate or get_settings().affiliate_default_commission_rate))
+    tier = tier_rate_for_revenue(referred_revenue_this_month(db, affiliate.id))
+    return max(manual, tier)
+
+
+def rate_for_event(db: Session, affiliate: Affiliate, event_type: str) -> Decimal:
+    effective = effective_commission_rate(db, affiliate)
+    if event_type == "initial":
+        bounty = Decimal(str(get_settings().affiliate_first_month_rate))
+        return max(bounty, effective)
+    return effective
+
+
 def record_subscription_commission(
     db: Session,
     *,
@@ -241,7 +285,7 @@ def record_subscription_commission(
     if existing:
         return existing
 
-    rate = Decimal(str(affiliate.commission_rate or get_settings().affiliate_default_commission_rate))
+    rate = rate_for_event(db, affiliate, event_type)
     commission = (gross_amount * rate).quantize(Decimal("0.01"))
     if commission <= 0:
         return None
@@ -310,10 +354,17 @@ def create_affiliate_application(
     channel_url: str | None,
     payout_email: str | None,
     application_note: str | None,
+    partner_type: str = "creator",
+    payout_method: str = "paypal",
+    payout_details: str | None = None,
 ) -> Affiliate:
     normalized = email.lower()
     if db.query(Affiliate).filter(Affiliate.email == normalized).one_or_none():
         raise ValueError("An application already exists for this email")
+    if partner_type not in PARTNER_TYPES:
+        raise ValueError("Invalid partner type")
+    if payout_method not in PAYOUT_METHODS:
+        raise ValueError("Invalid payout method")
 
     affiliate = Affiliate(
         id=uuid.uuid4(),
@@ -323,6 +374,9 @@ def create_affiliate_application(
         channel_name=(channel_name or "").strip() or None,
         channel_url=(channel_url or "").strip() or None,
         payout_email=(payout_email or normalized).lower(),
+        payout_method=payout_method,
+        payout_details=(payout_details or "").strip() or None,
+        partner_type=partner_type,
         application_note=(application_note or "").strip() or None,
         ref_code=None,
         status="pending",
@@ -334,8 +388,19 @@ def create_affiliate_application(
     return affiliate
 
 
-def approve_affiliate(db: Session, affiliate: Affiliate, ref_code: str | None = None) -> Affiliate:
+def approve_affiliate(
+    db: Session,
+    affiliate: Affiliate,
+    ref_code: str | None = None,
+    commission_rate: float | None = None,
+) -> Affiliate:
+    if commission_rate is not None:
+        if not 0 < commission_rate <= 1:
+            raise ValueError("Commission rate must be between 0 and 1")
+        affiliate.commission_rate = commission_rate
     if affiliate.status == "active":
+        db.commit()
+        db.refresh(affiliate)
         return affiliate
     base = ref_code or affiliate.channel_name or affiliate.name or affiliate.email.split("@")[0]
     affiliate.ref_code = unique_ref_code(db, base)
@@ -408,6 +473,17 @@ def affiliate_dashboard(db: Session, affiliate: Affiliate) -> dict:
     approved_earnings = sum_commissions(("approved",))
     paid_earnings = sum_commissions(("paid",))
 
+    month_revenue = referred_revenue_this_month(db, affiliate.id)
+    tier_rate = tier_rate_for_revenue(month_revenue)
+    manual_rate = Decimal(str(affiliate.commission_rate))
+    tier2_threshold = Decimal(str(settings.affiliate_tier2_threshold))
+    tier3_threshold = Decimal(str(settings.affiliate_tier3_threshold))
+    next_tier_threshold = None
+    if month_revenue < tier2_threshold:
+        next_tier_threshold = float(tier2_threshold)
+    elif month_revenue < tier3_threshold:
+        next_tier_threshold = float(tier3_threshold)
+
     user_ids = [r.user_id for r in referrals]
     profiles: dict[UUID, Profile] = {}
     if user_ids:
@@ -473,8 +549,26 @@ def affiliate_dashboard(db: Session, affiliate: Affiliate) -> dict:
             "ref_code": ref_code,
             "commission_rate": float(affiliate.commission_rate),
             "payout_email": affiliate.payout_email,
+            "payout_method": affiliate.payout_method,
+            "payout_details": affiliate.payout_details,
+            "partner_type": affiliate.partner_type,
             "channel_name": affiliate.channel_name,
             "channel_url": affiliate.channel_url,
+        },
+        "commission": {
+            "first_month_rate": float(settings.affiliate_first_month_rate),
+            "base_rate": float(settings.affiliate_default_commission_rate),
+            "manual_rate": float(manual_rate),
+            "tier_rate": float(tier_rate),
+            "effective_rate": float(max(manual_rate, tier_rate)),
+            "month_referred_revenue": float(month_revenue),
+            "next_tier_threshold": next_tier_threshold,
+            "tier2_threshold": float(tier2_threshold),
+            "tier2_rate": float(settings.affiliate_tier2_rate),
+            "tier3_threshold": float(tier3_threshold),
+            "tier3_rate": float(settings.affiliate_tier3_rate),
+            "payout_minimum": float(settings.affiliate_payout_minimum),
+            "payout_methods": list(PAYOUT_METHODS),
         },
         "links": {
             "home": f"{web_url}/?ref={ref_code}" if ref_code else None,
@@ -559,6 +653,8 @@ def list_affiliates_admin(db: Session, *, status: str | None = None, limit: int 
                 "status": a.status,
                 "ref_code": a.ref_code,
                 "channel_name": a.channel_name,
+                "partner_type": a.partner_type,
+                "commission_rate": float(a.commission_rate),
                 "signups": signups,
                 "active_subscribers": active,
                 "lifetime_earnings": float(earnings or 0),
@@ -586,10 +682,13 @@ def create_payout(
     method: str = "paypal",
     reference: str | None = None,
     notes: str | None = None,
+    allow_below_minimum: bool = False,
 ) -> AffiliatePayout:
     affiliate = db.query(Affiliate).filter(Affiliate.id == affiliate_id).one_or_none()
     if not affiliate:
         raise ValueError("Affiliate not found")
+    if method not in PAYOUT_METHODS:
+        raise ValueError("Invalid payout method")
 
     pending = (
         db.query(AffiliateCommission)
@@ -603,6 +702,10 @@ def create_payout(
     payout_amount = Decimal(str(amount))
     if payout_amount <= 0:
         raise ValueError("Payout amount must be positive")
+
+    minimum = Decimal(str(get_settings().affiliate_payout_minimum))
+    if payout_amount < minimum and not allow_below_minimum:
+        raise ValueError(f"Payout below the ${minimum:.2f} program minimum")
 
     available = sum(Decimal(str(c.commission_amount)) for c in pending)
     if payout_amount > available:
