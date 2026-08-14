@@ -20,6 +20,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Note: do NOT call op.create_index() for columns that already have index=True —
+    # create_table already builds those indexes (ix_<table>_<column>).
     op.create_table(
         "automation_settings",
         sa.Column("user_id", postgresql.UUID(as_uuid=True), primary_key=True),
@@ -68,7 +70,6 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )
-    op.create_index("ix_escalation_rules_user_id", "escalation_rules", ["user_id"])
 
     op.create_table(
         "team_invites",
@@ -85,8 +86,6 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )
-    op.create_index("ix_team_invites_account_id", "team_invites", ["account_id"])
-    op.create_index("ix_team_invites_email", "team_invites", ["email"])
 
     op.create_table(
         "team_members",
@@ -99,8 +98,6 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.UniqueConstraint("account_id", "user_id", name="uq_team_members_account_user"),
     )
-    op.create_index("ix_team_members_account_id", "team_members", ["account_id"])
-    op.create_index("ix_team_members_user_id", "team_members", ["user_id"])
 
     op.create_table(
         "account_audit_events",
@@ -111,9 +108,6 @@ def upgrade() -> None:
         sa.Column("metadata", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False, index=True),
     )
-    op.create_index("ix_account_audit_events_account_id", "account_audit_events", ["account_id"])
-    op.create_index("ix_account_audit_events_actor_user_id", "account_audit_events", ["actor_user_id"])
-    op.create_index("ix_account_audit_events_created_at", "account_audit_events", ["created_at"])
 
     op.add_column("profiles", sa.Column("account_owner_id", postgresql.UUID(as_uuid=True), nullable=True))
     op.add_column("profiles", sa.Column("account_role", sa.String(length=20), server_default="owner", nullable=False))
