@@ -60,17 +60,27 @@ from gentletap.services.plan_limits import mark_collection_started
 
 
 def _can_activate_invoice(db: Session, invoice: Invoice) -> tuple[bool, str]:
-    """Rules-only gate (no LLM). Message copy is generated later at send time."""
+    """Rules-only gate (no LLM). Message copy is generated later at send time.
+
+    Unlike process_due_job, go-live / approve-all still starts sequences for
+    invoices that would escalate on a later send (21+ days overdue). Escalation
+    is a send-time handoff, not a reason to refuse activation entirely.
+    """
     ctx = build_reminder_context(db, invoice.id, invoice.user_id)
     if ctx is None:
         return False, "context_not_found"
     ctx.invoice.approved = True
+    # Force past the "pending_approval" wait so should_send can evaluate contacts.
     decision = engine.decide(ctx, generate_message=False)
     db.add(AgentDecision(invoice_id=invoice.id, decision=decision.model_dump(mode="json")))
-    if decision.action == Action.ESCALATE:
-        return False, "escalation_recommended"
     if decision.action == Action.WAIT:
+        # Escalation is Action.ESCALATE — WAIT means truly blocked (no contact, etc.).
         return False, decision.reason or "wait"
+    # Action.SEND and Action.ESCALATE both allow activation: escalate invoices still
+    # get a sequence (and a dashboard notification) so go-live isn't a no-op for
+    # long-overdue invoices.
+    if decision.action == Action.ESCALATE:
+        return True, "escalation_recommended"
     return True, ""
 
 
@@ -285,11 +295,18 @@ def approve_all_overdue(
                 "doc_number": inv.doc_number,
                 "reason": skip_reason,
             }
-            if skip_reason == "escalation_recommended":
-                skipped_escalation.append(entry)
-            else:
-                skipped_other.append(entry)
+            skipped_other.append(entry)
             continue
+        if skip_reason == "escalation_recommended":
+            # Still activate, but surface a handoff notice for long-overdue invoices.
+            _notify_escalation(db, inv, user.id)
+            skipped_escalation.append(
+                {
+                    "invoice_id": str(inv.id),
+                    "doc_number": inv.doc_number,
+                    "reason": skip_reason,
+                }
+            )
         mark_collection_started(inv)
         inv.sequence_active = True
         schedule_next_job(db, inv, scheduled_for=scheduled_for_current_step(db, inv))
@@ -320,6 +337,8 @@ def approve_all_overdue(
             Invoice.balance > 0,
             Invoice.days_overdue > 0,
             Invoice.sequence_active.is_(False),
+            Invoice.sequence_paused.is_(False),
+            Invoice.dispute_flag.is_(False),
         )
         .scalar()
         or 0
@@ -332,7 +351,9 @@ def approve_all_overdue(
         "message": f"Activated {activated} invoice sequences",
         "plan_cap_total": plan_cap_total,
         "plan_cap_remaining": plan_cap_remaining,
-        "has_more": remaining > 0,
+        # Stop the Celery chain when this batch made no progress — otherwise
+        # permanently-skipped invoices (e.g. escalation) loop forever.
+        "has_more": remaining > 0 and activated > 0,
     }
 
 
