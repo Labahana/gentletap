@@ -466,9 +466,9 @@ def auto_activate_new_invoices(db: Session, user: Profile) -> int:
         ok, reason = _can_activate_invoice(db, inv)
         if not ok:
             inv.sequence_approved = False
-            if reason == "escalation_recommended":
-                _notify_escalation(db, inv, user.id)
             continue
+        if reason == "escalation_recommended":
+            _notify_escalation(db, inv, user.id)
         mark_collection_started(inv)
         inv.sequence_active = True
         schedule_next_job(db, inv, scheduled_for=scheduled_for_current_step(db, inv))
