@@ -40,7 +40,7 @@ export default function ClientDetailPage() {
     if (user && !isOnboardingComplete(user)) router.replace("/onboarding");
   }, [user, router]);
   useEffect(() => {
-    if (user) load();
+    if (user) void Promise.resolve().then(() => load());
   }, [user, load]);
 
   async function saveContact(e: React.FormEvent) {
@@ -99,11 +99,20 @@ export default function ClientDetailPage() {
             <p className="mt-0.5 text-sm text-muted">{client.email ?? "No email on file"}</p>
             {client.phone && <p className="text-sm text-muted">{client.phone}</p>}
           </div>
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${riskBadgeClass(client.risk_level)}`}
-          >
-            {client.risk_level} risk
-          </span>
+          <div className="flex flex-col items-end gap-2">
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${riskBadgeClass(client.risk_level)}`}
+            >
+              {client.risk_level} risk
+            </span>
+            <button
+              type="button"
+              onClick={() => void api.exportClientData(client.id).catch(() => setError("Export failed"))}
+              className="text-xs text-muted underline hover:text-foreground"
+            >
+              Export client data
+            </button>
+          </div>
         </div>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -158,6 +167,70 @@ export default function ClientDetailPage() {
               {saved && <span className="text-xs text-green">✓ Saved</span>}
             </div>
           </form>
+        </div>
+
+        <div className="card mt-5">
+          <h2 className="text-sm font-semibold">Automation controls</h2>
+          <p className="mt-1 text-xs text-muted">
+            Override the account defaults for this client only.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5 sm:col-span-2">
+              <span>
+                <span className="block text-sm font-medium">Do not contact</span>
+                <span className="text-xs text-muted">Suppress all automated reminders for this client.</span>
+              </span>
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-accent"
+                checked={client.do_not_contact ?? false}
+                onChange={async (e) => {
+                  await api.updateClient(client.id, { do_not_contact: e.target.checked });
+                  await load();
+                }}
+              />
+            </label>
+
+            <div>
+              <label className="mb-1 block text-xs text-muted">Channel override</label>
+              <select
+                className="input"
+                value={client.channel_override ?? ""}
+                onChange={async (e) => {
+                  const value = (e.target.value || null) as
+                    | "email"
+                    | "whatsapp"
+                    | "both"
+                    | "off"
+                    | null;
+                  await api.updateClient(client.id, { channel_override: value });
+                  await load();
+                }}
+              >
+                <option value="">Account default</option>
+                <option value="email">Email only</option>
+                <option value="whatsapp">WhatsApp only</option>
+                <option value="both">Email + WhatsApp</option>
+                <option value="off">Off</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs text-muted">Client timezone (optional)</label>
+              <input
+                className="input"
+                placeholder="e.g. Europe/London"
+                defaultValue={client.timezone ?? ""}
+                onBlur={async (e) => {
+                  const value = e.target.value.trim() || null;
+                  if (value !== (client.timezone ?? null)) {
+                    await api.updateClient(client.id, { timezone: value });
+                    await load();
+                  }
+                }}
+              />
+            </div>
+          </div>
         </div>
 
         <div className="card mt-5">

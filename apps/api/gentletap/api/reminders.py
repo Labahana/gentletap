@@ -10,7 +10,6 @@ from gentletap.rate_limit import limiter
 from gentletap.services.email_router import has_delivery_capability
 from gentletap.services.reminders import preview_overdue_invoices
 from gentletap.services.activation_status import get_activation_status
-from gentletap.tasks.activation import queue_activation
 
 router = APIRouter(prefix="/reminders", tags=["reminders"])
 
@@ -84,10 +83,43 @@ def activation_status(user: CurrentUser) -> dict:
 
 @router.post("/approve-all", status_code=status.HTTP_202_ACCEPTED)
 def approve_all(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
+    from gentletap.services.activation_status import merge_activation_batch, set_activation_running
+    from gentletap.services.reminders import approve_all_overdue
+    from gentletap.tasks.activation import run_activation_batch
+
     if not has_delivery_capability(db, user.id, plan=user.plan):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Connect Gmail, verify an email sender, or connect WhatsApp before going live",
         )
-    queue_activation(user.id)
-    return {"status": "queued"}
+
+    try:
+        set_activation_running(user.id)
+    except Exception:
+        pass
+
+    result = approve_all_overdue(db, user, finalize_onboarding=False)
+
+    try:
+        merge_activation_batch(user.id, result)
+    except Exception:
+        pass
+
+    if result.get("has_more"):
+        try:
+            run_activation_batch.delay(str(user.id), finalize_onboarding=False)
+        except Exception:
+            pass
+
+    return {
+        "status": "running" if result.get("has_more") else "complete",
+        "result": {
+            "activated": result.get("activated", 0),
+            "skipped_escalation": result.get("skipped_escalation", []),
+            "skipped_other": result.get("skipped_other", []),
+            "message": result.get("message", ""),
+            "plan_cap_total": result.get("plan_cap_total", 0),
+            "plan_cap_remaining": result.get("plan_cap_remaining", 0),
+        },
+        "error": None,
+    }

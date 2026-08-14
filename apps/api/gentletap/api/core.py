@@ -131,8 +131,10 @@ def advance_to_pricing(user: CurrentUser, db: Session = Depends(get_db)) -> dict
 
 @router.post("/onboarding/activate", status_code=status.HTTP_202_ACCEPTED)
 def activate_reminders(user: CurrentUser, db: Session = Depends(get_db)) -> dict:
+    from gentletap.services.activation_status import merge_activation_batch, set_activation_running
     from gentletap.services.email_router import has_delivery_capability
-    from gentletap.tasks.activation import queue_activation
+    from gentletap.services.reminders import approve_all_overdue
+    from gentletap.tasks.activation import run_activation_batch
 
     if not has_delivery_capability(db, user.id, plan=user.plan):
         from fastapi import HTTPException, status
@@ -141,8 +143,41 @@ def activate_reminders(user: CurrentUser, db: Session = Depends(get_db)) -> dict
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Connect Gmail, verify an email sender, or connect WhatsApp before going live",
         )
-    queue_activation(user.id)
-    return {"status": "queued"}
+
+    # Run the first batch in-request: it's rules-only (no LLM), so it completes in
+    # well under a second even for 50 invoices. This removes the hard dependency on
+    # a Celery worker being up for go-live to work at all. Only the overflow
+    # (has_more) is queued for background processing.
+    try:
+        set_activation_running(user.id)
+    except Exception:
+        pass  # Redis down — still activate; the direct response carries the result
+
+    result = approve_all_overdue(db, user, finalize_onboarding=True)
+
+    try:
+        merge_activation_batch(user.id, result)
+    except Exception:
+        pass
+
+    if result.get("has_more"):
+        try:
+            run_activation_batch.delay(str(user.id), finalize_onboarding=False)
+        except Exception:
+            pass  # worker/broker down — remaining invoices activate on next sync
+
+    return {
+        "status": "running" if result.get("has_more") else "complete",
+        "result": {
+            "activated": result.get("activated", 0),
+            "skipped_escalation": result.get("skipped_escalation", []),
+            "skipped_other": result.get("skipped_other", []),
+            "message": result.get("message", ""),
+            "plan_cap_total": result.get("plan_cap_total", 0),
+            "plan_cap_remaining": result.get("plan_cap_remaining", 0),
+        },
+        "error": None,
+    }
 
 
 @router.post("/onboarding/persona", response_model=UserResponse)

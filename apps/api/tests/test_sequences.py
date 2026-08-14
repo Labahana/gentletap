@@ -22,8 +22,13 @@ class _FakeDb:
         self.flushed = False
 
     def query(self, model):
-        assert model is ReminderJob
-        return _FakeQuery(self._row)
+        if model is ReminderJob:
+            return _FakeQuery(self._row)
+        # AutomationSettings (and anything else) -> not found, service creates a default row
+        return _FakeQuery(None)
+
+    def add(self, _obj):
+        pass
 
     def flush(self):
         self.flushed = True

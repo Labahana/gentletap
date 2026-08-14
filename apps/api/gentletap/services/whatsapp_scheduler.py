@@ -10,7 +10,7 @@ from gentletap.database import Invoice, Profile, WhatsappFollowupJob
 
 
 def compute_whatsapp_followup_time(*, after: datetime, user_timezone: str) -> datetime:
-    """Email sends first; WhatsApp ~3h later, or 9am next morning if after 5pm local."""
+    """Legacy fixed behavior (3h / 9am). Prefer automation-aware scheduling."""
     tz_name = user_timezone or "UTC"
     try:
         tz = ZoneInfo(tz_name)
@@ -23,6 +23,23 @@ def compute_whatsapp_followup_time(*, after: datetime, user_timezone: str) -> da
     else:
         next_local = local + timedelta(hours=3)
     return next_local.astimezone(UTC)
+
+
+def compute_whatsapp_followup_time_for(
+    db: Session,
+    *,
+    user: Profile,
+    after: datetime,
+) -> datetime:
+    from gentletap.services.automation_settings import get_automation_settings, whatsapp_followup_time
+
+    settings = get_automation_settings(db, user.id)
+    return whatsapp_followup_time(
+        after=after,
+        timezone_name=settings.timezone,
+        delay_hours=settings.whatsapp_delay_hours,
+        quiet_hours=settings.whatsapp_quiet_hours,
+    )
 
 
 def schedule_whatsapp_followup(
@@ -47,7 +64,7 @@ def schedule_whatsapp_followup(
         return existing
 
     base = after or datetime.now(UTC)
-    scheduled_for = compute_whatsapp_followup_time(after=base, user_timezone=user.timezone)
+    scheduled_for = compute_whatsapp_followup_time_for(db, user=user, after=base)
 
     job = WhatsappFollowupJob(
         user_id=user.id,

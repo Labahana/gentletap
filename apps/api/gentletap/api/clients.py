@@ -16,6 +16,10 @@ router = APIRouter(prefix="/clients", tags=["clients"])
 class ClientUpdateBody(BaseModel):
     email: str | None = None
     phone: str | None = None
+    do_not_contact: bool | None = None
+    channel_override: str | None = None
+    timezone: str | None = None
+    cadence_override: dict | None = None
 
 
 @router.get("")
@@ -74,6 +78,21 @@ def update_client(
                     detail="Enter a valid mobile number with country code",
                 )
             client.phone = normalized
+
+    if body.do_not_contact is not None:
+        client.do_not_contact = body.do_not_contact
+
+    if body.channel_override is not None:
+        allowed = {"email", "whatsapp", "both", "off"}
+        client.channel_override = body.channel_override if body.channel_override in allowed else None
+
+    if body.timezone is not None:
+        client.timezone = body.timezone.strip() or None
+
+    if body.cadence_override is not None:
+        from gentletap.services.automation_settings import normalize_cadence
+
+        client.cadence_override = normalize_cadence(body.cadence_override)
 
     db.commit()
     row = client_detail(db, user.id, client_id)

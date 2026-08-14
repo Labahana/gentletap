@@ -22,14 +22,106 @@ export type User = {
   logo_url: string | null;
   persona: string | null;
   plan: string;
+  timezone: string;
   onboarding_step: string;
   onboarding_completed_at: string | null;
+  account_role: string;
+  account_owner_id: string | null;
 };
 
 export type TokenResponse = {
   access_token: string;
   refresh_token?: string | null;
   token_type: string;
+};
+
+export type CadenceStep = {
+  day_offset: number;
+  channel: "email" | "whatsapp" | "both" | "off";
+  tone?: "soft" | "neutral" | "firm" | "final" | null;
+  repeat_every_days?: number | null;
+};
+
+export type AutomationSettingsPayload = {
+  cadence?: {
+    steps: CadenceStep[];
+    pre_due_enabled?: boolean;
+    pre_due_days?: number[];
+    thank_you_on_payment?: boolean;
+  };
+  autopilot?: boolean;
+  timezone?: string;
+  send_window?: { start: number; end: number; days: number[] };
+  skip_weekends?: boolean;
+  skip_holidays?: boolean;
+  holidays_country?: string;
+  pause_all?: boolean;
+  pause_until?: string | null;
+  pause_reason?: string | null;
+  min_amount?: number | null;
+  suppress_disputed?: boolean;
+  suppress_on_reply?: boolean;
+  stop_on_payment?: boolean;
+  stop_on_claim?: boolean;
+  whatsapp_delay_hours?: number;
+  whatsapp_quiet_hours?: { start: number; end: number };
+  signature_block?: string | null;
+};
+
+export type AutomationSettingsResponse = AutomationSettingsPayload & {
+  meta: {
+    allowed_channels: string[];
+    allowed_tones: string[];
+    max_steps: number;
+    default_send_window: { start: number; end: number; days: number[] };
+    default_quiet_hours: { start: number; end: number };
+  };
+};
+
+export type NotificationPrefsResponse = {
+  events: string[];
+  channels: string[];
+  prefs: Record<string, Record<string, boolean>>;
+};
+
+export type EscalationRule = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  conditions: Record<string, number>;
+  actions: Record<string, boolean>;
+  position: number;
+};
+
+export type TeamOverview = {
+  account_id: string;
+  account_email: string;
+  plan: string;
+  seats_enabled: boolean;
+  role: string;
+  members: Array<{ id: string; user_id: string; email: string; full_name: string | null; role: string }>;
+  invites: Array<{ id: string; email: string; role: string; expires_at: string | null }>;
+};
+
+export type AuditEvent = {
+  id: string;
+  action: string;
+  actor_user_id: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string | null;
+};
+
+export type UsageSummary = {
+  plan: string;
+  plan_display_name: string;
+  collections: { used: number; limit: number | null; unlimited: boolean };
+  whatsapp: {
+    monthly_limit: number;
+    monthly_used: number;
+    monthly_remaining: number;
+    extra_credits: number;
+    total_remaining: number;
+  } | null;
 };
 
 export type QbSyncStatus = {
@@ -208,6 +300,9 @@ export type ClientListItem = {
   tenure_months: number;
   preferred_channel: string;
   email_suppressed: boolean;
+  do_not_contact?: boolean;
+  channel_override?: string | null;
+  timezone?: string | null;
   outstanding: number;
   unpaid_count: number;
   active_chase_count: number;
@@ -215,6 +310,7 @@ export type ClientListItem = {
 
 export type ClientDetail = ClientListItem & {
   communication_style: string;
+  cadence_override?: { steps: CadenceStep[] } | null;
   invoices_paid_on_time: number;
   invoices_paid_late: number;
   invoices: Array<{
@@ -494,7 +590,14 @@ export const api = {
     request<{ current_step: string }>("/onboarding/advance-pricing", { method: "POST" }),
 
   onboardingActivate: async () => {
-    await request<{ status: string }>("/onboarding/activate", { method: "POST" });
+    const res = await request<{
+      status: string;
+      result: ActivationResult | null;
+      error: string | null;
+    }>("/onboarding/activate", { method: "POST" });
+    // First batch runs in-request; only poll when overflow batches are queued.
+    if (res.status === "complete" && res.result) return res.result;
+    if (res.status === "failed") throw new Error(res.error || "Activation failed");
     return pollActivationResult();
   },
 
@@ -597,7 +700,13 @@ export const api = {
     ),
 
   approveAll: async () => {
-    await request<{ status: string }>("/reminders/approve-all", { method: "POST" });
+    const res = await request<{
+      status: string;
+      result: ActivationResult | null;
+      error: string | null;
+    }>("/reminders/approve-all", { method: "POST" });
+    if (res.status === "complete" && res.result) return res.result;
+    if (res.status === "failed") throw new Error(res.error || "Activation failed");
     return pollActivationResult();
   },
 
@@ -672,7 +781,16 @@ export const api = {
       }>;
     }>("/invoices/import-history", {}),
 
-  updateClient: (id: string, body: { email?: string; phone?: string }) =>
+  updateClient: (
+    id: string,
+    body: {
+      email?: string;
+      phone?: string;
+      do_not_contact?: boolean;
+      channel_override?: "email" | "whatsapp" | "both" | "off" | null;
+      timezone?: string | null;
+    },
+  ) =>
     request<ClientDetail>(`/clients/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
 
   invoiceDetail: (id: string) =>
@@ -810,16 +928,85 @@ export const api = {
       }>;
     }>("/whatsapp/inbound", {}),
 
-  updateProfile: (body: { full_name?: string; persona?: string }) =>
+  updateProfile: (body: {
+    full_name?: string;
+    persona?: string;
+    company_name?: string;
+    email_display_name?: string;
+    phone?: string;
+    website?: string;
+    logo_url?: string | null;
+    timezone?: string;
+  }) =>
     request<{
       id: string;
       email: string;
       full_name: string | null;
       persona: string | null;
       plan: string;
+      timezone: string;
       onboarding_step: string;
       onboarding_completed_at: string | null;
     }>("/auth/me", { method: "PATCH", body: JSON.stringify(body) }),
+
+  changeEmail: (newEmail: string, currentPassword: string) =>
+    request<{ email: string }>("/auth/change-email", {
+      method: "POST",
+      body: JSON.stringify({ new_email: newEmail, current_password: currentPassword }),
+    }),
+
+  // Control Center
+  automationSettings: () => request<AutomationSettingsResponse>("/automation", {}),
+
+  updateAutomation: (body: Partial<AutomationSettingsPayload>) =>
+    request<AutomationSettingsResponse>("/automation", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  pauseAll: (opts?: { pause_until?: string; reason?: string }) =>
+    request<{ paused: boolean; pause_until: string | null }>("/automation/pause-all", {
+      method: "POST",
+      body: JSON.stringify(opts ?? {}),
+    }),
+
+  resumeAll: () =>
+    request<{ paused: boolean }>("/automation/resume-all", { method: "POST" }),
+
+  notificationPreferences: () =>
+    request<NotificationPrefsResponse>("/notification-preferences", {}),
+
+  updateNotificationPreferences: (prefs: Record<string, Record<string, boolean>>) =>
+    request<{ prefs: Record<string, Record<string, boolean>> }>("/notification-preferences", {
+      method: "PUT",
+      body: JSON.stringify({ prefs }),
+    }),
+
+  escalationRules: () => request<{ items: EscalationRule[] }>("/escalation-rules", {}),
+
+  saveEscalationRule: (rule: Partial<EscalationRule> & { name: string }) =>
+    request<EscalationRule>(
+      rule.id ? `/escalation-rules/${rule.id}` : "/escalation-rules",
+      { method: rule.id ? "PATCH" : "POST", body: JSON.stringify(rule) },
+    ),
+
+  deleteEscalationRule: (id: string) =>
+    request<void>(`/escalation-rules/${id}`, { method: "DELETE" }),
+
+  teamOverview: () => request<TeamOverview>("/team", {}),
+
+  createTeamInvite: (email: string, role: "member" | "viewer") =>
+    request<{ id: string; email: string; role: string; accept_url: string }>("/team/invites", {
+      method: "POST",
+      body: JSON.stringify({ email, role }),
+    }),
+
+  removeTeamMember: (memberUserId: string) =>
+    request<void>(`/team/members/${memberUserId}`, { method: "DELETE" }),
+
+  teamAudit: () => request<{ items: AuditEvent[] }>("/team/audit", {}),
+
+  usageSummary: () => request<UsageSummary>("/usage", {}),
 
   changePassword: async (currentPassword: string, password: string) => {
     const res = await fetch("/api/session/change-password", {
@@ -837,6 +1024,13 @@ export const api = {
     if (!res.ok) throw await parseError(res);
     const blob = await res.blob();
     downloadBlob(blob, "gentletap-data-export.json");
+  },
+
+  exportClientData: async (clientId: string) => {
+    const res = await fetchWithRefresh(`/privacy/clients/${clientId}/export`, {}, {});
+    if (!res.ok) throw await parseError(res);
+    const blob = await res.blob();
+    downloadBlob(blob, `client-${clientId}-export.json`);
   },
 
   deleteAccount: (confirmation: string) =>

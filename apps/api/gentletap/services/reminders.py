@@ -17,6 +17,17 @@ from gentletap.database import (
     ReminderMessage,
     UserNotification,
 )
+from gentletap.services.automation_settings import (
+    cadence_for,
+    channel_for_step,
+    get_automation_settings,
+    is_paused,
+    should_suppress_invoice,
+    step_for_index,
+)
+from gentletap.services.escalation_rules import evaluate_rules
+from gentletap.services.notification_prefs import channel_enabled
+from gentletap.services.platform_email import send_platform_email
 from gentletap.intelligence.channel_selector import whatsapp_followup_planned
 from gentletap.intelligence.engine import engine
 from gentletap.intelligence.escalation import escalation_recommendation
@@ -46,6 +57,22 @@ from gentletap.services.whatsapp_usage import (
 )
 
 from gentletap.services.plan_limits import mark_collection_started
+
+
+def _can_activate_invoice(db: Session, invoice: Invoice) -> tuple[bool, str]:
+    """Rules-only gate (no LLM). Message copy is generated later at send time."""
+    ctx = build_reminder_context(db, invoice.id, invoice.user_id)
+    if ctx is None:
+        return False, "context_not_found"
+    ctx.invoice.approved = True
+    decision = engine.decide(ctx, generate_message=False)
+    db.add(AgentDecision(invoice_id=invoice.id, decision=decision.model_dump(mode="json")))
+    if decision.action == Action.ESCALATE:
+        return False, "escalation_recommended"
+    if decision.action == Action.WAIT:
+        return False, decision.reason or "wait"
+    return True, ""
+
 
 def generate_draft(db: Session, invoice: Invoice, *, preview: bool = False) -> ReminderMessage:
     ctx = build_reminder_context(db, invoice.id, invoice.user_id)
@@ -246,11 +273,8 @@ def approve_all_overdue(
             effective_reminder_email(inv)
             or (has_whatsapp(user.plan) and effective_reminder_phone(inv))
         ):
-            try:
-                generate_draft(db, inv)
-            except ValueError as exc:
-                skip = True
-                skip_reason = str(exc)
+            ok, skip_reason = _can_activate_invoice(db, inv)
+            skip = not ok
         else:
             skip = True
             skip_reason = "no_contact_method"
@@ -280,6 +304,12 @@ def approve_all_overdue(
         pref.first_batch_approved_at = datetime.now(UTC)
         user.onboarding_step = "live"
         user.onboarding_completed_at = datetime.now(UTC)
+        # Go-live means autopilot is on — user can turn it off later in Settings.
+        settings = get_automation_settings(db, user.id)
+        settings.autopilot = True
+        settings.pause_all = False
+        settings.pause_until = None
+        settings.pause_reason = None
 
     db.commit()
 
@@ -354,6 +384,14 @@ def auto_activate_new_invoices(db: Session, user: Profile) -> int:
     if not has_delivery_capability(db, user.id, plan=user.plan):
         return 0
 
+    # Respect Control Center pause. Autopilot defaults on at go-live; users can
+    # turn it off in Settings → Automation.
+    automation = get_automation_settings(db, user.id)
+    if is_paused(automation):
+        return 0
+    if not automation.autopilot:
+        return 0
+
     from gentletap.plans import has_unlimited_sequences
     from gentletap.config import get_settings
     from gentletap.services.plan_limits import count_monthly_collections, uses_new_monthly_slot
@@ -404,11 +442,10 @@ def auto_activate_new_invoices(db: Session, user: Profile) -> int:
         ):
             continue
         inv.sequence_approved = True
-        try:
-            generate_draft(db, inv)
-        except ValueError as exc:
+        ok, reason = _can_activate_invoice(db, inv)
+        if not ok:
             inv.sequence_approved = False
-            if str(exc) == "escalation_recommended":
+            if reason == "escalation_recommended":
                 _notify_escalation(db, inv, user.id)
             continue
         mark_collection_started(inv)
@@ -438,6 +475,76 @@ def auto_activate_new_invoices(db: Session, user: Profile) -> int:
     return activated
 
 
+def _apply_escalation_rules(db: Session, user: Profile, invoice: Invoice) -> bool:
+    """Evaluate the user's escalation rules against this invoice.
+
+    Returns True when a rule paused the sequence (caller should cancel the job).
+    Alerts fire once per invoice: any prior rule alert (read or unread) suppresses
+    repeats, so email actions never re-send.
+    """
+    matched = evaluate_rules(db, user.id, invoice=invoice)
+    if not matched:
+        return False
+
+    pause = any((r.actions or {}).get("pause_sequence") for r in matched)
+    want_in_app = any((r.actions or {}).get("notify") for r in matched)
+    want_email = any((r.actions or {}).get("email") for r in matched)
+
+    # De-dup on ANY prior rule alert for this invoice (read or unread) — otherwise
+    # an email-only rule would re-send every time the job runs.
+    already_alerted = (
+        db.query(UserNotification)
+        .filter(
+            UserNotification.user_id == user.id,
+            UserNotification.invoice_id == invoice.id,
+            UserNotification.kind == "escalation_rule",
+        )
+        .first()
+        is not None
+    )
+
+    if not already_alerted:
+        names = ", ".join(r.name for r in matched)
+        doc = invoice.doc_number or invoice.qb_invoice_id or "—"
+        client_name = invoice.client.name if invoice.client else "your client"
+        title = f"Invoice #{doc} matched: {names}"
+        body = (
+            f"{client_name} — ${float(invoice.balance):,.2f}, "
+            f"{invoice.days_overdue}d overdue. Matched rule{'s' if len(matched) > 1 else ''}: {names}."
+        )
+        added_unread = False
+        if want_in_app and channel_enabled(db, user.id, "escalation", "in_app"):
+            db.add(
+                UserNotification(
+                    user_id=user.id,
+                    kind="escalation_rule",
+                    title=title,
+                    body=body,
+                    invoice_id=invoice.id,
+                )
+            )
+            added_unread = True
+        if want_email and channel_enabled(db, user.id, "escalation", "email"):
+            send_platform_email(to=user.email, subject=title, plain=body, html="")
+        # Always record a marker so the next job doesn't re-alert (and re-email).
+        # When no visible notification was created, the marker is pre-read.
+        if not added_unread:
+            db.add(
+                UserNotification(
+                    user_id=user.id,
+                    kind="escalation_rule",
+                    title=title,
+                    body=body,
+                    invoice_id=invoice.id,
+                    read_at=datetime.now(UTC),
+                )
+            )
+
+    if pause:
+        invoice.sequence_paused = True
+    return pause
+
+
 def process_due_job(db: Session, job_id: UUID) -> None:
     job = db.query(ReminderJob).filter(ReminderJob.id == job_id).one_or_none()
     if job is None or job.status not in ("pending", "processing"):
@@ -450,6 +557,47 @@ def process_due_job(db: Session, job_id: UUID) -> None:
         return
 
     user = db.query(Profile).filter(Profile.id == invoice.user_id).one()
+
+    # Account-level guardrails: pause-all, do-not-contact, dispute, min amount,
+    # expected payment date. A suppressed invoice is rescheduled, not cancelled.
+    automation = get_automation_settings(db, user.id)
+    if is_paused(automation):
+        resume_at = automation.pause_until
+        if resume_at is None or (resume_at.tzinfo is None and resume_at.replace(tzinfo=UTC) > datetime.now(UTC)) or (
+            resume_at.tzinfo is not None and resume_at > datetime.now(UTC)
+        ):
+            job.scheduled_for = datetime.now(UTC) + timedelta(hours=6)
+            job.status = "pending"
+            db.commit()
+            return
+    suppress_reason = should_suppress_invoice(settings=automation, invoice=invoice, client=invoice.client)
+    if suppress_reason in ("do_not_contact", "disputed", "below_min_amount"):
+        job.status = "cancelled"
+        db.commit()
+        return
+    if suppress_reason == "awaiting_expected_payment":
+        job.scheduled_for = datetime.now(UTC) + timedelta(days=1)
+        job.status = "pending"
+        db.commit()
+        return
+
+    # Optional: pause the sequence when the client has replied recently.
+    if automation.suppress_on_reply and invoice.client_responded_at is not None:
+        responded = invoice.client_responded_at
+        if responded.tzinfo is None:
+            responded = responded.replace(tzinfo=UTC)
+        if datetime.now(UTC) - responded < timedelta(days=7):
+            job.scheduled_for = datetime.now(UTC) + timedelta(days=2)
+            job.status = "pending"
+            db.commit()
+            return
+
+    # User-defined escalation rules: alert and optionally pause the sequence.
+    if _apply_escalation_rules(db, user, invoice):
+        job.status = "cancelled"
+        db.commit()
+        return
+
     ctx = build_reminder_context(db, invoice.id, invoice.user_id)
     if ctx is None:
         job.status = "failed"
@@ -549,9 +697,21 @@ def process_due_job(db: Session, job_id: UUID) -> None:
     email_suppressed = bool(invoice.client and invoice.client.email_suppressed)
     step = job.sequence_step
 
-    email_required = step == 0 or step >= 4
-    can_email = bool(client_email and not email_suppressed and get_send_provider(db, user.id))
-    wa_allowed = whatsapp_send_allowed(invoice, invoice.client)
+    cadence = cadence_for(db, user.id, client=invoice.client, invoice=invoice)
+    cadence_step = step_for_index(cadence, step)
+    step_channel = channel_for_step(cadence_step or {}, client=invoice.client)
+
+    if step_channel == "off":
+        job.status = "cancelled"
+        db.commit()
+        return
+
+    email_required = step_channel in ("email", "both")
+    can_email = (
+        step_channel in ("email", "both")
+        and bool(client_email and not email_suppressed and get_send_provider(db, user.id))
+    )
+    wa_allowed = whatsapp_send_allowed(invoice, invoice.client) and step_channel in ("whatsapp", "both")
     if wa_allowed:
         schedule_wa, _wa_reason = should_schedule_whatsapp_for_step(
             db,

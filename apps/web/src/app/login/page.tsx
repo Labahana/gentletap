@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useState } from "react";
-import { AuthLogo } from "@/components/auth-logo";
+import { AuthShell } from "@/components/auth-shell";
 import { AuthDivider, GoogleAuthButton } from "@/components/google-auth-button";
 import { useAuth } from "@/lib/auth-context";
 import { postAuthPath } from "@/lib/onboarding";
@@ -28,7 +28,6 @@ function LoginForm() {
   const resetSuccess = searchParams.get("reset") === "1";
   const googleError = searchParams.get("google") === "error" ? searchParams.get("message") : null;
   const nextParam = searchParams.get("next");
-  // Same-origin paths only — never honor protocol-relative or external URLs.
   const safeNext =
     nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : null;
 
@@ -40,9 +39,7 @@ function LoginForm() {
       const me = await login(email, password);
       router.push(safeNext ?? postAuthPath(me));
     } catch (err) {
-      setError(
-        friendlyLoginError(err instanceof Error ? err.message : "Login failed"),
-      );
+      setError(friendlyLoginError(err instanceof Error ? err.message : "Login failed"));
     } finally {
       setLoading(false);
     }
@@ -50,6 +47,9 @@ function LoginForm() {
 
   return (
     <>
+      <h1 className="text-xl font-bold">Welcome back</h1>
+      <p className="mt-1 text-sm text-muted">Sign in to your GentleTap account</p>
+
       {resetSuccess && (
         <p className="mt-4 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-800">
           Password updated. Log in with your new password.
@@ -108,38 +108,29 @@ function LoginForm() {
           </p>
         )}
         <button type="submit" disabled={loading} className="btn-primary w-full">
-          {loading ? "Signing in…" : "Log in"}
+          {loading ? "Signing in…" : "Sign in"}
         </button>
       </form>
+
+      <p className="mt-4 text-center text-xs text-muted">
+        <Link href="/privacy" className="hover:text-foreground">
+          Privacy
+        </Link>
+        {" · "}
+        <Link href="/terms" className="hover:text-foreground">
+          Terms
+        </Link>
+      </p>
     </>
   );
 }
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-full flex-col items-center justify-center px-6 py-12">
-      <AuthLogo />
-      <div className="card w-full max-w-md">
-        <h1 className="text-xl font-bold">Welcome back</h1>
-        <Suspense fallback={<p className="mt-6 text-sm text-muted">Loading…</p>}>
-          <LoginForm />
-        </Suspense>
-        <p className="mt-4 text-center text-sm text-muted">
-          New here?{" "}
-          <Link href="/signup" className="font-medium text-accent">
-            Create account
-          </Link>
-        </p>
-        <p className="mt-3 text-center text-xs text-muted">
-          <Link href="/privacy" className="hover:text-foreground">
-            Privacy
-          </Link>
-          {" · "}
-          <Link href="/terms" className="hover:text-foreground">
-            Terms
-          </Link>
-        </p>
-      </div>
-    </div>
+    <AuthShell mode="login">
+      <Suspense fallback={<p className="text-sm text-muted">Loading…</p>}>
+        <LoginForm />
+      </Suspense>
+    </AuthShell>
   );
 }

@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { PricingGrid } from "@/components/pricing-grid";
-import { api } from "@/lib/api";
+import { api, type UsageSummary } from "@/lib/api";
 import { isUpgrade, planLabel, withPlanMarketing, type PlanFeature, type PlanId } from "@/lib/pricing";
 import { openOverlayCheckout, type PaddlePublicConfig } from "@/lib/paddle";
 import { useAuth } from "@/lib/auth-context";
@@ -18,6 +18,7 @@ function BillingContent() {
   const [annual, setAnnual] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [usage, setUsage] = useState<UsageSummary | null>(null);
 
   useEffect(() => {
     api.billingStatus().then((s) => {
@@ -25,6 +26,7 @@ function BillingContent() {
       setCheckoutAvailable(s.checkout_available);
       setPaddleConfig(s.paddle);
     });
+    api.usageSummary().then(setUsage).catch(() => setUsage(null));
   }, [user]);
 
   const success = searchParams.get("success") === "1";
@@ -129,6 +131,44 @@ function BillingContent() {
         <p className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
           Paddle checkout is not configured yet. Add price IDs to your environment to enable upgrades.
         </p>
+      )}
+
+      {usage && (
+        <div className="mt-8 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-border bg-card px-5 py-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted">Collections this cycle</p>
+            <p className="mt-1.5 text-2xl font-bold tabular-nums">
+              {usage.collections.used}
+              <span className="text-sm font-normal text-muted">
+                {" "}
+                / {usage.collections.unlimited ? "∞" : (usage.collections.limit ?? "—")}
+              </span>
+            </p>
+            {!usage.collections.unlimited && usage.collections.limit != null && (
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-border">
+                <div
+                  className="h-full rounded-full bg-accent"
+                  style={{
+                    width: `${Math.min(100, Math.round((usage.collections.used / usage.collections.limit) * 100))}%`,
+                  }}
+                />
+              </div>
+            )}
+          </div>
+          {usage.whatsapp && (
+            <div className="rounded-2xl border border-border bg-card px-5 py-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted">WhatsApp messages</p>
+              <p className="mt-1.5 text-2xl font-bold tabular-nums">
+                {usage.whatsapp.monthly_used}
+                <span className="text-sm font-normal text-muted"> / {usage.whatsapp.monthly_limit} this month</span>
+              </p>
+              <p className="mt-1 text-xs text-muted">
+                {usage.whatsapp.total_remaining} remaining
+                {usage.whatsapp.extra_credits > 0 && ` (incl. ${usage.whatsapp.extra_credits} credit pack)`}
+              </p>
+            </div>
+          )}
+        </div>
       )}
 
       <div className="mt-10">

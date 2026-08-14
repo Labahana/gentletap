@@ -37,8 +37,11 @@ class UserResponse(BaseModel):
     logo_url: str | None = None
     persona: str | None
     plan: str
+    timezone: str = "America/New_York"
     onboarding_step: str
     onboarding_completed_at: datetime | None
+    account_role: str = "owner"
+    account_owner_id: UUID | None = None
 
     model_config = {"from_attributes": True}
 
@@ -83,8 +86,14 @@ class UpdateProfileRequest(BaseModel):
     website: str | None = Field(default=None, max_length=255)
     logo_url: str | None = Field(default=None, max_length=400_000)
     persona: str | None = Field(default=None, pattern="^(freelancer|consultant|agency)$")
+    timezone: str | None = Field(default=None, max_length=64)
 
 
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(min_length=1, max_length=128)
     password: str = Field(min_length=8, max_length=128)
+
+
+class ChangeEmailRequest(BaseModel):
+    new_email: EmailStr
+    current_password: str = Field(min_length=1, max_length=128)

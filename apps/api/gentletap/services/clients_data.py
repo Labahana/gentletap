@@ -63,6 +63,9 @@ def list_clients(db: Session, user_id, limit: int = 100, offset: int = 0) -> dic
                 "tenure_months": c.tenure_months,
                 "preferred_channel": c.preferred_channel,
                 "email_suppressed": c.email_suppressed,
+                "do_not_contact": c.do_not_contact,
+                "channel_override": c.channel_override,
+                "timezone": c.timezone,
                 "outstanding": float(outstanding or 0),
                 "unpaid_count": int(unpaid_count or 0),
                 "active_chase_count": chase_map.get(c.id, 0),
@@ -117,6 +120,10 @@ def client_detail(db: Session, user_id, client_id) -> dict | None:
         "tenure_months": client.tenure_months,
         "preferred_channel": client.preferred_channel,
         "email_suppressed": client.email_suppressed,
+        "do_not_contact": client.do_not_contact,
+        "channel_override": client.channel_override,
+        "timezone": client.timezone,
+        "cadence_override": client.cadence_override,
         "outstanding": outstanding,
         "invoices": [
             {

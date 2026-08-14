@@ -14,6 +14,7 @@ from gentletap.integrations.google import auth_signin
 from gentletap.integrations.google.oauth import is_configured as google_oauth_configured
 from gentletap.rate_limit import limiter
 from gentletap.schemas.auth import (
+    ChangeEmailRequest,
     ChangePasswordRequest,
     ForgotPasswordRequest,
     GoogleExchangeRequest,
@@ -204,7 +205,54 @@ def update_profile(
         user.logo_url = body.logo_url.strip() or None
     if body.persona is not None:
         user.persona = body.persona
+    if body.timezone is not None:
+        try:
+            from zoneinfo import ZoneInfo
+
+            ZoneInfo(body.timezone)
+            user.timezone = body.timezone
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Unknown timezone",
+            )
     db.commit()
+    db.refresh(user)
+    return UserResponse.model_validate(user)
+
+
+@router.post("/change-email", response_model=UserResponse)
+@limiter.limit("5/hour")
+def change_email(
+    request: Request,
+    body: ChangeEmailRequest,
+    user: CurrentUser,
+    db: Session = Depends(get_db),
+) -> UserResponse:
+    if not verify_password(body.current_password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect.",
+        )
+    new_email = body.new_email.strip().lower()
+    if new_email == user.email:
+        return UserResponse.model_validate(user)
+    taken = db.query(Profile).filter(Profile.email == new_email).one_or_none()
+    if taken is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already in use")
+    from gentletap.services.account_audit import record_event
+    from gentletap.services.team import account_id_for
+
+    record_event(
+        db,
+        account_id=account_id_for(user),
+        actor_user_id=user.id,
+        action="account.email_changed",
+        metadata={"from": user.email, "to": new_email},
+    )
+    user.email = new_email
+    db.commit()
+    revoke_all_user_tokens(db, user.id)
     db.refresh(user)
     return UserResponse.model_validate(user)
 

@@ -27,6 +27,11 @@ export default function ProfileSettingsPage() {
   const { user, refresh } = useAuth();
   const [fullName, setFullName] = useState("");
   const [persona, setPersona] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [website, setWebsite] = useState("");
+  const [timezone, setTimezone] = useState("America/New_York");
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -34,10 +39,16 @@ export default function ProfileSettingsPage() {
   const [monthlyLimit, setMonthlyLimit] = useState<number | undefined>();
 
   useEffect(() => {
-    if (user) {
+    if (!user) return;
+    void Promise.resolve().then(() => {
       setFullName(user.full_name ?? "");
       setPersona(user.persona ?? null);
-    }
+      setCompanyName(user.company_name ?? "");
+      setDisplayName(user.email_display_name ?? "");
+      setPhone(user.phone ?? "");
+      setWebsite(user.website ?? "");
+      setTimezone(user.timezone ?? "America/New_York");
+    });
   }, [user]);
 
   useEffect(() => {
@@ -55,7 +66,15 @@ export default function ProfileSettingsPage() {
     setProfileError(null);
     setProfileSaved(false);
     try {
-      await api.updateProfile({ full_name: fullName, persona: persona ?? undefined });
+      await api.updateProfile({
+        full_name: fullName,
+        persona: persona ?? undefined,
+        company_name: companyName,
+        email_display_name: displayName,
+        phone,
+        website,
+        timezone,
+      });
       await refresh();
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 3000);
@@ -84,6 +103,65 @@ export default function ProfileSettingsPage() {
 
           <SettingRow label="Email" desc="Your sign-in email — contact support to change">
             <input className="input cursor-not-allowed opacity-60" value={user.email} readOnly />
+          </SettingRow>
+
+          <SettingRow label="Company" desc="Shown on invoices and reminder context">
+            <input
+              className="input"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              placeholder="Acme Studio"
+            />
+          </SettingRow>
+
+          <SettingRow label="Sender name" desc="The name clients see in the From line">
+            <input
+              className="input"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Alex from Acme"
+            />
+          </SettingRow>
+
+          <SettingRow label="Phone" desc="Optional — used in signature context">
+            <input
+              className="input"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+1 555 0100"
+            />
+          </SettingRow>
+
+          <SettingRow label="Website" desc="Optional">
+            <input
+              className="input"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+              placeholder="https://acme.studio"
+            />
+          </SettingRow>
+
+          <SettingRow label="Timezone" desc="Send windows and WhatsApp timing use this">
+            <select className="input" value={timezone} onChange={(e) => setTimezone(e.target.value)}>
+              {[
+                "America/New_York",
+                "America/Chicago",
+                "America/Denver",
+                "America/Los_Angeles",
+                "America/Toronto",
+                "Europe/London",
+                "Europe/Berlin",
+                "Europe/Paris",
+                "Asia/Dubai",
+                "Asia/Singapore",
+                "Australia/Sydney",
+                "UTC",
+              ].map((tz) => (
+                <option key={tz} value={tz}>
+                  {tz.replace("_", " ")}
+                </option>
+              ))}
+            </select>
           </SettingRow>
 
           <SettingRow label="I work as…" desc="Helps us personalise reminder tone and templates">

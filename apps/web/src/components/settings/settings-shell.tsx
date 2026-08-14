@@ -6,17 +6,20 @@ import { LegalLinks } from "@/components/legal-links";
 
 const TABS: Array<{ href: string; label: string; danger?: boolean }> = [
   { href: "/settings/profile", label: "Profile" },
+  { href: "/settings/automation", label: "Automation" },
   { href: "/settings/billing", label: "Billing" },
+  { href: "/settings/team", label: "Team" },
   { href: "/settings/security", label: "Security" },
   { href: "/settings/notifications", label: "Notifications" },
   { href: "/settings/email", label: "Email Settings" },
   { href: "/settings/integrations", label: "Integrations" },
+  { href: "/settings/data", label: "Data & Privacy" },
   { href: "/settings/delete", label: "Delete Account", danger: true },
 ];
 
 export function SettingsShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const wide = pathname.startsWith("/settings/billing");
+  const wide = pathname.startsWith("/settings/billing") || pathname.startsWith("/settings/automation");
 
   return (
     <div

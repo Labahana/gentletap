@@ -57,6 +57,8 @@ class InvoiceContactsBody(BaseModel):
     reminder_phone: str | None = None
     clear_reminder_phone: bool = False
     client_email: str | None = None
+    expected_payment_date: str | None = None
+    clear_expected_payment_date: bool = False
 
 
 class BulkMarkPaidBody(BaseModel):
@@ -83,6 +85,7 @@ def create_invoice(
 ) -> dict:
     """Create a single invoice manually (no accounting software / CSV)."""
     from gentletap.integrations.quickbooks.sync import _parse_date
+    from gentletap.services.reminders import auto_activate_new_invoices
 
     due = _parse_date(body.due_date)
     if due is None:
@@ -100,6 +103,10 @@ def create_invoice(
         invoice_date=_parse_date(body.invoice_date) if body.invoice_date else None,
         payment_link=body.payment_link,
     )
+    # After go-live with autopilot on, start chasing overdue invoices immediately.
+    if user.onboarding_step == "live":
+        auto_activate_new_invoices(db, user)
+        db.refresh(inv)
     invalidate_dashboard_summary(user.id)
     return {"id": str(inv.id), "invoice": enrich_invoice_row(inv, None)}
 
@@ -437,10 +444,23 @@ def update_invoice_contacts_endpoint(
         clear_reminder_phone=body.clear_reminder_phone,
         client_email=body.client_email,
     )
+
+    if body.clear_expected_payment_date:
+        inv.expected_payment_date = None
+    elif body.expected_payment_date is not None:
+        from gentletap.integrations.quickbooks.sync import _parse_date
+
+        parsed = _parse_date(body.expected_payment_date)
+        if parsed is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid expected_payment_date")
+        inv.expected_payment_date = parsed
+
+    db.commit()
     return {
         "status": "updated",
         "reminder_email": effective_reminder_email(inv),
         **reminder_contact_payload(inv),
+        "expected_payment_date": inv.expected_payment_date.isoformat() if inv.expected_payment_date else None,
         "client": {
             "email": inv.client.email if inv.client else None,
             "phone": inv.client.phone if inv.client else None,

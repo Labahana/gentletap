@@ -77,6 +77,8 @@ class Profile(Base, TimestampMixin):
     referred_by_affiliate_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), index=True, nullable=True
     )
+    account_owner_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True, nullable=True)
+    account_role: Mapped[str] = mapped_column(String(20), default="owner", server_default="owner", nullable=False)
 
 
 class Affiliate(Base, TimestampMixin):
@@ -320,6 +322,92 @@ class EmailPreference(Base, TimestampMixin):
     first_batch_approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class AutomationSettings(Base, TimestampMixin):
+    """Per-user control surface for sequences, sending windows, and guardrails."""
+
+    __tablename__ = "automation_settings"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    cadence: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    autopilot: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+    timezone: Mapped[str] = mapped_column(String(64), default="America/New_York", server_default="America/New_York", nullable=False)
+    send_window: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    skip_weekends: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+    skip_holidays: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    holidays_country: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    pause_all: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    pause_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    pause_reason: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    min_amount: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    suppress_disputed: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+    suppress_on_reply: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    stop_on_payment: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+    stop_on_claim: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    whatsapp_delay_hours: Mapped[int] = mapped_column(Integer, default=3, server_default="3", nullable=False)
+    whatsapp_quiet_hours: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    signature_block: Mapped[str | None] = mapped_column(Text, nullable=True)
+    escalation_sender: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    cc_late_steps: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    retention_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class NotificationPreference(Base, TimestampMixin):
+    __tablename__ = "notification_preferences"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    prefs: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+
+
+class EscalationRule(Base, TimestampMixin):
+    __tablename__ = "escalation_rules"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(80), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+    conditions: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    actions: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    position: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+
+
+class TeamInvite(Base, TimestampMixin):
+    __tablename__ = "team_invites"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    account_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("profiles.id"), index=True, nullable=False)
+    email: Mapped[str] = mapped_column(String(320), index=True, nullable=False)
+    role: Mapped[str] = mapped_column(String(20), default="member", server_default="member", nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending", server_default="pending", nullable=False)
+    invited_by_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    accepted_by_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class TeamMember(Base, TimestampMixin):
+    __tablename__ = "team_members"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    account_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("profiles.id"), index=True, nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("profiles.id"), index=True, nullable=False)
+    role: Mapped[str] = mapped_column(String(20), default="member", server_default="member", nullable=False)
+    invited_via: Mapped[str] = mapped_column(String(20), default="owner", server_default="owner", nullable=False)
+
+
+class AccountAuditEvent(Base):
+    __tablename__ = "account_audit_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    account_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True, nullable=True)
+    action: Mapped[str] = mapped_column(String(80), nullable=False)
+    metadata_json: Mapped[dict | None] = mapped_column("metadata", JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+
+
 class EmailDomain(Base, TimestampMixin):
     __tablename__ = "email_domains"
 
@@ -352,6 +440,10 @@ class Client(Base, TimestampMixin):
     preferred_channel: Mapped[str] = mapped_column(String(20), default="email", nullable=False)
     email_suppressed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     whatsapp_opted_out: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    do_not_contact: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    timezone: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    cadence_override: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    channel_override: Mapped[str | None] = mapped_column(String(20), nullable=True)
     profile_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
@@ -387,6 +479,8 @@ class Invoice(Base, TimestampMixin):
     last_manual_update_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     qb_last_updated: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     reminder_phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    expected_payment_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    cadence_override: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     client: Mapped["Client"] = relationship("Client", lazy="joined")
 

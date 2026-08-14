@@ -8,11 +8,28 @@ from sqlalchemy.orm import Session
 
 from gentletap.database import Invoice, ReminderJob
 
-# Day overdue thresholds per sequence step (0–4)
+# Day overdue thresholds per sequence step (0–4). Default when the user has no
+# custom cadence configured.
 SEQUENCE_DAY_THRESHOLDS = [0, 3, 7, 14, 21]
 MAX_SEQUENCE_STEP = 4
 # Minimum days between consecutive reminders, regardless of how overdue an invoice is.
 MIN_STEP_GAP_DAYS = 2
+
+
+def _resolve_cadence(db: Session, invoice: Invoice) -> dict:
+    from gentletap.services.automation_settings import cadence_for
+
+    return cadence_for(db, invoice.user_id, client=invoice.client, invoice=invoice)
+
+
+def _day_offsets(cadence: dict) -> list[int]:
+    steps = cadence.get("steps") or []
+    offsets = [int(s.get("day_offset", 0)) for s in steps if isinstance(s, dict)]
+    return offsets or list(SEQUENCE_DAY_THRESHOLDS)
+
+
+def _max_step(cadence: dict) -> int:
+    return max(0, len(_day_offsets(cadence)) - 1)
 
 
 def cancel_invoice_jobs(db: Session, invoice_id: UUID) -> int:
@@ -37,6 +54,43 @@ def mark_invoice_paid(db: Session, invoice: Invoice) -> None:
     invoice.sequence_active = False
     invoice.sequence_paused = True
     cancel_invoice_jobs(db, invoice.id)
+
+    # Optional "thanks for paying" note when enabled on the account cadence.
+    try:
+        cadence = _resolve_cadence(db, invoice)
+        if cadence.get("thank_you_on_payment"):
+            _queue_thank_you(db, invoice, cadence)
+    except Exception:
+        pass
+
+
+def _queue_thank_you(db: Session, invoice: Invoice, cadence: dict) -> None:
+    from gentletap.database import ReminderMessage
+
+    existing = (
+        db.query(ReminderMessage)
+        .filter(ReminderMessage.invoice_id == invoice.id, ReminderMessage.channel == "thank_you")
+        .one_or_none()
+    )
+    if existing is not None:
+        return
+    client_name = invoice.client.name if invoice.client else "there"
+    doc = invoice.doc_number or "your invoice"
+    db.add(
+        ReminderMessage(
+            invoice_id=invoice.id,
+            sequence_step=-1,
+            subject=f"Thanks for paying invoice #{doc}",
+            body=(
+                f"Hi {client_name},\n\n"
+                f"Thanks for taking care of invoice #{doc} — really appreciate it.\n\n"
+                "Talk soon,"
+            ),
+            tone="soft",
+            channel="thank_you",
+            status="pending_approval",
+        )
+    )
 
 
 def reopen_invoice(invoice: Invoice) -> bool:
@@ -76,11 +130,23 @@ def schedule_next_job(
     delay_days: int | None = None,
     scheduled_for: datetime | None = None,
 ) -> ReminderJob | None:
+    from gentletap.services.automation_settings import (
+        get_automation_settings,
+        is_paused,
+        next_send_time,
+        should_suppress_invoice,
+    )
+
     if not invoice.sequence_active or invoice.sequence_paused or float(invoice.balance) <= 0:
         return None
 
+    settings = get_automation_settings(db, invoice.user_id)
+    if should_suppress_invoice(settings=settings, invoice=invoice, client=invoice.client):
+        return None
+
+    cadence = _resolve_cadence(db, invoice)
     next_step = invoice.sequence_step
-    if next_step > MAX_SEQUENCE_STEP:
+    if next_step > _max_step(cadence):
         return None
 
     now = datetime.now(UTC)
@@ -90,6 +156,24 @@ def schedule_next_job(
         scheduled = now + timedelta(days=delay_days)
     else:
         scheduled = now + timedelta(hours=1)
+
+    # Snap into the user's send window when one is configured.
+    if settings.send_window:
+        scheduled = next_send_time(
+            now_utc=scheduled,
+            timezone_name=settings.timezone,
+            send_window=settings.send_window,
+            skip_weekends=settings.skip_weekends,
+            skip_holidays=settings.skip_holidays,
+            holidays_country=settings.holidays_country,
+        )
+
+    if is_paused(settings) and settings.pause_until is not None:
+        pause_until = settings.pause_until
+        if pause_until.tzinfo is None:
+            pause_until = pause_until.replace(tzinfo=UTC)
+        if scheduled < pause_until:
+            scheduled = pause_until
 
     existing = (
         db.query(ReminderJob)
@@ -127,9 +211,10 @@ def schedule_next_job(
 
 
 def advance_sequence_after_send(db: Session, invoice: Invoice) -> None:
+    cadence = _resolve_cadence(db, invoice)
     invoice.sequence_step += 1
     invoice.last_reminder_sent_at = datetime.now(UTC)
-    if invoice.sequence_step > MAX_SEQUENCE_STEP:
+    if invoice.sequence_step > _max_step(cadence):
         invoice.sequence_active = False
         return
     scheduled_for = _scheduled_for_next_step(db, invoice)
@@ -156,6 +241,8 @@ def _days_until_next_step(invoice: Invoice) -> int:
     (3, 4, 7, 7 days) no matter how overdue the invoice was when it entered the
     sequence — so a long-overdue invoice is never blasted on consecutive days.
     """
+    # Use a DB-free default here; cadence-aware spacing is applied when the job is
+    # scheduled via schedule_next_job (which has the session).
     step = invoice.sequence_step
     if step >= len(SEQUENCE_DAY_THRESHOLDS):
         return 7
