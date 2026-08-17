@@ -50,12 +50,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ onUpgradeClick }) => {
       <div>
         {/* Logo */}
         <div className="h-16 flex items-center px-6 border-b border-gray-100">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold shadow-sm">
-              <Zap className="w-5 h-5 fill-white text-blue-600" />
+          <Link to="/dashboard" className="flex items-center space-x-2">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden">
+              <img src="/logo192.png" alt="GentleTap Logo" className="w-full h-full object-contain" />
             </div>
             <span className="text-xl font-bold text-blue-600 tracking-tight">GentleTap</span>
-          </div>
+          </Link>
         </div>
 
         {/* Navigation */}

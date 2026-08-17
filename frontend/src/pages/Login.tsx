@@ -53,9 +53,9 @@ export const Login: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="bg-white border border-gray-200 rounded-2xl p-8 max-w-md w-full shadow-lg">
-        <div className="text-center mb-6">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold mx-auto mb-3 shadow-xs">
-            <Zap className="w-6 h-6 fill-white text-blue-600" />
+        <div className="text-center mb-8">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4 overflow-hidden">
+            <img src="/logo192.png" alt="GentleTap Logo" className="w-full h-full object-contain" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900">Welcome back</h2>
           <p className="text-sm text-gray-500 mt-1">Sign in to your GentleTap account</p>
