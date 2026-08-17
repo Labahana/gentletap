@@ -1,0 +1,97 @@
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Layout } from '@/components/Layout';
+import { Landing } from '@/pages/Landing';
+import { Login } from '@/pages/Login';
+import { Signup } from '@/pages/Signup';
+import { Dashboard } from '@/pages/Dashboard';
+import { Invoices } from '@/pages/Invoices';
+import { InvoiceDetail } from '@/pages/InvoiceDetail';
+import { Clients } from '@/pages/Clients';
+import { ClientDetail } from '@/pages/ClientDetail';
+import { Sequences } from '@/pages/Sequences';
+import { SequenceDetail } from '@/pages/SequenceDetail';
+import { SendHistory } from '@/pages/SendHistory';
+import { Payouts } from '@/pages/Payouts';
+import { Templates } from '@/pages/Templates';
+import { Settings } from '@/pages/Settings';
+import { Integrations } from '@/pages/Integrations';
+import { Escalations } from '@/pages/Escalations';
+import { Unsubscribe } from '@/pages/Unsubscribe';
+import { Billing } from '@/pages/Billing';
+import { Team } from '@/pages/Team';
+import { Onboarding } from '@/pages/Onboarding';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useAuthStore } from '@/stores/authStore';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 2,
+      staleTime: 30_000,
+    },
+  },
+});
+
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated } = useAuthStore();
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  return <>{children}</>;
+};
+
+export const App: React.FC = () => {
+  return (
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/unsubscribe" element={<Unsubscribe />} />
+            <Route
+              path="/onboarding"
+              element={
+                <ProtectedRoute>
+                  <Onboarding />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }
+            >
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/escalations" element={<Escalations />} />
+              <Route path="/invoices" element={<Invoices />} />
+              <Route path="/invoices/:id" element={<InvoiceDetail />} />
+              <Route path="/clients" element={<Clients />} />
+              <Route path="/clients/:id" element={<ClientDetail />} />
+              <Route path="/sequences" element={<Sequences />} />
+              <Route path="/sequences/:id" element={<SequenceDetail />} />
+              <Route path="/history" element={<SendHistory />} />
+              <Route path="/payouts" element={<Payouts />} />
+              <Route path="/templates" element={<Templates />} />
+              <Route path="/billing" element={<Billing />} />
+              <Route path="/team" element={<Team />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/integrations" element={<Integrations />} />
+            </Route>
+
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ErrorBoundary>
+  );
+};
+
+export default App;
