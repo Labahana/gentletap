@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Send, Eye, Sparkles, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { X, Send, Eye, Sparkles, CheckCircle2, AlertTriangle, Mail } from 'lucide-react';
 import { api } from '@/lib/api';
 
 interface SendPreviewModalProps {
@@ -20,6 +20,7 @@ export const SendPreviewModal: React.FC<SendPreviewModalProps> = ({
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [subject, setSubject] = useState<string>('');
   const [body, setBody] = useState<string>('');
+  const [sendVia, setSendVia] = useState<string>('resend'); // 'resend' or 'gmail'
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,6 +66,7 @@ export const SendPreviewModal: React.FC<SendPreviewModalProps> = ({
         template_id: selectedTemplateId || null,
         subject,
         body,
+        send_via: sendVia,
         preview: false,
       });
       onSuccess();
@@ -102,6 +104,19 @@ export const SendPreviewModal: React.FC<SendPreviewModalProps> = ({
         )}
 
         <div className="space-y-4 overflow-y-auto flex-1 pr-2">
+          {/* Sending Channel Method */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Sending Channel</label>
+            <select
+              value={sendVia}
+              onChange={(e) => setSendVia(e.target.value)}
+              className="w-full bg-slate-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            >
+              <option value="resend">GentleTap Domain (Default - noreply@gentletap.co)</option>
+              <option value="gmail">My Connected Gmail Account (via Google OAuth)</option>
+            </select>
+          </div>
+
           {/* Template Selector */}
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1">Select Template</label>
@@ -171,7 +186,7 @@ export const SendPreviewModal: React.FC<SendPreviewModalProps> = ({
             className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-xs flex items-center space-x-2 transition-colors shadow-xs disabled:opacity-50"
           >
             <Send className="w-3.5 h-3.5" />
-            <span>{sending ? 'Sending...' : 'Send Reminder'}</span>
+            <span>{sending ? 'Sending...' : `Send via ${sendVia === 'gmail' ? 'Gmail' : 'Resend'}`}</span>
           </button>
         </div>
       </div>

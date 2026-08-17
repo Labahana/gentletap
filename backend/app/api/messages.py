@@ -11,7 +11,7 @@ from app.models.invoice import Invoice
 from app.models.client import Client
 from app.models.audit_log import AuditLog
 from app.schemas.message import ManualSendRequest, MessageOut
-from app.services.email import render_template_placeholders, send_email_via_resend
+from app.services.email import render_template_placeholders, send_email_dispatch, send_email_via_resend
 
 router = APIRouter(prefix="/messages", tags=["Messages"])
 
@@ -166,7 +166,7 @@ def manual_send_message(
     rendered_body = render_template_placeholders(req.body, context)
 
     if req.preview:
-        # Return transient preview message without dispatching Resend email or creating audit log
+        # Return transient preview message without dispatching email or creating audit log
         temp_msg = Message(
             id="preview_temp_id",
             org_id=org.id,
@@ -184,11 +184,15 @@ def manual_send_message(
         output.invoice_number = invoice.number
         return output
 
-    # Dispatch via Resend
-    resend_result = send_email_via_resend(
+    # Dual Dispatch (Gmail OAuth or Resend domain)
+    send_via = req.send_via or "resend"
+    dispatch_res = send_email_dispatch(
+        org_id=org.id,
         to_email=client.email,
         subject=rendered_subject,
         body=rendered_body,
+        send_via=send_via,
+        db=db,
     )
 
     msg = Message(
@@ -200,12 +204,12 @@ def manual_send_message(
         subject=rendered_subject,
         body=rendered_body,
         status="sent",
-        provider_message_id=resend_result.get("id"),
+        provider_message_id=dispatch_res.get("id"),
         sent_at=now,
     )
     db.add(msg)
 
-    # Count toward starter collection quota
+    # Count toward collection quota
     org.collections_used_this_period = (org.collections_used_this_period or 0) + 1
 
     # Audit log entry
@@ -221,6 +225,8 @@ def manual_send_message(
             "invoice_number": invoice.number,
             "client_email": client.email,
             "subject": rendered_subject,
+            "send_via": send_via,
+            "provider": dispatch_res.get("provider", "resend"),
         },
     )
     db.add(audit)
@@ -253,10 +259,13 @@ def resend_message(
     if not client or not client.email:
         raise HTTPException(status_code=400, detail="Client email not found")
 
-    resend_result = send_email_via_resend(
+    dispatch_res = send_email_dispatch(
+        org_id=org.id,
         to_email=client.email,
         subject=original_msg.subject,
         body=original_msg.body,
+        send_via="resend",
+        db=db,
     )
 
     now = datetime.now(timezone.utc)
@@ -269,7 +278,7 @@ def resend_message(
         subject=original_msg.subject,
         body=original_msg.body,
         status="sent",
-        provider_message_id=resend_result.get("id"),
+        provider_message_id=dispatch_res.get("id"),
         sent_at=now,
     )
     db.add(new_msg)

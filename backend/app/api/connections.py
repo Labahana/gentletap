@@ -9,6 +9,7 @@ from app.models.connection import Connection
 from app.schemas.connection import ConnectionOut, SyncResponse
 from app.services.quickbooks import get_qbo_auth_url, exchange_qbo_code, sync_qbo_data
 from app.services.freshbooks import get_freshbooks_auth_url, exchange_freshbooks_code, sync_freshbooks_data
+from app.services.google_gmail import get_google_gmail_auth_url, exchange_google_code
 
 router = APIRouter(prefix="/connections", tags=["Connections"])
 
@@ -63,7 +64,6 @@ def quickbooks_callback(
     db.commit()
     db.refresh(conn)
 
-    # Initial sync
     inv_count, client_count = sync_qbo_data(db, org.id, conn)
 
     return {
@@ -124,6 +124,53 @@ def freshbooks_callback(
     }
 
 
+@router.post("/google/auth-url")
+def google_auth_url(user_and_org=Depends(get_current_user_and_org)):
+    _, org = user_and_org
+    state = f"google_state_{org.id}"
+    url = get_google_gmail_auth_url(state)
+    return {"url": url}
+
+
+@router.get("/google/callback")
+def google_callback(
+    code: str = Query("mock_code"),
+    user_and_org=Depends(get_current_user_and_org),
+    db: Session = Depends(get_db),
+):
+    _, org = user_and_org
+    token_data = exchange_google_code(code)
+
+    conn = db.query(Connection).filter(
+        Connection.org_id == org.id, Connection.provider == "gmail"
+    ).first()
+
+    if not conn:
+        conn = Connection(
+            org_id=org.id,
+            provider="gmail",
+            token_encrypted=token_data.get("access_token", ""),
+            refresh_token_encrypted=token_data.get("refresh_token", ""),
+            account_id=token_data.get("email", "user@gmail.com"),
+            status="active",
+        )
+        db.add(conn)
+    else:
+        conn.token_encrypted = token_data.get("access_token", "")
+        conn.refresh_token_encrypted = token_data.get("refresh_token", "")
+        conn.account_id = token_data.get("email", "user@gmail.com")
+        conn.status = "active"
+
+    db.commit()
+    db.refresh(conn)
+
+    return {
+        "message": "Gmail account connected successfully via Google OAuth",
+        "connection_id": conn.id,
+        "connected_email": conn.account_id,
+    }
+
+
 @router.post("/{connection_id}/sync", response_model=SyncResponse)
 def trigger_connection_sync(
     connection_id: str,
@@ -139,6 +186,8 @@ def trigger_connection_sync(
         inv_count, client_count = sync_qbo_data(db, org.id, conn)
     elif conn.provider == "freshbooks":
         inv_count, client_count = sync_freshbooks_data(db, org.id, conn)
+    elif conn.provider in ("gmail", "google"):
+        return SyncResponse(message="Gmail connected and ready for sending", invoices_synced=0, clients_synced=0)
     else:
         raise HTTPException(status_code=400, detail="Unsupported provider")
 

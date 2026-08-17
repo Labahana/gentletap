@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plug, RefreshCw, CheckCircle2, AlertCircle, FileText, Zap } from 'lucide-react';
+import { Plug, RefreshCw, CheckCircle2, AlertCircle, FileText, Zap, Mail } from 'lucide-react';
 import { api } from '@/lib/api';
 
 const XeroWaitlist: React.FC = () => {
@@ -86,17 +86,72 @@ export const Integrations: React.FC = () => {
     }
   };
 
+  const handleConnectGoogle = async () => {
+    try {
+      const res = await api.get('/connections/google/callback');
+      queryClient.invalidateQueries({ queryKey: ['connections'] });
+      alert(`Gmail account connected! ${res.data.connected_email} ready for sending.`);
+    } catch (err) {
+      alert('Failed to connect Google Gmail account');
+    }
+  };
+
   const qboConn = connections.find((c: any) => c.provider === 'quickbooks' && c.status === 'active');
   const fbConn = connections.find((c: any) => c.provider === 'freshbooks' && c.status === 'active');
+  const gmailConn = connections.find((c: any) => (c.provider === 'gmail' || c.provider === 'google') && c.status === 'active');
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Accounting Integrations</h1>
-        <p className="text-sm text-gray-500 mt-1">Connect your accounting platforms to automatically sync clients and unpaid invoices</p>
+        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Integrations & Connections</h1>
+        <p className="text-sm text-gray-500 mt-1">Connect your accounting platforms and custom sending email accounts</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Google / Gmail OAuth Connection */}
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 font-bold flex items-center justify-center text-lg border border-red-100">
+                  <Mail className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-900">Google / Gmail OAuth</h3>
+                  <p className="text-xs text-gray-500">Send reminders directly from your own Gmail account</p>
+                </div>
+              </div>
+              <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${
+                gmailConn ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-100 text-gray-600 border-gray-200'
+              }`}>
+                {gmailConn ? 'Connected' : 'Not Connected'}
+              </span>
+            </div>
+
+            {gmailConn && (
+              <div className="text-xs text-gray-500 bg-slate-50 p-3 rounded-lg border border-gray-100 mb-4 space-y-1">
+                <div>Connected Account: <strong className="text-gray-800">{gmailConn.account_id || 'user@gmail.com'}</strong></div>
+                <div>Sending Mode: <strong className="text-emerald-700">Active (Gmail API)</strong></div>
+              </div>
+            )}
+          </div>
+
+          <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
+            {gmailConn ? (
+              <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
+                <CheckCircle2 className="w-4 h-4" /> Ready for sending
+              </span>
+            ) : (
+              <button
+                onClick={handleConnectGoogle}
+                className="bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-lg text-xs transition-colors shadow-xs"
+              >
+                Connect Gmail via Google
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* QuickBooks Online */}
         <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-xs flex flex-col justify-between">
           <div>
@@ -193,25 +248,6 @@ export const Integrations: React.FC = () => {
               </button>
             )}
           </div>
-        </div>
-
-        {/* Xero (Coming Soon) */}
-        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-cyan-50 text-cyan-600 font-bold flex items-center justify-center text-lg border border-cyan-100">
-                XR
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-gray-900">Xero</h3>
-                <p className="text-xs text-gray-500">Auto-sync invoices & contacts</p>
-              </div>
-            </div>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full border bg-gray-100 text-gray-600 border-gray-200">
-              Coming Soon
-            </span>
-          </div>
-          <XeroWaitlist />
         </div>
 
         {/* CSV Manual Import Card */}

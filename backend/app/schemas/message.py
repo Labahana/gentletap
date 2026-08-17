@@ -9,6 +9,7 @@ class ManualSendRequest(BaseModel):
     subject: str
     body: str
     preview: Optional[bool] = False
+    send_via: Optional[str] = "resend"  # 'resend' (GentleTap domain) or 'gmail' (Connected Google OAuth account)
 
 
 class MessageOut(BaseModel):
