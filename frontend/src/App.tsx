@@ -22,6 +22,7 @@ import { Unsubscribe } from '@/pages/Unsubscribe';
 import { Billing } from '@/pages/Billing';
 import { Team } from '@/pages/Team';
 import { Onboarding } from '@/pages/Onboarding';
+import { GoogleAuthCallback } from '@/pages/GoogleAuthCallback';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -53,6 +54,7 @@ export const App: React.FC = () => {
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/unsubscribe" element={<Unsubscribe />} />
+            <Route path="/auth/google/callback" element={<GoogleAuthCallback />} />
             <Route
               path="/onboarding"
               element={
