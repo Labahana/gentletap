@@ -1,5 +1,4 @@
-# Production stack — self-hosted Postgres (default) or Supabase (set DATABASE_URL in .env).
-# Local dev overlay (exposes Postgres on localhost:5433): docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+version: "3.8"
 
 services:
   postgres:
@@ -8,10 +7,12 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-gentletap}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gentletap}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gentletap_postgres_password}
       POSTGRES_DB: ${POSTGRES_DB:-gentletap}
     volumes:
       - gentletap_pgdata:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
       interval: 5s
@@ -22,39 +23,39 @@ services:
     image: redis:7-alpine
     container_name: gentletap-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy volatile-lru --requirepass ${REDIS_PASSWORD:-gentletap}
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy volatile-lru --requirepass ${REDIS_PASSWORD:-choose-a-strong-redis-password}
     volumes:
       - gentletap_redis:/data
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a ${REDIS_PASSWORD:-gentletap} ping | grep -q PONG"]
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a ${REDIS_PASSWORD:-choose-a-strong-redis-password} ping | grep -q PONG"]
       interval: 5s
       timeout: 3s
       retries: 5
 
   api:
     build:
-      context: ./apps/api
+      context: ./backend
       dockerfile: Dockerfile
     container_name: gentletap-api
     restart: unless-stopped
     env_file:
       - .env
     environment:
-      REDIS_URL: "redis://:${REDIS_PASSWORD:-gentletap}@redis:6379/0"
-      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD:-gentletap}@redis:6379/0"
-      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD:-gentletap}@redis:6379/1"
+      REDIS_URL: "redis://:${REDIS_PASSWORD:-choose-a-strong-redis-password}@redis:6379/0"
+      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD:-choose-a-strong-redis-password}@redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD:-choose-a-strong-redis-password}@redis:6379/1"
     ports:
-      - "127.0.0.1:8000:8000"
+      - "8000:8000"
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/v1/health')\"",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')\"",
         ]
       interval: 10s
       timeout: 10s
       retries: 5
-      start_period: 40s
+      start_period: 20s
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,28 +64,17 @@ services:
 
   worker:
     build:
-      context: ./apps/api
+      context: ./backend
       dockerfile: Dockerfile
+    container_name: gentletap-worker
     restart: unless-stopped
-    # Scale horizontally on VPS: docker compose up -d --scale worker=3
-    # (no container_name — required for --scale)
     env_file:
       - .env
     environment:
-      REDIS_URL: "redis://:${REDIS_PASSWORD:-gentletap}@redis:6379/0"
-      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD:-gentletap}@redis:6379/0"
-      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD:-gentletap}@redis:6379/1"
-    entrypoint: ["celery", "-A", "gentletap.tasks.celery_app", "worker", "-l", "info", "--concurrency=4"]
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "python -c \"from gentletap.tasks.celery_app import celery_app; r=celery_app.control.inspect(timeout=3).ping(); exit(0 if r else 1)\"",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 45s
+      REDIS_URL: "redis://:${REDIS_PASSWORD:-choose-a-strong-redis-password}@redis:6379/0"
+      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD:-choose-a-strong-redis-password}@redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD:-choose-a-strong-redis-password}@redis:6379/1"
+    entrypoint: ["celery", "-A", "app.workers.celery_app", "worker", "-l", "info", "--concurrency=4"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -93,23 +83,17 @@ services:
 
   beat:
     build:
-      context: ./apps/api
+      context: ./backend
       dockerfile: Dockerfile
     container_name: gentletap-beat
     restart: unless-stopped
     env_file:
       - .env
     environment:
-      REDIS_URL: "redis://:${REDIS_PASSWORD:-gentletap}@redis:6379/0"
-      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD:-gentletap}@redis:6379/0"
-      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD:-gentletap}@redis:6379/1"
-    entrypoint: ["celery", "-A", "gentletap.tasks.celery_app", "beat", "-l", "info"]
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import os, redis; redis.Redis.from_url(os.environ['REDIS_URL']).ping()\""]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
+      REDIS_URL: "redis://:${REDIS_PASSWORD:-choose-a-strong-redis-password}@redis:6379/0"
+      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD:-choose-a-strong-redis-password}@redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD:-choose-a-strong-redis-password}@redis:6379/1"
+    entrypoint: ["celery", "-A", "app.workers.celery_app", "beat", "-l", "info"]
     volumes:
       - gentletap_celery_beat:/var/lib/celery
     depends_on:
@@ -118,19 +102,12 @@ services:
 
   web:
     build:
-      context: ./apps/web
+      context: ./frontend
       dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_LEGAL_ENTITY_NAME: ${NEXT_PUBLIC_LEGAL_ENTITY_NAME:-GentleTap}
-        NEXT_PUBLIC_LEGAL_ENTITY_ADDRESS: ${NEXT_PUBLIC_LEGAL_ENTITY_ADDRESS:-United States}
     container_name: gentletap-web
     restart: unless-stopped
-    environment:
-      API_PROXY_URL: http://api:8000
-    # Bind to localhost only — public traffic must go through nginx (TLS, rate
-    # limits, security headers), never hit Next.js directly on port 3000.
     ports:
-      - "127.0.0.1:3000:3000"
+      - "3000:3000"
     depends_on:
       api:
         condition: service_healthy
