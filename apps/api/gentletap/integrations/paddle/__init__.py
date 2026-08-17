@@ -1,1 +1,0 @@
-"""Paddle Billing integration."""
