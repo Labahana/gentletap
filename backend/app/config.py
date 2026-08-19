@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     google_client_id: str = Field(default="", validation_alias=AliasChoices("GOOGLE_CLIENT_ID", "google_client_id"))
     google_client_secret: str = Field(default="", validation_alias=AliasChoices("GOOGLE_CLIENT_SECRET", "google_client_secret"))
     google_redirect_uri: str = Field(default="https://gentletap.co/v1/google/callback", validation_alias=AliasChoices("GOOGLE_REDIRECT_URI", "google_redirect_uri"))
-    google_auth_redirect_uri: str = Field(default="https://gentletap.co/v1/auth/google/callback", validation_alias=AliasChoices("GOOGLE_AUTH_REDIRECT_URI", "google_auth_redirect_uri"))
+    google_auth_redirect_uri: str = Field(default="https://gentletap.co/auth/google/callback", validation_alias=AliasChoices("GOOGLE_AUTH_REDIRECT_URI", "google_auth_redirect_uri"))
 
     # Resend & Email
     resend_api_key: str = Field(default="", validation_alias=AliasChoices("RESEND_API_KEY", "resend_api_key"))

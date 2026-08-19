@@ -10,10 +10,12 @@ BEAT_SCHEDULE = {
     "process-reminders-every-15m": {
         "task": "app.tasks.process_reminders.process_reminders_task",
         "schedule": 900.0,  # 15 minutes
+        "options": {"expires": 14 * 60},
     },
     "payment-detect-every-15m": {
         "task": "app.tasks.payment_detect.payment_detect_task",
         "schedule": 900.0,
+        "options": {"expires": 14 * 60},
     },
     "send-daily-digests": {
         "task": "app.tasks.digests.send_all_daily_digests",

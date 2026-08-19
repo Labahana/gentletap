@@ -34,5 +34,10 @@ celery_app.conf.update(
     task_acks_late=True,
     task_track_started=True,
     worker_prefetch_multiplier=1,
+    result_expires=3600,
+    broker_connection_retry_on_startup=True,
+    task_soft_time_limit=600,
+    task_time_limit=900,
+    beat_schedule_filename="/var/lib/celery/celerybeat-schedule",
     beat_schedule=BEAT_SCHEDULE,
 )

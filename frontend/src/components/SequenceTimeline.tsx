@@ -2,7 +2,7 @@ import React from 'react';
 import { Clock, Mail, CheckCircle2, ChevronRight } from 'lucide-react';
 
 interface Step {
-  day_offset: int;
+  day_offset: number;
   tone: string;
   template_id?: string;
   enabled?: boolean;
