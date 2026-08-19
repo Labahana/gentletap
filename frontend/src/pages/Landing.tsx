@@ -30,13 +30,16 @@ export const Landing: React.FC = () => {
       <main className="max-w-5xl mx-auto px-6 py-20 text-center">
         <div className="inline-flex items-center space-x-2 bg-blue-50 text-blue-600 text-xs font-semibold px-3 py-1 rounded-full mb-6 border border-blue-100">
           <Sparkles className="w-3.5 h-3.5" />
-          <span>Automated Invoice Follow-Up for Freelancers & Agencies</span>
+          <span>QuickBooks & FreshBooks Invoice Follow-Up</span>
         </div>
         <h1 className="text-5xl font-extrabold text-gray-900 tracking-tight leading-tight mb-6">
-          Get Paid Faster with <span className="text-blue-600">Warm & Professional</span> Reminders
+          Get paid without <span className="text-blue-600">sounding pushy.</span>
         </h1>
+        <p className="text-xl font-medium text-gray-800 max-w-2xl mx-auto mb-4">
+          AI-powered invoice follow-up for freelancers and consultants.
+        </p>
         <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-8 leading-relaxed">
-          GentleTap connects directly to QuickBooks, FreshBooks, or CSVs to automatically check overdues and send friendly, human-sounding reminder emails before payments get awkward.
+          GentleTap drafts warm-to-firm payment reminders in your voice, sends them from your Gmail, and stops automatically when QuickBooks or FreshBooks shows the invoice is paid.
         </p>
 
         <div className="flex items-center justify-center space-x-4 mb-16">

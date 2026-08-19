@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+# Disallow private application routes
+Disallow: /dashboard
+Disallow: /settings
+Disallow: /onboarding
+Disallow: /admin
+Disallow: /auth/
+Disallow: /login
+Disallow: /signup
+
+Sitemap: https://gentletap.co/sitemap.xml

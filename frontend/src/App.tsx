@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
 import { Landing } from '@/pages/Landing';
@@ -23,6 +24,10 @@ import { Billing } from '@/pages/Billing';
 import { Team } from '@/pages/Team';
 import { Onboarding } from '@/pages/Onboarding';
 import { GoogleAuthCallback } from '@/pages/GoogleAuthCallback';
+import { QuickbooksIntegration } from '@/pages/marketing/QuickbooksIntegration';
+import { FreshbooksIntegration } from '@/pages/marketing/FreshbooksIntegration';
+import { FreelancerTemplates } from '@/pages/marketing/FreelancerTemplates';
+import { XeroWaitlist } from '@/pages/marketing/XeroWaitlist';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -46,7 +51,8 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 export const App: React.FC = () => {
   return (
-    <ErrorBoundary>
+    <HelmetProvider>
+      <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <Routes>
@@ -55,6 +61,10 @@ export const App: React.FC = () => {
             <Route path="/signup" element={<Signup />} />
             <Route path="/unsubscribe" element={<Unsubscribe />} />
             <Route path="/auth/google/callback" element={<GoogleAuthCallback />} />
+            <Route path="/quickbooks-payment-reminders" element={<QuickbooksIntegration />} />
+            <Route path="/freshbooks-invoice-reminders" element={<FreshbooksIntegration />} />
+            <Route path="/invoice-follow-up-email-templates-for-freelancers" element={<FreelancerTemplates />} />
+            <Route path="/xero-invoice-reminders" element={<XeroWaitlist />} />
             <Route
               path="/onboarding"
               element={
@@ -92,7 +102,8 @@ export const App: React.FC = () => {
           </Routes>
         </BrowserRouter>
       </QueryClientProvider>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </HelmetProvider>
   );
 };
 
