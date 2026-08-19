@@ -19,6 +19,9 @@ from app.api import (
     messages,
     payouts,
     dashboard,
+    analytics,
+    usage,
+    notifications,
     settings as settings_router,
     webhooks,
     reminders,
@@ -84,6 +87,9 @@ app.include_router(sequences.router, prefix=api_prefix)
 app.include_router(messages.router, prefix=api_prefix)
 app.include_router(payouts.router, prefix=api_prefix)
 app.include_router(dashboard.router, prefix=api_prefix)
+app.include_router(analytics.router, prefix=api_prefix)
+app.include_router(usage.router, prefix=api_prefix)
+app.include_router(notifications.router, prefix=api_prefix)
 app.include_router(settings_router.router, prefix=api_prefix)
 app.include_router(webhooks.router, prefix=api_prefix)
 app.include_router(billing.router, prefix=api_prefix)

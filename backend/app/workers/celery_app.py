@@ -22,6 +22,7 @@ celery_app = Celery(
         "app.tasks.reports",
         "app.tasks.handle_opt_out",
         "app.tasks.billing_tasks",
+        "app.tasks.token_refresh",
     ],
 )
 

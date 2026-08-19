@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   CreditCard,
   UsersRound,
+  BarChart3,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -29,6 +30,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onUpgradeClick }) => {
 
   const mainNav = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+    { name: 'Analytics', path: '/analytics', icon: BarChart3 },
     { name: 'Escalations', path: '/escalations', icon: AlertTriangle },
     { name: 'Invoices', path: '/invoices', icon: FileText },
     { name: 'Clients', path: '/clients', icon: Users },

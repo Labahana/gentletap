@@ -3,6 +3,19 @@
 from celery.schedules import crontab
 
 BEAT_SCHEDULE = {
+    "refresh-qb-tokens": {
+        "task": "app.tasks.token_refresh.refresh_qb_tokens",
+        "schedule": crontab(hour=3, minute=0),
+    },
+    "refresh-fb-tokens": {
+        "task": "app.tasks.token_refresh.refresh_fb_tokens",
+        "schedule": crontab(minute="*/30"),
+        "options": {"expires": 25 * 60},
+    },
+    "refresh-google-tokens": {
+        "task": "app.tasks.token_refresh.refresh_google_tokens",
+        "schedule": crontab(hour=3, minute=30),
+    },
     "sync-invoices-hourly": {
         "task": "app.tasks.sync_invoices.sync_all_connections",
         "schedule": crontab(minute=0),  # every hour

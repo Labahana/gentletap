@@ -17,6 +17,7 @@ from app.models.subscription import Subscription
 from app.models.whatsapp_credit import WhatsAppCredit
 from app.models.onboarding_state import OnboardingState
 from app.models.waitlist import WaitlistEntry
+from app.models.notification import UserNotification, NotificationPreference
 
 __all__ = [
     "User",
@@ -39,4 +40,6 @@ __all__ = [
     "WhatsAppCredit",
     "OnboardingState",
     "WaitlistEntry",
+    "UserNotification",
+    "NotificationPreference",
 ]
