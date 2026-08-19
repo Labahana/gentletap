@@ -27,6 +27,7 @@ from app.api.deps import (
 )
 from app.services.plan_gating import apply_plan_quotas
 from app.services.onboarding import get_or_create_onboarding
+from app.services.password_reset import request_password_reset, reset_password
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 settings = get_settings()
@@ -257,10 +258,15 @@ def logout():
 
 
 @router.post("/forgot-password")
-def forgot_password(req: ForgotPasswordRequest):
-    return {"message": "Password reset email sent if account exists"}
+def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    request_password_reset(db, req.email)
+    return {"message": "If an account exists for that email, we sent a password reset link."}
 
 
 @router.post("/reset-password")
-def reset_password(req: ResetPasswordRequest):
-    return {"message": "Password reset successful"}
+def reset_password_endpoint(req: ResetPasswordRequest, db: Session = Depends(get_db)):
+    try:
+        reset_password(db, token=req.token, new_password=req.new_password)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"message": "Password updated. You can log in with your new password."}

@@ -6,6 +6,12 @@ import { Layout } from '@/components/Layout';
 import { Landing } from '@/pages/Landing';
 import { Login } from '@/pages/Login';
 import { Signup } from '@/pages/Signup';
+import { ForgotPassword } from '@/pages/ForgotPassword';
+import { ResetPassword } from '@/pages/ResetPassword';
+import { PrivacyPage } from '@/pages/legal/Privacy';
+import { TermsPage } from '@/pages/legal/Terms';
+import { CookiesPage } from '@/pages/legal/Cookies';
+import { RefundPage } from '@/pages/legal/Refund';
 import { Dashboard } from '@/pages/Dashboard';
 import { Invoices } from '@/pages/Invoices';
 import { InvoiceDetail } from '@/pages/InvoiceDetail';
@@ -59,6 +65,12 @@ export const App: React.FC = () => {
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/cookies" element={<CookiesPage />} />
+            <Route path="/refund" element={<RefundPage />} />
             <Route path="/unsubscribe" element={<Unsubscribe />} />
             <Route path="/auth/google/callback" element={<GoogleAuthCallback />} />
             <Route path="/quickbooks-payment-reminders" element={<QuickbooksIntegration />} />
