@@ -14,7 +14,13 @@ branch_labels = None
 depends_on = None
 
 
+def _has_table(name: str) -> bool:
+    return sa.inspect(op.get_bind()).has_table(name)
+
+
 def upgrade() -> None:
+    if _has_table("user_notifications") and _has_table("notification_preferences"):
+        return
     op.create_table(
         "user_notifications",
         sa.Column("id", sa.String(36), primary_key=True),
