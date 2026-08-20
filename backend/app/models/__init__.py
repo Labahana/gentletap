@@ -18,6 +18,7 @@ from app.models.whatsapp_credit import WhatsAppCredit
 from app.models.onboarding_state import OnboardingState
 from app.models.waitlist import WaitlistEntry
 from app.models.notification import UserNotification, NotificationPreference
+from app.models.escalation_rule import EscalationRule
 
 __all__ = [
     "User",

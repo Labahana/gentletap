@@ -14,6 +14,7 @@ from app.models.user import User
 from app.models.message import Message
 from app.models.connection import Connection
 from app.models.subscription import Subscription
+from app.models.audit_log import AuditLog
 from app.services.plan_gating import PLAN_PRICES, normalize_plan
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -105,4 +106,57 @@ def admin_health(_: bool = Depends(require_admin)):
         "db": health_mod.check_db(),
         "redis": health_mod.check_redis(),
         "celery": health_mod.check_celery(),
+    }
+
+
+@router.get("/users")
+def list_users(
+    limit: int = 100,
+    offset: int = 0,
+    _: bool = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    users = db.query(User).order_by(User.created_at.desc()).offset(offset).limit(min(limit, 500)).all()
+    total = db.query(User).count()
+    return {
+        "total": total,
+        "items": [
+            {
+                "id": u.id,
+                "email": u.email,
+                "full_name": u.full_name,
+                "created_at": u.created_at,
+                "deleted_at": getattr(u, "deleted_at", None),
+            }
+            for u in users
+        ],
+    }
+
+
+@router.get("/audit-log")
+def audit_log(
+    limit: int = 100,
+    org_id: str = None,
+    _: bool = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    q = db.query(AuditLog)
+    if org_id:
+        q = q.filter(AuditLog.org_id == org_id)
+    items = q.order_by(AuditLog.created_at.desc()).limit(min(limit, 500)).all()
+    return {
+        "items": [
+            {
+                "id": a.id,
+                "org_id": a.org_id,
+                "actor_type": a.actor_type,
+                "actor_id": a.actor_id,
+                "action": a.action,
+                "entity_type": a.entity_type,
+                "entity_id": a.entity_id,
+                "details": a.details,
+                "created_at": a.created_at,
+            }
+            for a in items
+        ]
     }
