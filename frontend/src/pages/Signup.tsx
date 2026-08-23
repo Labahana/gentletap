@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Zap, Lock, Mail, User, Building } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, apiErrorMessage } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 
 export const Signup: React.FC = () => {
@@ -36,9 +36,9 @@ export const Signup: React.FC = () => {
         accessToken: data.access_token,
         refreshToken: data.refresh_token,
       });
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to create account');
+      setError(apiErrorMessage(err, 'Failed to create account'));
     } finally {
       setLoading(false);
     }
