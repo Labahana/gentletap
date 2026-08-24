@@ -27,6 +27,7 @@ from app.models.affiliate import (
     AffiliateReferral,
     AffiliateRefreshToken,
 )
+from app.models.whatsapp_inbound import WhatsappInboundMessage
 
 __all__ = [
     "User",
@@ -57,4 +58,5 @@ __all__ = [
     "AffiliatePayout",
     "AffiliateReferral",
     "AffiliateRefreshToken",
+    "WhatsappInboundMessage",
 ]

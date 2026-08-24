@@ -24,6 +24,55 @@ def _compute_days_overdue(inv: Invoice) -> int:
     return (date.today() - inv.due_date).days
 
 
+def _client_responded_recently(db: Session, org_id: str, client_id: str, days: int = 3) -> bool:
+    """True when the client replied on any channel within the window."""
+    from datetime import datetime, timedelta, timezone
+
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+
+    from app.models.message import Message
+    from app.models.whatsapp_inbound import WhatsappInboundMessage
+
+    replied_outbound = (
+        db.query(Message.id)
+        .filter(
+            Message.org_id == org_id,
+            Message.client_id == client_id,
+            Message.status == "replied",
+            Message.created_at >= since - timedelta(days=14),
+        )
+        .first()
+    )
+    if replied_outbound is not None:
+        return True
+
+    inbound = (
+        db.query(WhatsappInboundMessage.id)
+        .filter(
+            WhatsappInboundMessage.org_id == org_id,
+            WhatsappInboundMessage.client_id == client_id,
+            WhatsappInboundMessage.opt_out.is_(False),
+            WhatsappInboundMessage.received_at >= since,
+        )
+        .first()
+    )
+    return inbound is not None
+
+
+def _sequence_paused_for_invoice(db: Session, invoice_id: str) -> bool:
+    from app.models.sequence import SequenceAssignment
+
+    row = (
+        db.query(SequenceAssignment)
+        .filter(
+            SequenceAssignment.invoice_id == invoice_id,
+            SequenceAssignment.status == "paused",
+        )
+        .first()
+    )
+    return row is not None
+
+
 def build_reminder_context(
     db: Session,
     invoice: Invoice,
@@ -63,6 +112,13 @@ def build_reminder_context(
         days_overdue=_compute_days_overdue(invoice),
         due_date=invoice.due_date,
         sequence_step=sequence_step if sequence_step is not None else 0,
+        client_responded_recently=_client_responded_recently(
+            db, org.id, str(client.id)
+        ),
+        dispute_flag=(invoice.status == "disputed"),
+        sequence_paused=invoice.stop_reminders
+        or _sequence_paused_for_invoice(db, str(invoice.id)),
+        approved=True,
         payment_link=None,
     )
 

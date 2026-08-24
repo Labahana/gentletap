@@ -374,7 +374,49 @@ async def twilio_webhook(request: Request, db: Session = Depends(get_db)):
     # Inbound reply / opt-out
     if body:
         upper = body.upper()
-        if upper in ("STOP", "UNSUBSCRIBE", "CANCEL"):
+        is_opt_out = upper in ("STOP", "UNSUBSCRIBE", "CANCEL")
+
+        # Persist every inbound message (depth: full inbound log)
+        try:
+            from app.models.whatsapp_inbound import WhatsappInboundMessage
+            from app.models.client import Client as _Client
+
+            matched_client = None
+            matched_org_id = None
+            if from_number and len(from_number) >= 10:
+                candidates = (
+                    db.query(_Client)
+                    .filter(_Client.phone.contains(from_number[-10:]))
+                    .limit(5)
+                    .all()
+                )
+                if candidates:
+                    matched_client = candidates[0]
+                    matched_org_id = matched_client.org_id
+            # org_id is NOT nullable — only persist when attributable via a
+            # known client phone number; unmatchable numbers are skipped.
+            if matched_org_id and message_sid:
+                exists = (
+                    db.query(WhatsappInboundMessage)
+                    .filter(WhatsappInboundMessage.message_sid == message_sid)
+                    .one_or_none()
+                )
+                if not exists:
+                    db.add(
+                        WhatsappInboundMessage(
+                            org_id=matched_org_id,
+                            client_id=matched_client.id if matched_client else None,
+                            from_number=from_number or "",
+                            profile_name=(form.get("ProfileName") or None),
+                            body=body,
+                            message_sid=message_sid,
+                            opt_out=is_opt_out,
+                        )
+                    )
+        except Exception:  # noqa: BLE001 - logging must never break the webhook
+            db.rollback()
+
+        if is_opt_out:
             from app.tasks.handle_opt_out import handle_opt_out_task
             from app.models.client import Client
 

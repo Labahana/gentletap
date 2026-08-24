@@ -64,6 +64,49 @@ def _client_sent_in_last_24h(db, client_id: str) -> bool:
     )
 
 
+def _notify_escalation(db, invoice, ctx) -> None:
+    """Record an escalation decision and notify the org owner (human handoff)."""
+    try:
+        from app.models.audit_log import AuditLog
+        from app.models.notification import UserNotification
+        from app.models.organization import Organization
+
+        db.add(
+            AuditLog(
+                org_id=invoice.org_id,
+                actor_type="system",
+                action="reminder_escalated",
+                entity_type="invoice",
+                entity_id=invoice.id,
+                details={
+                    "client": ctx.client_name,
+                    "days_overdue": ctx.invoice.days_overdue,
+                    "risk": score_risk(ctx).value,
+                },
+            )
+        )
+        owner = (
+            db.query(Organization).filter(Organization.id == invoice.org_id).first()
+        )
+        if owner is not None:
+            db.add(
+                UserNotification(
+                    org_id=owner.id,
+                    user_id=owner.owner_user_id,
+                    type="escalation",
+                    title=f"Human handoff recommended — invoice #{invoice.number}",
+                    body=(
+                        f"{ctx.client_name}: {ctx.invoice.days_overdue} days overdue, "
+                        f"high relationship risk. GentleTap paused this reminder for you to handle personally."
+                    ),
+                )
+            )
+        db.commit()
+    except Exception as exc:  # noqa: BLE001 - notification must never break the pipeline
+        db.rollback()
+        logger.warning("Escalation notification failed: %s", exc)
+
+
 def process_single_reminder(db, schedule: ReminderSchedule) -> dict:
     lock_key = f"reminder:{schedule.invoice_id}:{schedule.step_index}"
     with redis_lock(lock_key, ttl_seconds=300) as acquired:
@@ -119,6 +162,51 @@ def process_single_reminder(db, schedule: ReminderSchedule) -> dict:
         if _client_sent_in_last_24h(db, invoice.client_id):
             schedule.scheduled_at = now + timedelta(hours=24)
             return {"status": "rescheduled", "reason": "client_24h_cap"}
+
+        # --- Intelligence gate: engine decides send / wait / escalate ---
+        try:
+            from app.models.organization import Organization
+            from app.intelligence.context_builder import build_reminder_context
+            from app.intelligence.engine import engine as intel_engine
+            from app.intelligence.escalation import should_escalate
+            from app.intelligence.risk_scorer import score_risk
+            from app.intelligence.tone_selector import select_tone
+
+            org_row = (
+                db.query(Organization).filter(Organization.id == invoice.org_id).first()
+            )
+            ctx = (
+                build_reminder_context(
+                    db, invoice, org_row, sequence_step=schedule.step_index
+                )
+                if org_row
+                else None
+            )
+            if ctx is not None:
+                should_send, reason = intel_engine.should_send(ctx)
+                if not should_send:
+                    if reason == "client_responded":
+                        # Give the thread air — retry after a day.
+                        schedule.scheduled_at = now + timedelta(hours=24)
+                        schedule.skip_reason = "intel_client_responded"
+                        db.commit()
+                        return {"status": "rescheduled", "reason": "intel_client_responded"}
+                    schedule.status = "skipped"
+                    schedule.skip_reason = f"intel_{reason or 'wait'}"
+                    return {"status": "skipped", "reason": f"intel_{reason}"}
+
+                if should_escalate(ctx):
+                    schedule.status = "skipped"
+                    schedule.skip_reason = "intel_human_handoff_recommended"
+                    _notify_escalation(db, invoice, ctx)
+                    return {"status": "skipped", "reason": "intel_escalated"}
+
+                # Risk-aware tone override when drafting fresh (no fixed template).
+                if not schedule.template_id and not schedule.draft_body:
+                    risk = score_risk(ctx)
+                    schedule.tone = select_tone(ctx, risk).value
+        except Exception as exc:  # noqa: BLE001 - intelligence must never block sending
+            logger.warning("Intelligence gate skipped (%s); proceeding with default flow", exc)
 
         if not schedule.draft_body:
             draft = draft_reminder_content(db, schedule)
