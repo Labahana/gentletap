@@ -12,6 +12,7 @@ from app.config import get_settings
 from app.intelligence.prompt_builder import build_reminder_prompts
 from app.intelligence.schemas import BANNED_PHRASES, Channel, GeneratedMessage, ReminderContext, Tone
 from app.services.ai.kimi import call_kimi
+from app.services.ai.openai_client import call_openai
 from app.services.ai.zai import call_zai
 
 logger = logging.getLogger(__name__)
@@ -132,6 +133,13 @@ def _parse_generated(raw: str) -> GeneratedMessage | None:
     return None
 
 
+def _try_openai(system: str, user: str, model: str | None) -> GeneratedMessage | None:
+    raw = call_openai(user, system=system, model=model)
+    if raw is None:
+        return None
+    return _parse_generated(raw)
+
+
 def _try_kimi(system: str, user: str, model: str | None) -> GeneratedMessage | None:
     """Attempt generation with Kimi, retrying once on a bad response."""
     for _ in range(2):
@@ -164,11 +172,17 @@ def generate_message(
 
     settings = get_settings()
 
-    # Priority plans get the higher-tier Kimi model when configured.
+    # Priority plans get the higher-tier model on each provider when configured.
     from app.services.plan_gating import normalize_plan
 
     priority_plan = normalize_plan(ctx.user_plan) in {"pro_plus", "team"}
+    openai_model = settings.openai_model_priority if priority_plan else None
     kimi_model = settings.kimi_model_priority if priority_plan else None
+
+    # Chain: OpenAI (if key present) → Kimi → Z.AI → static template.
+    result = _try_openai(system, user, openai_model)
+    if result is not None:
+        return _finalize(result, ctx.sender_name)
 
     result = _try_kimi(system, user, kimi_model)
     if result is not None:
