@@ -263,4 +263,5 @@ export const SITEMAP_PATHS: Array<{
   { path: "/privacy", changeFrequency: "monthly", priority: 0.3 },
   { path: "/refund", changeFrequency: "monthly", priority: 0.3 },
   { path: "/cookies", changeFrequency: "monthly", priority: 0.2 },
+  { path: "/llms.txt", changeFrequency: "monthly", priority: 0.5 },
 ];

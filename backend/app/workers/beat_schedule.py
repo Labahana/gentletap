@@ -50,4 +50,9 @@ BEAT_SCHEDULE = {
         "task": "app.tasks.billing_tasks.purge_deleted_accounts",
         "schedule": crontab(minute=0, hour=4),
     },
+    "reprofile-clients-weekly": {
+        "task": "app.tasks.profile_refresh.reprofile_all_orgs",
+        "schedule": crontab(minute=0, hour=5, day_of_week=0),  # Sundays 05:00 UTC
+        "options": {"expires": 6 * 3600},
+    },
 }

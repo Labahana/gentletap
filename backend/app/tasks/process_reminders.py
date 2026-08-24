@@ -170,6 +170,7 @@ def process_single_reminder(db, schedule: ReminderSchedule) -> dict:
             from app.intelligence.engine import engine as intel_engine
             from app.intelligence.escalation import should_escalate
             from app.intelligence.risk_scorer import score_risk
+            from app.intelligence.timing_optimizer import next_send_window
             from app.intelligence.tone_selector import select_tone
 
             org_row = (
@@ -205,6 +206,20 @@ def process_single_reminder(db, schedule: ReminderSchedule) -> dict:
                 if not schedule.template_id and not schedule.draft_body:
                     risk = score_risk(ctx)
                     schedule.tone = select_tone(ctx, risk).value
+
+                # Timing optimizer: follow-ups (step 1+) defer to the next
+                # business-hours weekday window (step 0 always fires now).
+                # The contact-window check above covers hours; this adds
+                # weekends and nudges early-morning sends to 08:00 local.
+                if ctx.invoice.sequence_step >= 1:
+                    optimal = next_send_window(ctx, now=now)
+                    if optimal > now + timedelta(minutes=30):
+                        schedule.scheduled_at = optimal
+                        return {
+                            "status": "rescheduled",
+                            "reason": "intel_send_window",
+                            "scheduled_at": optimal.isoformat(),
+                        }
         except Exception as exc:  # noqa: BLE001 - intelligence must never block sending
             logger.warning("Intelligence gate skipped (%s); proceeding with default flow", exc)
 
