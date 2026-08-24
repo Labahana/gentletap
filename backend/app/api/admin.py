@@ -1,14 +1,16 @@
-"""Internal admin endpoints — protected by admin_api_key header."""
+"""Internal admin endpoints — protected by admin_api_key header or ADMIN_EMAILS JWT."""
 
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import get_db, engine
-from app.api.deps import create_access_token
+from app.api.deps import create_access_token, decode_token
 from app.models.organization import Organization
 from app.models.user import User
 from app.models.message import Message
@@ -20,6 +22,8 @@ from app.services.plan_gating import PLAN_PRICES, normalize_plan
 router = APIRouter(prefix="/admin", tags=["Admin"])
 settings = get_settings()
 
+_admin_oauth2 = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
+
 
 def require_admin(x_admin_api_key: str = Header(None, alias="X-Admin-Api-Key")):
     if not x_admin_api_key or x_admin_api_key != settings.admin_api_key:
@@ -27,8 +31,51 @@ def require_admin(x_admin_api_key: str = Header(None, alias="X-Admin-Api-Key")):
     return True
 
 
+def _admin_emails() -> set:
+    return {e.strip().lower() for e in (settings.admin_emails or []) if e.strip()}
+
+
+def require_admin_flexible(
+    x_admin_api_key: Optional[str] = Header(None, alias="X-Admin-Api-Key"),
+    token: Optional[str] = Depends(_admin_oauth2),
+    db: Session = Depends(get_db),
+):
+    """Admin gate accepting either the X-Admin-Api-Key header (server-side ops)
+    or a valid access token belonging to an ADMIN_EMAILS member (dashboard UI)."""
+    if x_admin_api_key and x_admin_api_key == settings.admin_api_key:
+        return {"mode": "api_key"}
+    if token:
+        try:
+            payload = decode_token(token)
+        except HTTPException:
+            payload = None
+        if payload and payload.get("type") == "access":
+            email = (payload.get("email") or "").strip().lower()
+            if email and email in _admin_emails():
+                user = db.query(User).filter(User.id == payload.get("sub")).first()
+                if user is not None and user.email.lower() == email:
+                    return {"mode": "jwt", "email": email}
+    raise HTTPException(status_code=401, detail="Admin access required")
+
+
+@router.get("/access-check")
+def admin_access_check(token: Optional[str] = Depends(_admin_oauth2)):
+    """Non-throwing check used by the admin dashboard to gate the UI."""
+    is_admin = False
+    email = None
+    if token:
+        try:
+            payload = decode_token(token)
+        except HTTPException:
+            payload = None
+        if payload and payload.get("type") == "access":
+            email = (payload.get("email") or "").strip().lower() or None
+            is_admin = bool(email) and email in _admin_emails()
+    return {"is_admin": is_admin, "email": email}
+
+
 @router.get("/orgs")
-def list_orgs(_: bool = Depends(require_admin), db: Session = Depends(get_db)):
+def list_orgs(_: bool = Depends(require_admin_flexible), db: Session = Depends(get_db)):
     orgs = db.query(Organization).order_by(Organization.created_at.desc()).limit(200).all()
     return [
         {
@@ -44,7 +91,7 @@ def list_orgs(_: bool = Depends(require_admin), db: Session = Depends(get_db)):
 
 
 @router.get("/orgs/{org_id}")
-def org_detail(org_id: str, _: bool = Depends(require_admin), db: Session = Depends(get_db)):
+def org_detail(org_id: str, _: bool = Depends(require_admin_flexible), db: Session = Depends(get_db)):
     org = db.query(Organization).filter(Organization.id == org_id).first()
     if not org:
         raise HTTPException(status_code=404, detail="Org not found")
@@ -63,7 +110,7 @@ def org_detail(org_id: str, _: bool = Depends(require_admin), db: Session = Depe
 
 
 @router.post("/orgs/{org_id}/impersonate")
-def impersonate(org_id: str, _: bool = Depends(require_admin), db: Session = Depends(get_db)):
+def impersonate(org_id: str, _: bool = Depends(require_admin_flexible), db: Session = Depends(get_db)):
     org = db.query(Organization).filter(Organization.id == org_id).first()
     if not org:
         raise HTTPException(status_code=404, detail="Org not found")
@@ -75,7 +122,7 @@ def impersonate(org_id: str, _: bool = Depends(require_admin), db: Session = Dep
 
 
 @router.get("/stats")
-def admin_stats(_: bool = Depends(require_admin), db: Session = Depends(get_db)):
+def admin_stats(_: bool = Depends(require_admin_flexible), db: Session = Depends(get_db)):
     total_orgs = db.query(Organization).count()
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     messages_today = db.query(Message).filter(Message.created_at >= today_start).count()
@@ -91,6 +138,7 @@ def admin_stats(_: bool = Depends(require_admin), db: Session = Depends(get_db))
 
     return {
         "total_orgs": total_orgs,
+        "total_users": db.query(User).count(),
         "mrr": mrr,
         "active_connections": active_connections,
         "messages_sent_today": messages_today,
@@ -98,7 +146,7 @@ def admin_stats(_: bool = Depends(require_admin), db: Session = Depends(get_db))
 
 
 @router.get("/health")
-def admin_health(_: bool = Depends(require_admin)):
+def admin_health(_: bool = Depends(require_admin_flexible)):
     from app.api import health as health_mod
 
     return {
@@ -113,7 +161,7 @@ def admin_health(_: bool = Depends(require_admin)):
 def list_users(
     limit: int = 100,
     offset: int = 0,
-    _: bool = Depends(require_admin),
+    _: bool = Depends(require_admin_flexible),
     db: Session = Depends(get_db),
 ):
     users = db.query(User).order_by(User.created_at.desc()).offset(offset).limit(min(limit, 500)).all()
@@ -137,7 +185,7 @@ def list_users(
 def audit_log(
     limit: int = 100,
     org_id: str = None,
-    _: bool = Depends(require_admin),
+    _: bool = Depends(require_admin_flexible),
     db: Session = Depends(get_db),
 ):
     q = db.query(AuditLog)

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.database import get_db
 from app.api.deps import get_current_user_and_org
+from app.api.admin import require_admin_flexible
 from app.models.affiliate import Affiliate
 from app.schemas.affiliates import (
     AffiliateApplyRequest,
@@ -44,15 +45,6 @@ def _client_ip(request: Request) -> Optional[str]:
         if real_ip:
             return real_ip.strip()
     return request.client.host if request.client else None
-
-
-from fastapi import Header  # noqa: E402
-
-
-def admin_required(x_admin_api_key: Optional[str] = Header(None, alias="X-Admin-Api-Key")) -> bool:
-    if not x_admin_api_key or x_admin_api_key != settings.admin_api_key:
-        raise HTTPException(status_code=401, detail="Invalid admin API key")
-    return True
 
 
 def current_affiliate(
@@ -203,7 +195,7 @@ def attribute_referral(
 
 @router.get("/admin/list")
 def admin_list_affiliates(
-    _: bool = Depends(admin_required),
+    _: bool = Depends(require_admin_flexible),
     db: Session = Depends(get_db),
     status_filter: Optional[str] = Query(None, alias="status"),
     limit: int = Query(50, le=100),
@@ -217,7 +209,7 @@ def admin_list_affiliates(
 @router.get("/admin/{affiliate_id}")
 def admin_affiliate_detail(
     affiliate_id: UUID,
-    _: bool = Depends(admin_required),
+    _: bool = Depends(require_admin_flexible),
     db: Session = Depends(get_db),
 ) -> dict:
     detail = affiliate_service.affiliate_detail_admin(db, str(affiliate_id))
@@ -229,7 +221,7 @@ def admin_affiliate_detail(
 @router.post("/admin/{affiliate_id}/approve")
 def admin_approve_affiliate(
     affiliate_id: UUID,
-    _: bool = Depends(admin_required),
+    _: bool = Depends(require_admin_flexible),
     db: Session = Depends(get_db),
     body: Optional[AffiliateApproveRequest] = None,
 ) -> dict:
@@ -254,7 +246,7 @@ def admin_approve_affiliate(
 @router.post("/admin/{affiliate_id}/reject")
 def admin_reject_affiliate(
     affiliate_id: UUID,
-    _: bool = Depends(admin_required),
+    _: bool = Depends(require_admin_flexible),
     db: Session = Depends(get_db),
 ) -> dict:
     affiliate = db.query(Affiliate).filter(Affiliate.id == str(affiliate_id)).one_or_none()
@@ -268,7 +260,7 @@ def admin_reject_affiliate(
 @router.post("/admin/{affiliate_id}/pause")
 def admin_pause_affiliate(
     affiliate_id: UUID,
-    _: bool = Depends(admin_required),
+    _: bool = Depends(require_admin_flexible),
     db: Session = Depends(get_db),
 ) -> dict:
     affiliate = db.query(Affiliate).filter(Affiliate.id == str(affiliate_id)).one_or_none()
@@ -283,7 +275,7 @@ def admin_pause_affiliate(
 def admin_record_payout(
     affiliate_id: UUID,
     body: AffiliatePayoutRequest,
-    _: bool = Depends(admin_required),
+    _: bool = Depends(require_admin_flexible),
     db: Session = Depends(get_db),
 ) -> dict:
     try:

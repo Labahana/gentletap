@@ -51,6 +51,7 @@ import { AffiliateLanding } from '@/pages/affiliates/AffiliateLanding';
 import { AffiliateLogin } from '@/pages/affiliates/AffiliateLogin';
 import { AffiliateDashboard } from '@/pages/affiliates/AffiliateDashboard';
 import { AffiliateTerms } from '@/pages/affiliates/AffiliateTerms';
+import { AdminDashboard } from '@/pages/admin/AdminDashboard';
 import { CookieConsent } from '@/components/CookieConsent';
 import { AffiliateRefTracker } from '@/components/AffiliateRefTracker';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -112,6 +113,14 @@ export const App: React.FC = () => {
             <Route path="/affiliates/login" element={<AffiliateLogin />} />
             <Route path="/affiliates/dashboard" element={<AffiliateDashboard />} />
             <Route path="/affiliates/terms" element={<AffiliateTerms />} />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/onboarding"
               element={
