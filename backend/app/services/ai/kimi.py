@@ -13,7 +13,11 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
-def call_kimi(prompt: str, system: str = "You write concise payment reminder emails.") -> Optional[str]:
+def call_kimi(
+    prompt: str,
+    system: str = "You write concise payment reminder emails.",
+    model: Optional[str] = None,
+) -> Optional[str]:
     if not settings.kimi_api_key:
         logger.info("Kimi API key missing; skipping primary provider")
         return None
@@ -23,7 +27,7 @@ def call_kimi(prompt: str, system: str = "You write concise payment reminder ema
         "Content-Type": "application/json",
     }
     payload = {
-        "model": settings.kimi_model,
+        "model": model or settings.kimi_model,
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": prompt},

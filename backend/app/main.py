@@ -24,6 +24,7 @@ from app.api import (
     notifications,
     escalation_rules,
     affiliates,
+    intelligence,
     settings as settings_router,
     webhooks,
     reminders,
@@ -94,6 +95,7 @@ app.include_router(usage.router, prefix=api_prefix)
 app.include_router(notifications.router, prefix=api_prefix)
 app.include_router(escalation_rules.router, prefix=api_prefix)
 app.include_router(affiliates.router, prefix=api_prefix)
+app.include_router(intelligence.router, prefix=api_prefix)
 app.include_router(settings_router.router, prefix=api_prefix)
 app.include_router(webhooks.router, prefix=api_prefix)
 app.include_router(billing.router, prefix=api_prefix)

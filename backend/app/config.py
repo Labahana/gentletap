@@ -73,11 +73,13 @@ class Settings(BaseSettings):
     kimi_model: str = Field(default="kimi-k2.6", validation_alias=AliasChoices("KIMI_MODEL", "kimi_model"))
     kimi_model_priority: str = Field(default="kimi-k2.6", validation_alias=AliasChoices("KIMI_MODEL_PRIORITY", "kimi_model_priority"))
     kimi_api_base: str = "https://api.moonshot.cn/v1"
+    kimi_timeout_seconds: float = Field(default=30.0, validation_alias=AliasChoices("KIMI_TIMEOUT_SECONDS", "kimi_timeout_seconds"))
     ai_rate_limit_per_minute: int = Field(default=60, validation_alias=AliasChoices("AI_RATE_LIMIT_PER_MINUTE", "ai_rate_limit_per_minute"))
 
     zai_api_key: str = Field(default="", validation_alias=AliasChoices("ZAI_API_KEY", "zai_api_key"))
     zai_model: str = Field(default="glm-4.7-flash", validation_alias=AliasChoices("ZAI_MODEL", "zai_model"))
     zai_api_base: str = Field(default="https://api.z.ai/api/paas/v4/", validation_alias=AliasChoices("ZAI_BASE_URL", "zai_base_url"))
+    zai_timeout_seconds: float = Field(default=30.0, validation_alias=AliasChoices("ZAI_TIMEOUT_SECONDS", "zai_timeout_seconds"))
 
     # Paddle Billing
     paddle_api_key: str = Field(default="", validation_alias=AliasChoices("PADDLE_API_KEY", "paddle_api_key"))
