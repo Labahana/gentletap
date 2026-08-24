@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { getAffiliateRefCookie } from '@/lib/affiliate';
 import { Zap, Lock, Mail, User, Building } from 'lucide-react';
 import { api, apiErrorMessage } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
@@ -26,6 +27,7 @@ export const Signup: React.FC = () => {
         password,
         full_name: fullName,
         organization_name: orgName,
+        ref_code: getAffiliateRefCookie(),
       });
       const data = res.data;
       setAuth({

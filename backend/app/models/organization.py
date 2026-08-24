@@ -25,6 +25,8 @@ class Organization(Base):
     collections_used_this_period: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     collections_quota: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
     deletion_requested_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Affiliate attribution (set at signup via ?ref= link)
+    referred_by_affiliate_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

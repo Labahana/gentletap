@@ -47,7 +47,12 @@ import { AlternativesIndex } from '@/pages/marketing/AlternativesIndex';
 import { QuickbooksInvoiceAutomation } from '@/pages/marketing/QuickbooksInvoiceAutomation';
 import { QuickbooksVsGentletap } from '@/pages/marketing/QuickbooksVsGentletap';
 import { HowToFollowUp } from '@/pages/marketing/HowToFollowUp';
+import { AffiliateLanding } from '@/pages/affiliates/AffiliateLanding';
+import { AffiliateLogin } from '@/pages/affiliates/AffiliateLogin';
+import { AffiliateDashboard } from '@/pages/affiliates/AffiliateDashboard';
+import { AffiliateTerms } from '@/pages/affiliates/AffiliateTerms';
 import { CookieConsent } from '@/components/CookieConsent';
+import { AffiliateRefTracker } from '@/components/AffiliateRefTracker';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -103,6 +108,10 @@ export const App: React.FC = () => {
             <Route path="/features" element={<FeaturesIndex />} />
             <Route path="/features/:slug" element={<FeatureDetail />} />
             <Route path="/alternatives" element={<AlternativesIndex />} />
+            <Route path="/affiliates" element={<AffiliateLanding />} />
+            <Route path="/affiliates/login" element={<AffiliateLogin />} />
+            <Route path="/affiliates/dashboard" element={<AffiliateDashboard />} />
+            <Route path="/affiliates/terms" element={<AffiliateTerms />} />
             <Route
               path="/onboarding"
               element={
@@ -139,6 +148,7 @@ export const App: React.FC = () => {
 
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
+          <AffiliateRefTracker />
           <CookieConsent />
         </BrowserRouter>
       </QueryClientProvider>

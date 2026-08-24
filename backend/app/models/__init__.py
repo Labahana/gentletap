@@ -19,6 +19,14 @@ from app.models.onboarding_state import OnboardingState
 from app.models.waitlist import WaitlistEntry
 from app.models.notification import UserNotification, NotificationPreference
 from app.models.escalation_rule import EscalationRule
+from app.models.affiliate import (
+    Affiliate,
+    AffiliateClick,
+    AffiliateCommission,
+    AffiliatePayout,
+    AffiliateReferral,
+    AffiliateRefreshToken,
+)
 
 __all__ = [
     "User",
@@ -43,4 +51,10 @@ __all__ = [
     "WaitlistEntry",
     "UserNotification",
     "NotificationPreference",
+    "Affiliate",
+    "AffiliateClick",
+    "AffiliateCommission",
+    "AffiliatePayout",
+    "AffiliateReferral",
+    "AffiliateRefreshToken",
 ]

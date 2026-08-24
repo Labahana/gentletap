@@ -314,6 +314,40 @@ async def paddle_webhook(request: Request, db: Session = Depends(get_db)):
                     status="active",
                 )
             )
+        elif org:
+            # Affiliate commission recording (subscription payments only).
+            from app.services import affiliates as affiliate_service
+
+            txn_id = str(data.get("id") or "")
+            gross, currency = affiliate_service.paddle_transaction_gross(data)
+            if txn_id and gross > 0:
+                referral = affiliate_service.referral_for_org(db, org.id)
+                event_kind = (
+                    "initial"
+                    if referral and not referral.first_paid_at
+                    else "renewal"
+                )
+                affiliate_service.record_subscription_commission(
+                    db,
+                    org=org,
+                    paddle_transaction_id=txn_id,
+                    paddle_subscription_id=data.get("subscription_id"),
+                    gross_amount=gross,
+                    currency=currency,
+                    event_type=event_kind,
+                )
+
+    elif event_type in ("adjustment.created", "adjustment.updated"):
+        # Refunds/chargebacks — claw back the associated commission.
+        from app.services import affiliates as affiliate_service
+
+        if (data.get("action") or "").lower() in ("refund", "chargeback"):
+            txn_id = data.get("transaction_id") or ""
+            if txn_id:
+                try:
+                    affiliate_service.clawback_commission(db, str(txn_id))
+                except Exception:  # noqa: BLE001 - never fail the webhook on clawback
+                    pass
 
     db.commit()
     return {"status": "ok", "event": event_type}

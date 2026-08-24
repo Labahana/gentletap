@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { tryAttributeAfterAuth } from '@/lib/affiliate';
 import { Zap, Lock, Mail } from 'lucide-react';
 import { api, apiErrorMessage } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
@@ -29,6 +30,7 @@ export const Login: React.FC = () => {
         accessToken: data.access_token,
         refreshToken: data.refresh_token,
       });
+      void tryAttributeAfterAuth();
       navigate('/dashboard', { replace: true });
     } catch (err: any) {
       setError(apiErrorMessage(err, 'Invalid login credentials'));

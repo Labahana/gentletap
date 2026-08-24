@@ -76,6 +76,14 @@ def signup(req: SignupRequest, db: Session = Depends(get_db)):
     get_or_create_onboarding(db, org.id)
     db.commit()
 
+    if req.ref_code:
+        try:
+            from app.services.affiliates import attach_referral_to_org
+
+            attach_referral_to_org(db, org, req.ref_code)
+        except Exception:  # noqa: BLE001 - attribution must never block signup
+            db.rollback()
+
     access_token = create_access_token(user.id, org.id, user.email)
     refresh_token = create_refresh_token(user.id, org.id)
 
