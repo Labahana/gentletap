@@ -35,6 +35,19 @@ import { QuickbooksIntegration } from '@/pages/marketing/QuickbooksIntegration';
 import { FreshbooksIntegration } from '@/pages/marketing/FreshbooksIntegration';
 import { FreelancerTemplates } from '@/pages/marketing/FreelancerTemplates';
 import { XeroWaitlist } from '@/pages/marketing/XeroWaitlist';
+import { BlogIndex } from '@/pages/marketing/BlogIndex';
+import { BlogPostPage } from '@/pages/marketing/BlogPostPage';
+import { CompareIndex } from '@/pages/marketing/CompareIndex';
+import { CompareDetail } from '@/pages/marketing/CompareDetail';
+import { IndustriesIndex } from '@/pages/marketing/IndustriesIndex';
+import { IndustryDetail } from '@/pages/marketing/IndustryDetail';
+import { FeaturesIndex } from '@/pages/marketing/FeaturesIndex';
+import { FeatureDetail } from '@/pages/marketing/FeatureDetail';
+import { AlternativesIndex } from '@/pages/marketing/AlternativesIndex';
+import { QuickbooksInvoiceAutomation } from '@/pages/marketing/QuickbooksInvoiceAutomation';
+import { QuickbooksVsGentletap } from '@/pages/marketing/QuickbooksVsGentletap';
+import { HowToFollowUp } from '@/pages/marketing/HowToFollowUp';
+import { CookieConsent } from '@/components/CookieConsent';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -78,6 +91,18 @@ export const App: React.FC = () => {
             <Route path="/freshbooks-invoice-reminders" element={<FreshbooksIntegration />} />
             <Route path="/invoice-follow-up-email-templates-for-freelancers" element={<FreelancerTemplates />} />
             <Route path="/xero-invoice-reminders" element={<XeroWaitlist />} />
+            <Route path="/quickbooks-invoice-automation" element={<QuickbooksInvoiceAutomation />} />
+            <Route path="/quickbooks-reminders-vs-gentletap" element={<QuickbooksVsGentletap />} />
+            <Route path="/how-to-follow-up-on-overdue-invoices" element={<HowToFollowUp />} />
+            <Route path="/blog" element={<BlogIndex />} />
+            <Route path="/blog/:slug" element={<BlogPostPage />} />
+            <Route path="/compare" element={<CompareIndex />} />
+            <Route path="/compare/:slug" element={<CompareDetail />} />
+            <Route path="/industries" element={<IndustriesIndex />} />
+            <Route path="/industries/:slug" element={<IndustryDetail />} />
+            <Route path="/features" element={<FeaturesIndex />} />
+            <Route path="/features/:slug" element={<FeatureDetail />} />
+            <Route path="/alternatives" element={<AlternativesIndex />} />
             <Route
               path="/onboarding"
               element={
@@ -114,6 +139,7 @@ export const App: React.FC = () => {
 
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
+          <CookieConsent />
         </BrowserRouter>
       </QueryClientProvider>
       </ErrorBoundary>

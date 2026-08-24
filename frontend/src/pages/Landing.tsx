@@ -87,8 +87,18 @@ export const Landing: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-gray-200 bg-white py-8 text-center text-xs text-gray-500">
-        © 2026 GentleTap. Production-grade invoice follow-up SaaS.
+      <footer className="border-t border-gray-200 bg-white py-10">
+        <div className="max-w-5xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-gray-500">
+          <p>© 2026 GentleTap. Production-grade invoice follow-up SaaS.</p>
+          <nav className="flex flex-wrap items-center justify-center gap-4">
+            <Link to="/blog" className="hover:text-blue-600">Blog</Link>
+            <Link to="/compare" className="hover:text-blue-600">Compare</Link>
+            <Link to="/alternatives" className="hover:text-blue-600">Alternatives</Link>
+            <Link to="/industries" className="hover:text-blue-600">Industries</Link>
+            <Link to="/features" className="hover:text-blue-600">Features</Link>
+            <Link to="/affiliates" className="hover:text-blue-600">Affiliates</Link>
+          </nav>
+        </div>
       </footer>
     </div>
   );
