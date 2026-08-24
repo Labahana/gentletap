@@ -10,6 +10,7 @@ from app.schemas.connection import ConnectionOut, SyncResponse
 from app.services.quickbooks import get_qbo_auth_url, exchange_qbo_code, sync_qbo_data
 from app.services.freshbooks import get_freshbooks_auth_url, exchange_freshbooks_code, sync_freshbooks_data
 from app.services.google_gmail import get_google_gmail_auth_url, exchange_google_code
+from app.services.crypto import encrypt_secret
 
 router = APIRouter(prefix="/connections", tags=["Connections"])
 
@@ -49,15 +50,15 @@ def quickbooks_callback(
         conn = Connection(
             org_id=org.id,
             provider="quickbooks",
-            token_encrypted=token_data.get("access_token", ""),
-            refresh_token_encrypted=token_data.get("refresh_token", ""),
+            token_encrypted=encrypt_secret(token_data.get("access_token", "")),
+            refresh_token_encrypted=encrypt_secret(token_data.get("refresh_token", "")),
             realm_id=token_data.get("realm_id", realmId),
             status="active",
         )
         db.add(conn)
     else:
-        conn.token_encrypted = token_data.get("access_token", "")
-        conn.refresh_token_encrypted = token_data.get("refresh_token", "")
+        conn.token_encrypted = encrypt_secret(token_data.get("access_token", ""))
+        conn.refresh_token_encrypted = encrypt_secret(token_data.get("refresh_token", ""))
         conn.realm_id = token_data.get("realm_id", realmId)
         conn.status = "active"
 
@@ -99,15 +100,15 @@ def freshbooks_callback(
         conn = Connection(
             org_id=org.id,
             provider="freshbooks",
-            token_encrypted=token_data.get("access_token", ""),
-            refresh_token_encrypted=token_data.get("refresh_token", ""),
+            token_encrypted=encrypt_secret(token_data.get("access_token", "")),
+            refresh_token_encrypted=encrypt_secret(token_data.get("refresh_token", "")),
             account_id=token_data.get("account_id", "fb_account_1"),
             status="active",
         )
         db.add(conn)
     else:
-        conn.token_encrypted = token_data.get("access_token", "")
-        conn.refresh_token_encrypted = token_data.get("refresh_token", "")
+        conn.token_encrypted = encrypt_secret(token_data.get("access_token", ""))
+        conn.refresh_token_encrypted = encrypt_secret(token_data.get("refresh_token", ""))
         conn.account_id = token_data.get("account_id", "fb_account_1")
         conn.status = "active"
 
@@ -149,15 +150,15 @@ def google_callback(
         conn = Connection(
             org_id=org.id,
             provider="gmail",
-            token_encrypted=token_data.get("access_token", ""),
-            refresh_token_encrypted=token_data.get("refresh_token", ""),
+            token_encrypted=encrypt_secret(token_data.get("access_token", "")),
+            refresh_token_encrypted=encrypt_secret(token_data.get("refresh_token", "")),
             account_id=token_data.get("email", "user@gmail.com"),
             status="active",
         )
         db.add(conn)
     else:
-        conn.token_encrypted = token_data.get("access_token", "")
-        conn.refresh_token_encrypted = token_data.get("refresh_token", "")
+        conn.token_encrypted = encrypt_secret(token_data.get("access_token", ""))
+        conn.refresh_token_encrypted = encrypt_secret(token_data.get("refresh_token", ""))
         conn.account_id = token_data.get("email", "user@gmail.com")
         conn.status = "active"
 

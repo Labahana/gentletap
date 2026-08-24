@@ -8,14 +8,30 @@ from app.models.message import Message
 from app.models.invoice import Invoice
 from app.models.suppression import Suppression
 from app.models.audit_log import AuditLog
+from app.config import get_settings
 from app.services.email import apply_resend_event_to_message, decode_unsubscribe_token
 from app.services.payment_detect import auto_stop_on_payment, detect_and_stop_if_paid
+from app.services.webhook_security import (
+    verify_freshbooks,
+    verify_intuit,
+    verify_svix,
+    verify_twilio,
+)
 
 router = APIRouter(prefix="/webhooks", tags=["Webhooks"])
 
 
 @router.post("/resend")
 async def resend_webhook(request: Request, db: Session = Depends(get_db)):
+    raw = await request.body()
+    if not verify_svix(
+        get_settings().resend_webhook_secret,
+        raw,
+        msg_id=request.headers.get("svix-id"),
+        timestamp=request.headers.get("svix-timestamp"),
+        signature=request.headers.get("svix-signature"),
+    ):
+        raise HTTPException(status_code=401, detail="Invalid webhook signature")
     payload = await request.json()
     event_type = payload.get("type")
     data = payload.get("data", {})
@@ -77,7 +93,13 @@ async def resend_webhook(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/quickbooks")
 async def quickbooks_webhook(request: Request, db: Session = Depends(get_db)):
-    payload = await request.json()
+    raw = await request.body()
+    # Fail-closed: forged "balance: 0" payloads could fake payment detection.
+    if not verify_intuit(raw, request.headers.get("Intuit-Signature")):
+        raise HTTPException(status_code=401, detail="Invalid webhook signature")
+    import json as _json
+
+    payload = _json.loads(raw)
     # Accept flexible payloads: {invoice_id} or {external_id} or notifications list
     invoice_ids = []
     if payload.get("invoice_id"):
@@ -116,7 +138,12 @@ async def quickbooks_webhook(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/freshbooks")
 async def freshbooks_webhook(request: Request, db: Session = Depends(get_db)):
-    payload = await request.json()
+    raw = await request.body()
+    if not verify_freshbooks(raw, request.headers.get("X-FreshBooks-Hmac-Sha256")):
+        raise HTTPException(status_code=401, detail="Invalid webhook signature")
+    import json as _json
+
+    payload = _json.loads(raw)
     invoice_ids = []
     if payload.get("invoice_id"):
         invoice_ids.append(payload["invoice_id"])
@@ -356,6 +383,10 @@ async def paddle_webhook(request: Request, db: Session = Depends(get_db)):
 @router.post("/twilio")
 async def twilio_webhook(request: Request, db: Session = Depends(get_db)):
     form = dict(await request.form())
+    if not verify_twilio(
+        str(request.url), form, request.headers.get("X-Twilio-Signature")
+    ):
+        raise HTTPException(status_code=401, detail="Invalid webhook signature")
     message_sid = form.get("MessageSid") or form.get("SmsSid")
     status = (form.get("MessageStatus") or form.get("SmsStatus") or "").lower()
     body = (form.get("Body") or "").strip()

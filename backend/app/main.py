@@ -44,10 +44,35 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _log_security_warnings()
     logger.info("Initializing database tables...")
     Base.metadata.create_all(bind=engine)
     logger.info("Database initialization complete.")
     yield
+
+
+_INSECURE_DEFAULTS = {
+    "secret_key": ("SECRET_KEY", {"your_secret_key_here", ""}),
+    "jwt_secret_key": ("JWT_SECRET_KEY", {"your_jwt_secret_key_here", ""}),
+    "admin_api_key": ("ADMIN_API_KEY", {""}),
+    "paddle_webhook_secret": ("PADDLE_WEBHOOK_SECRET", {""}),
+}
+
+
+def _log_security_warnings():
+    """Loud, non-fatal warnings when production runs with insecure settings."""
+    if settings.environment != "production":
+        return
+    for attr, (env_name, bad_values) in _INSECURE_DEFAULTS.items():
+        value = str(getattr(settings, attr, "") or "")
+        if value.strip() in bad_values:
+            logger.critical(
+                "SECURITY: %s is not set or uses a known default — "
+                "%s is exposed to forgery/spoofing. Set it before going live. "
+                "Run backend/scripts/security_check.py on the host for a full audit.",
+                env_name,
+                attr,
+            )
 
 
 app = FastAPI(

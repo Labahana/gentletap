@@ -36,12 +36,17 @@ def verify_paddle_signature(raw_body: bytes, signature_header: Optional[str]) ->
     """
     Verify Paddle Billing webhook signature.
     Header format: ts=...;h1=...
-    In sandbox/dev with empty secret, accept (logged warning).
+    FAIL-CLOSED: an empty PADDLE_WEBHOOK_SECRET rejects every webhook (the
+    secret was once committed to the repo — it must come from the environment
+    and be rotated). Without this, anyone could forge subscription upgrades.
     """
     secret = settings.paddle_webhook_secret
     if not secret:
-        logger.warning("PADDLE_WEBHOOK_SECRET empty — skipping signature verification (dev only)")
-        return True
+        logger.error(
+            "PADDLE_WEBHOOK_SECRET not set — rejecting webhook. "
+            "Set it in the environment (see .env.example)."
+        )
+        return False
     if not signature_header:
         return False
 

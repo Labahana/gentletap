@@ -30,6 +30,7 @@ from app.services.affiliate_auth import (
     issue_affiliate_token_pair,
     rotate_affiliate_refresh_token,
 )
+from app.services.rate_limit import rate_limit
 
 router = APIRouter(prefix="/affiliates", tags=["Affiliates"])
 settings = get_settings()
@@ -104,7 +105,7 @@ def affiliate_program_info() -> dict:
     }
 
 
-@router.post("/apply", status_code=status.HTTP_201_CREATED)
+@router.post("/apply", status_code=status.HTTP_201_CREATED, dependencies=[Depends(rate_limit("5/60"))])
 def apply_affiliate(body: AffiliateApplyRequest, db: Session = Depends(get_db)) -> dict:
     try:
         affiliate = affiliate_service.create_affiliate_application(
@@ -129,7 +130,7 @@ def apply_affiliate(body: AffiliateApplyRequest, db: Session = Depends(get_db)) 
     }
 
 
-@router.post("/track-click")
+@router.post("/track-click", dependencies=[Depends(rate_limit("120/60"))])
 def track_click(request: Request, body: AffiliateTrackClickRequest, db: Session = Depends(get_db)) -> dict:
     recorded = affiliate_service.record_click(
         db,
@@ -142,7 +143,7 @@ def track_click(request: Request, body: AffiliateTrackClickRequest, db: Session 
     return {"recorded": recorded}
 
 
-@router.post("/auth/login", response_model=AffiliateTokenResponse)
+@router.post("/auth/login", response_model=AffiliateTokenResponse, dependencies=[Depends(rate_limit("10/60"))])
 def affiliate_login(body: AffiliateLoginRequest, db: Session = Depends(get_db)) -> AffiliateTokenResponse:
     affiliate = authenticate_affiliate(db, body.email, body.password)
     if affiliate is None:

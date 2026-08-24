@@ -26,6 +26,11 @@ _admin_oauth2 = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=F
 
 
 def require_admin(x_admin_api_key: str = Header(None, alias="X-Admin-Api-Key")):
+    # Fail-closed: an unset ADMIN_API_KEY disables header-based admin access
+    # (the previous default value was committed to the repo). JWT admins via
+    # require_admin_flexible remain available.
+    if not settings.admin_api_key:
+        raise HTTPException(status_code=401, detail="ADMIN_API_KEY not configured")
     if not x_admin_api_key or x_admin_api_key != settings.admin_api_key:
         raise HTTPException(status_code=401, detail="Invalid admin API key")
     return True
@@ -42,7 +47,7 @@ def require_admin_flexible(
 ):
     """Admin gate accepting either the X-Admin-Api-Key header (server-side ops)
     or a valid access token belonging to an ADMIN_EMAILS member (dashboard UI)."""
-    if x_admin_api_key and x_admin_api_key == settings.admin_api_key:
+    if settings.admin_api_key and x_admin_api_key == settings.admin_api_key:
         return {"mode": "api_key"}
     if token:
         try:

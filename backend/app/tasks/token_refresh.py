@@ -24,24 +24,27 @@ GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
 def _refresh_connection_token(db: Session, conn: Connection) -> None:
     """Refresh one connection's access token using its refresh token."""
-    if conn.token_encrypted.startswith("mock_"):
+    from app.services.crypto import decrypt_secret, encrypt_secret
+
+    refresh_token = decrypt_secret(conn.refresh_token_encrypted)
+    if not refresh_token or decrypt_secret(conn.token_encrypted).startswith("mock_"):
         return  # dev/mock mode — nothing to refresh
 
     if conn.provider == "quickbooks":
-        data = {"grant_type": "refresh_token", "refresh_token": conn.refresh_token_encrypted}
+        data = {"grant_type": "refresh_token", "refresh_token": refresh_token}
         auth = (settings.quickbooks_client_id, settings.quickbooks_client_secret)
         with httpx.Client(timeout=15.0) as client:
             res = client.post(QBO_TOKEN_URL, data=data, auth=auth)
             res.raise_for_status()
             payload = res.json()
-        conn.token_encrypted = payload["access_token"]
+        conn.token_encrypted = encrypt_secret(payload["access_token"])
         if payload.get("refresh_token"):
-            conn.refresh_token_encrypted = payload["refresh_token"]
+            conn.refresh_token_encrypted = encrypt_secret(payload["refresh_token"])
 
     elif conn.provider == "freshbooks":
         data = {
             "grant_type": "refresh_token",
-            "refresh_token": conn.refresh_token_encrypted,
+            "refresh_token": refresh_token,
             "client_id": settings.freshbooks_client_id,
             "client_secret": settings.freshbooks_client_secret,
             "redirect_uri": settings.freshbooks_redirect_uri,
@@ -50,14 +53,14 @@ def _refresh_connection_token(db: Session, conn: Connection) -> None:
             res = client.post(FRESHBOOKS_TOKEN_URL, json=data)
             res.raise_for_status()
             payload = res.json()
-        conn.token_encrypted = payload["access_token"]
+        conn.token_encrypted = encrypt_secret(payload["access_token"])
         if payload.get("refresh_token"):
-            conn.refresh_token_encrypted = payload["refresh_token"]
+            conn.refresh_token_encrypted = encrypt_secret(payload["refresh_token"])
 
     elif conn.provider in ("google", "gmail"):
         data = {
             "grant_type": "refresh_token",
-            "refresh_token": conn.refresh_token_encrypted,
+            "refresh_token": refresh_token,
             "client_id": settings.google_client_id,
             "client_secret": settings.google_client_secret,
         }
@@ -65,7 +68,7 @@ def _refresh_connection_token(db: Session, conn: Connection) -> None:
             res = client.post(GOOGLE_TOKEN_URL, data=data)
             res.raise_for_status()
             payload = res.json()
-        conn.token_encrypted = payload["access_token"]
+        conn.token_encrypted = encrypt_secret(payload["access_token"])
 
     else:
         return

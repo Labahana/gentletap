@@ -10,7 +10,10 @@ class Settings(BaseSettings):
     debug: bool = False
     api_url: str = Field(default="https://gentletap.co", validation_alias=AliasChoices("API_URL", "api_url"))
     web_url: str = Field(default="https://gentletap.co", validation_alias=AliasChoices("WEB_URL", "web_url", "FRONTEND_URL", "frontend_url"))
-    admin_api_key: str = Field(default="gentletap_admin_key_prod", validation_alias=AliasChoices("SECRET_KEY", "secret_key"))
+    # SECURITY: no defaults for secrets. All of these MUST come from the
+    # environment in production (see .env.example + backend/scripts/security_check.py).
+    # Previous committed values were scrubbed — rotate any that were live.
+    admin_api_key: str = Field(default="", validation_alias=AliasChoices("ADMIN_API_KEY", "admin_api_key"))
 
     # Legal
     legal_entity_name: str = Field(default="GentleTap", validation_alias=AliasChoices("NEXT_PUBLIC_LEGAL_ENTITY_NAME", "legal_entity_name"))
@@ -22,7 +25,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = Field(default="HS256", validation_alias=AliasChoices("JWT_ALGORITHM", "jwt_algorithm"))
     access_token_expire_minutes: int = Field(default=60, validation_alias=AliasChoices("ACCESS_TOKEN_EXPIRE_MINUTES", "access_token_expire_minutes"))
     refresh_token_expire_days: int = Field(default=30, validation_alias=AliasChoices("REFRESH_TOKEN_EXPIRE_DAYS", "refresh_token_expire_days"))
-    token_encryption_key: str = Field(default="B40skGXOXgvJnueLRRw_gB5aXFuL5Srdqms66Jz0yhQ=", validation_alias=AliasChoices("TOKEN_ENCRYPTION_KEY", "token_encryption_key"))
+    token_encryption_key: str = Field(default="", validation_alias=AliasChoices("TOKEN_ENCRYPTION_KEY", "token_encryption_key"))
 
     # Database
     postgres_user: str = Field(default="gentletap", validation_alias=AliasChoices("POSTGRES_USER", "postgres_user"))
@@ -49,12 +52,13 @@ class Settings(BaseSettings):
     intuit_client_secret: str = Field(default="", validation_alias=AliasChoices("INTUIT_CLIENT_SECRET", "quickbooks_client_secret"))
     intuit_redirect_uri: str = Field(default="https://gentletap.co/v1/quickbooks/callback", validation_alias=AliasChoices("INTUIT_REDIRECT_URI", "quickbooks_redirect_uri"))
     intuit_environment: str = Field(default="production", validation_alias=AliasChoices("INTUIT_ENVIRONMENT", "quickbooks_environment"))
-    intuit_webhook_verifier_token: str = Field(default="6304fd22-8256-4448-9070-eda70d91fb57", validation_alias=AliasChoices("INTUIT_WEBHOOK_VERIFIER_TOKEN", "intuit_webhook_verifier_token"))
+    intuit_webhook_verifier_token: str = Field(default="", validation_alias=AliasChoices("INTUIT_WEBHOOK_VERIFIER_TOKEN", "intuit_webhook_verifier_token"))
 
     # FreshBooks
     freshbooks_client_id: str = Field(default="", validation_alias=AliasChoices("FRESHBOOKS_CLIENT_ID", "freshbooks_client_id"))
     freshbooks_client_secret: str = Field(default="", validation_alias=AliasChoices("FRESHBOOKS_CLIENT_SECRET", "freshbooks_client_secret"))
     freshbooks_redirect_uri: str = Field(default="https://gentletap.co/v1/freshbooks/callback", validation_alias=AliasChoices("FRESHBOOKS_REDIRECT_URI", "freshbooks_redirect_uri"))
+    freshbooks_webhook_verifier_token: str = Field(default="", validation_alias=AliasChoices("FRESHBOOKS_WEBHOOK_VERIFIER_TOKEN", "freshbooks_webhook_verifier_token"))
 
     # Google (OAuth & Gmail API)
     google_client_id: str = Field(default="", validation_alias=AliasChoices("GOOGLE_CLIENT_ID", "google_client_id"))
@@ -64,7 +68,7 @@ class Settings(BaseSettings):
 
     # Resend & Email
     resend_api_key: str = Field(default="", validation_alias=AliasChoices("RESEND_API_KEY", "resend_api_key"))
-    resend_webhook_secret: str = Field(default="whsec_1O602+LxpH1d/e9P/IovelwCkCb0fXr0", validation_alias=AliasChoices("RESEND_WEBHOOK_SECRET", "resend_webhook_secret"))
+    resend_webhook_secret: str = Field(default="", validation_alias=AliasChoices("RESEND_WEBHOOK_SECRET", "resend_webhook_secret"))
     auth_email_from: str = Field(default="GentleTap <noreply@gentletap.co>", validation_alias=AliasChoices("AUTH_EMAIL_FROM", "auth_email_from", "RESEND_FROM_EMAIL", "resend_from_email"))
     platform_email_address: str = Field(default="accounts@notify.gentletap.co", validation_alias=AliasChoices("PLATFORM_EMAIL_ADDRESS", "platform_email_address"))
 
@@ -83,7 +87,7 @@ class Settings(BaseSettings):
 
     # Paddle Billing
     paddle_api_key: str = Field(default="", validation_alias=AliasChoices("PADDLE_API_KEY", "paddle_api_key"))
-    paddle_webhook_secret: str = Field(default="pdl_ntfset_01kvz5wrmhv0rdhdpfem5je9p1_W99kVrMPxS4M8LBVJezwxKtRe7ssYCUH", validation_alias=AliasChoices("PADDLE_WEBHOOK_SECRET", "paddle_webhook_secret"))
+    paddle_webhook_secret: str = Field(default="", validation_alias=AliasChoices("PADDLE_WEBHOOK_SECRET", "paddle_webhook_secret"))
     paddle_env: str = Field(default="production", validation_alias=AliasChoices("PADDLE_ENVIRONMENT", "paddle_environment"))
     paddle_api_base: str = "https://api.paddle.com"
     paddle_price_id_pro: str = Field(default="pri_01kz6rsd3vkh7rj3qvjn51ws75", validation_alias=AliasChoices("PADDLE_PRICE_ID_PRO", "paddle_price_id_pro"))

@@ -28,6 +28,7 @@ from app.api.deps import (
 from app.services.plan_gating import apply_plan_quotas
 from app.services.onboarding import get_or_create_onboarding
 from app.services.password_reset import request_password_reset, reset_password
+from app.services.rate_limit import rate_limit
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 settings = get_settings()
@@ -37,7 +38,7 @@ GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
 
 
-@router.post("/signup", response_model=TokenResponse)
+@router.post("/signup", response_model=TokenResponse, dependencies=[Depends(rate_limit("5/60"))])
 def signup(req: SignupRequest, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == req.email).first()
     if existing:
@@ -99,7 +100,7 @@ def signup(req: SignupRequest, db: Session = Depends(get_db)):
     )
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=TokenResponse, dependencies=[Depends(rate_limit("10/60"))])
 def login(req: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email).first()
     if not user or not verify_password(req.password, user.password_hash):
@@ -231,7 +232,7 @@ def google_auth_callback(
     )
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post("/refresh", response_model=TokenResponse, dependencies=[Depends(rate_limit("30/60"))])
 def refresh(req: RefreshTokenRequest, db: Session = Depends(get_db)):
     payload = decode_token(req.refresh_token)
     if payload.get("type") != "refresh":
@@ -265,13 +266,13 @@ def logout():
     return {"message": "Logged out successfully"}
 
 
-@router.post("/forgot-password")
+@router.post("/forgot-password", dependencies=[Depends(rate_limit("5/300"))])
 def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
     request_password_reset(db, req.email)
     return {"message": "If an account exists for that email, we sent a password reset link."}
 
 
-@router.post("/reset-password")
+@router.post("/reset-password", dependencies=[Depends(rate_limit("10/300"))])
 def reset_password_endpoint(req: ResetPasswordRequest, db: Session = Depends(get_db)):
     try:
         reset_password(db, token=req.token, new_password=req.new_password)

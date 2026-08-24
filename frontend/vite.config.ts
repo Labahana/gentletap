@@ -42,6 +42,18 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Split heavy vendors so app code changes don't invalidate the whole
+        // bundle and the main chunk stays parseable on mobile devices.
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-charts': ['recharts'],
+        },
+      },
+    },
+  },
   server: {
     port: 3000,
     host: true,
