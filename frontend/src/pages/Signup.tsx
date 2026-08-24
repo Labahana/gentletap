@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { getAffiliateRefCookie } from '@/lib/affiliate';
 import { Zap, Lock, Mail, User, Building } from 'lucide-react';
 import { api, apiErrorMessage } from '@/lib/api';
@@ -15,7 +15,6 @@ export const Signup: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const { setAuth } = useAuthStore();
-  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +37,11 @@ export const Signup: React.FC = () => {
         accessToken: data.access_token,
         refreshToken: data.refresh_token,
       });
-      navigate('/dashboard', { replace: true });
+      if (!localStorage.getItem('gentletap_access_token')) {
+        throw new Error('Session could not be stored. Enable site data and retry.');
+      }
+      window.location.replace('/dashboard');
+      return;
     } catch (err: any) {
       setError(apiErrorMessage(err, 'Failed to create account'));
     } finally {

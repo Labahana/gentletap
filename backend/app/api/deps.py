@@ -64,7 +64,15 @@ def get_current_user_and_org(
     db: Session = Depends(get_db),
 ) -> Tuple[User, Organization]:
     if not token:
-        # Check if there is a dev default fallback user/org in DB, or create one for easy testing
+        # Dev-only convenience fallback: auto-create a demo user/org so the app
+        # works without auth in local development. NEVER active in production —
+        # it would silently authenticate every unauthenticated request.
+        if settings.environment == "production":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         user = db.query(User).first()
         org = db.query(Organization).first()
         if not user:

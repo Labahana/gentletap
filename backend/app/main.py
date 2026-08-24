@@ -58,14 +58,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-cors_origins = list(settings.cors_origins)
-if settings.frontend_url and settings.frontend_url not in cors_origins:
-    cors_origins.append(settings.frontend_url)
-
+# Auth uses Bearer tokens in the Authorization header (never cookies), so
+# cross-origin requests carry no ambient credentials. A permissive CORS policy
+# is therefore safe here and eliminates the entire class of "login works on
+# gentletap.co but fails from <other-host>" failures caused by origin
+# allow-list mismatches on deploys.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

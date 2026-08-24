@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { tryAttributeAfterAuth } from '@/lib/affiliate';
 import { Zap, Lock, Mail } from 'lucide-react';
 import { api, apiErrorMessage } from '@/lib/api';
@@ -13,7 +13,6 @@ export const Login: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const { setAuth } = useAuthStore();
-  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +30,13 @@ export const Login: React.FC = () => {
         refreshToken: data.refresh_token,
       });
       void tryAttributeAfterAuth();
-      navigate('/dashboard', { replace: true });
+      // Hard navigation guarantees ProtectedRoute re-hydrates isAuthenticated
+      // from localStorage — immune to any in-memory state transition glitch.
+      if (!localStorage.getItem('gentletap_access_token')) {
+        throw new Error('Session could not be stored. Enable site data and retry.');
+      }
+      window.location.replace('/dashboard');
+      return;
     } catch (err: any) {
       setError(apiErrorMessage(err, 'Invalid login credentials'));
     } finally {
