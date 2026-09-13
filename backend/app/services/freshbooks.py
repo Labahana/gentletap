@@ -55,7 +55,11 @@ def sync_freshbooks_data(db: Session, org_id: str, connection: Connection) -> Tu
     Sync clients and outstanding invoices from FreshBooks.
     Return (invoices_synced, clients_synced) count.
     """
-    if connection.token_encrypted == "mock_fb_access_token":
+    from app.services.crypto import decrypt_secret
+
+    access_token = decrypt_secret(connection.token_encrypted)
+
+    if access_token == "mock_fb_access_token":
         mock_client = db.query(Client).filter(Client.org_id == org_id, Client.name == "Starlight Design Studio (FreshBooks)").first()
         if not mock_client:
             mock_client = Client(
@@ -95,7 +99,7 @@ def sync_freshbooks_data(db: Session, org_id: str, connection: Connection) -> Tu
 
     # Real FreshBooks sync if live credentials available
     headers = {
-        "Authorization": f"Bearer {connection.token_encrypted}",
+        "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json",
     }
     account_id = connection.account_id or ""

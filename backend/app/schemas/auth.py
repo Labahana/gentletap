@@ -7,6 +7,7 @@ class SignupRequest(BaseModel):
     password: str
     full_name: Optional[str] = None
     organization_name: Optional[str] = None
+    ref_code: Optional[str] = None
 
 
 class LoginRequest(BaseModel):

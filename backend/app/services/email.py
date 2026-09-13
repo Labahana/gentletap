@@ -151,9 +151,11 @@ def send_email_dispatch(
 
         if google_conn:
             try:
+                from app.services.crypto import decrypt_secret
+
                 return send_email_via_gmail(
-                    access_token=google_conn.token_encrypted,
-                    refresh_token=google_conn.refresh_token_encrypted,
+                    access_token=decrypt_secret(google_conn.token_encrypted),
+                    refresh_token=decrypt_secret(google_conn.refresh_token_encrypted),
                     to_email=to_email,
                     subject=subject,
                     body=body,

@@ -59,8 +59,12 @@ def sync_qbo_data(db: Session, org_id: str, connection: Connection) -> Tuple[int
     Sync customers and unpaid invoices from QuickBooks.
     Return (invoices_synced, clients_synced) count.
     """
+    from app.services.crypto import decrypt_secret
+
+    access_token = decrypt_secret(connection.token_encrypted)
+
     # For dev / mock mode fallback when tokens are mock
-    if connection.token_encrypted == "mock_qbo_access_token":
+    if access_token == "mock_qbo_access_token":
         # Create a sample customer and invoice to demonstrate live sync capability
         mock_client = db.query(Client).filter(Client.org_id == org_id, Client.name == "Acme Corp (QBO)").first()
         if not mock_client:
@@ -104,7 +108,7 @@ def sync_qbo_data(db: Session, org_id: str, connection: Connection) -> Tuple[int
     realm_id = connection.realm_id or ""
 
     headers = {
-        "Authorization": f"Bearer {connection.token_encrypted}",
+        "Authorization": f"Bearer {access_token}",
         "Accept": "application/json",
     }
 
