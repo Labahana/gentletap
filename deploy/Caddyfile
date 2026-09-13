@@ -1,0 +1,29 @@
+# GentleTap reverse proxy — Caddy provisions and renews Let's Encrypt certs
+# automatically. The domain is injected from .env (WEB_DOMAIN) via the
+# GENTLETAP_DOMAIN environment variable set in docker-compose.yml.
+#
+# Point your DNS A record at the VPS IP BEFORE first `docker compose up -d`,
+# otherwise Caddy can't obtain the certificate.
+
+{$GENTLETAP_DOMAIN} {
+	# Serve the app from the web (nginx) container, which serves the SPA and
+	# proxies /api/* to the API container internally.
+	reverse_proxy web:80
+
+	# Upload headroom for invoice CSV/file imports (API validates up to 5 MB).
+	request_body {
+		max_size 6MB
+	}
+
+	# Security headers at the edge (the app sets its own as well).
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		-Server
+	}
+
+	encode zstd gzip
+}

@@ -78,8 +78,10 @@ def _log_security_warnings():
 app = FastAPI(
     title=settings.app_name,
     version="3.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    # OpenAPI docs are a surface for probing internals; disable them outside
+    # local/dev so production doesn't leak route/schema details.
+    docs_url="/docs" if settings.environment != "production" else None,
+    redoc_url="/redoc" if settings.environment != "production" else None,
     lifespan=lifespan,
 )
 

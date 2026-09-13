@@ -58,20 +58,20 @@ class Settings(BaseSettings):
     # QuickBooks / Intuit
     intuit_client_id: str = Field(default="", validation_alias=AliasChoices("INTUIT_CLIENT_ID", "quickbooks_client_id"))
     intuit_client_secret: str = Field(default="", validation_alias=AliasChoices("INTUIT_CLIENT_SECRET", "quickbooks_client_secret"))
-    intuit_redirect_uri: str = Field(default="https://gentletap.co/v1/quickbooks/callback", validation_alias=AliasChoices("INTUIT_REDIRECT_URI", "quickbooks_redirect_uri"))
+    intuit_redirect_uri: str = Field(default="https://gentletap.co/api/v1/connections/quickbooks/callback", validation_alias=AliasChoices("INTUIT_REDIRECT_URI", "quickbooks_redirect_uri"))
     intuit_environment: str = Field(default="production", validation_alias=AliasChoices("INTUIT_ENVIRONMENT", "quickbooks_environment"))
     intuit_webhook_verifier_token: str = Field(default="", validation_alias=AliasChoices("INTUIT_WEBHOOK_VERIFIER_TOKEN", "intuit_webhook_verifier_token"))
 
     # FreshBooks
     freshbooks_client_id: str = Field(default="", validation_alias=AliasChoices("FRESHBOOKS_CLIENT_ID", "freshbooks_client_id"))
     freshbooks_client_secret: str = Field(default="", validation_alias=AliasChoices("FRESHBOOKS_CLIENT_SECRET", "freshbooks_client_secret"))
-    freshbooks_redirect_uri: str = Field(default="https://gentletap.co/v1/freshbooks/callback", validation_alias=AliasChoices("FRESHBOOKS_REDIRECT_URI", "freshbooks_redirect_uri"))
+    freshbooks_redirect_uri: str = Field(default="https://gentletap.co/api/v1/connections/freshbooks/callback", validation_alias=AliasChoices("FRESHBOOKS_REDIRECT_URI", "freshbooks_redirect_uri"))
     freshbooks_webhook_verifier_token: str = Field(default="", validation_alias=AliasChoices("FRESHBOOKS_WEBHOOK_VERIFIER_TOKEN", "freshbooks_webhook_verifier_token"))
 
     # Google (OAuth & Gmail API)
     google_client_id: str = Field(default="", validation_alias=AliasChoices("GOOGLE_CLIENT_ID", "google_client_id"))
     google_client_secret: str = Field(default="", validation_alias=AliasChoices("GOOGLE_CLIENT_SECRET", "google_client_secret"))
-    google_redirect_uri: str = Field(default="https://gentletap.co/v1/google/callback", validation_alias=AliasChoices("GOOGLE_REDIRECT_URI", "google_redirect_uri"))
+    google_redirect_uri: str = Field(default="https://gentletap.co/api/v1/connections/google/callback", validation_alias=AliasChoices("GOOGLE_REDIRECT_URI", "google_redirect_uri"))
     google_auth_redirect_uri: str = Field(default="https://gentletap.co/auth/google/callback", validation_alias=AliasChoices("GOOGLE_AUTH_REDIRECT_URI", "google_auth_redirect_uri"))
 
     # Resend & Email
@@ -141,7 +141,7 @@ class Settings(BaseSettings):
     affiliate_payout_minimum: float = Field(default=20.0, validation_alias=AliasChoices("AFFILIATE_PAYOUT_MINIMUM", "affiliate_payout_minimum"))
     affiliate_referral_discount_percent: float = Field(default=0.20, validation_alias=AliasChoices("AFFILIATE_REFERRAL_DISCOUNT_PERCENT", "affiliate_referral_discount_percent"))
     affiliate_referral_discount_months: int = Field(default=3, validation_alias=AliasChoices("AFFILIATE_REFERRAL_DISCOUNT_MONTHS", "affiliate_referral_discount_months"))
-    paddle_discount_id_affiliate_referral: str = Field(default="dsc_01kw9vns95j03reet7gj0sff35", validation_alias=AliasChoices("PADDLE_DISCOUNT_ID_AFFILIATE_REFERRAL", "paddle_discount_id_affiliate_referral"))
+    paddle_discount_id_affiliate_referral: str = Field(default="", validation_alias=AliasChoices("PADDLE_DISCOUNT_ID_AFFILIATE_REFERRAL", "paddle_discount_id_affiliate_referral"))
     free_plan_monthly_collection_limit: int = Field(default=5, validation_alias=AliasChoices("FREE_PLAN_MONTHLY_COLLECTION_LIMIT", "free_plan_monthly_collection_limit"))
 
     # Admin
