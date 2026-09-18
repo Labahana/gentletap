@@ -1,32 +1,42 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { api, apiErrorMessage } from '@/lib/api';
 import { ProgressBar } from '@/components/onboarding/ProgressBar';
 import { ModeToggle } from '@/components/ModeToggle';
 import { useOnboardingStore } from '@/stores/onboardingStore';
 
 const TONES = ['warm', 'friendly', 'professional'] as const;
 type Tone = (typeof TONES)[number];
+type Sender = 'gentletap' | 'gmail';
 
 export const Onboarding: React.FC = () => {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { step, setStep } = useOnboardingStore();
-  const [sender, setSender] = useState<'gentletap' | 'gmail'>('gentletap');
+  const [sender, setSender] = useState<Sender>('gentletap');
   const [mode, setMode] = useState<'template' | 'autopilot'>('template');
   const [tone, setTone] = useState<Tone>('friendly');
   const [error, setError] = useState('');
+  const [connectingProvider, setConnectingProvider] = useState<'' | 'quickbooks' | 'freshbooks' | 'gmail'>('');
+  const [uploadingCsv, setUploadingCsv] = useState(false);
+  const csvInputRef = useRef<HTMLInputElement>(null);
 
   const { data: state } = useQuery({
     queryKey: ['onboarding'],
     queryFn: async () => (await api.get('/onboarding')).data,
   });
 
-  const { data: draftsData } = useQuery({
+  const {
+    data: draftsData,
+    isError: draftsError,
+    isFetching: draftsLoading,
+    refetch: refetchDrafts,
+  } = useQuery({
     queryKey: ['onboardingDrafts'],
     queryFn: async () => (await api.get('/onboarding/preview-drafts')).data,
     enabled: step === 3,
+    retry: false,
   });
 
   useEffect(() => {
@@ -49,6 +59,77 @@ export const Onboarding: React.FC = () => {
   const skip = async () => {
     await api.post('/onboarding/skip');
     navigate('/dashboard');
+  };
+
+  // --- Step 1: in-flow connections -------------------------------------
+
+  const connectQuickBooks = async () => {
+    setError('');
+    setConnectingProvider('quickbooks');
+    try {
+      await api.get('/connections/quickbooks/callback');
+      advance.mutate({ step: 1, data: { accounting_connected: true, provider: 'quickbooks' } });
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Could not connect QuickBooks'));
+    } finally {
+      setConnectingProvider('');
+    }
+  };
+
+  const connectFreshBooks = async () => {
+    setError('');
+    setConnectingProvider('freshbooks');
+    try {
+      await api.get('/connections/freshbooks/callback');
+      advance.mutate({ step: 1, data: { accounting_connected: true, provider: 'freshbooks' } });
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Could not connect FreshBooks'));
+    } finally {
+      setConnectingProvider('');
+    }
+  };
+
+  const onCsvFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setError('');
+    setUploadingCsv(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const preview = (
+        await api.post('/invoices/import', form, { headers: { 'Content-Type': 'multipart/form-data' } })
+      ).data;
+      const rows = (preview?.preview || []).filter((r: any) => r.is_valid);
+      if (!rows.length) {
+        setError('No valid invoices found in that file. Check the columns and try again.');
+        return;
+      }
+      await api.post('/invoices/confirm-import', { rows });
+      advance.mutate({ step: 1, data: { accounting_connected: true, provider: 'csv' } });
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Could not import that file'));
+    } finally {
+      setUploadingCsv(false);
+    }
+  };
+
+  // --- Step 2: Gmail connect-in-flow -----------------------------------
+
+  const chooseSender = async (chosen: Sender) => {
+    setSender(chosen);
+    if (chosen === 'gentletap') return;
+    setError('');
+    setConnectingProvider('gmail');
+    try {
+      await api.get('/connections/google/callback');
+      advance.mutate({ step: 2, data: { sender: 'gmail' } });
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Could not connect Gmail'));
+    } finally {
+      setConnectingProvider('');
+    }
   };
 
   const drafts = draftsData?.drafts || [];
@@ -79,25 +160,45 @@ export const Onboarding: React.FC = () => {
         {step === 1 && (
           <div className="space-y-4">
             <h2 className="text-lg font-bold text-gray-900">Where do your unpaid invoices live?</h2>
-            <p className="text-sm text-gray-600">Link your accounting tool so we can draft reminders for your real invoices.</p>
+            <p className="text-sm text-gray-600">Connect your accounting tool and we'll draft reminders for your real invoices.</p>
             <div className="grid gap-3">
-              {['QuickBooks', 'FreshBooks'].map((label) => (
-                <button
-                  key={label}
-                  onClick={() => navigate('/integrations')}
-                  className="text-left border border-gray-200 rounded-xl p-4 hover:border-blue-500"
-                >
-                  <div className="text-sm font-semibold text-gray-900">Connect {label}</div>
-                  <div className="text-xs text-gray-500">Sync unpaid invoices & customers automatically</div>
-                </button>
-              ))}
+              <button
+                onClick={connectQuickBooks}
+                disabled={!!connectingProvider}
+                className="text-left border border-gray-200 rounded-xl p-4 hover:border-blue-500 disabled:opacity-60"
+              >
+                <div className="text-sm font-semibold text-gray-900">
+                  {connectingProvider === 'quickbooks' ? 'Connecting QuickBooks…' : 'Connect QuickBooks'}
+                </div>
+                <div className="text-xs text-gray-500">Sync unpaid invoices & customers automatically</div>
+              </button>
+              <button
+                onClick={connectFreshBooks}
+                disabled={!!connectingProvider}
+                className="text-left border border-gray-200 rounded-xl p-4 hover:border-blue-500 disabled:opacity-60"
+              >
+                <div className="text-sm font-semibold text-gray-900">
+                  {connectingProvider === 'freshbooks' ? 'Connecting FreshBooks…' : 'Connect FreshBooks'}
+                </div>
+                <div className="text-xs text-gray-500">Sync unpaid invoices & customers automatically</div>
+              </button>
             </div>
+            <input
+              ref={csvInputRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={onCsvFile}
+            />
             <button
-              onClick={() => navigate('/integrations')}
-              className="w-full text-left border border-gray-200 rounded-xl p-4 hover:border-blue-500"
+              onClick={() => csvInputRef.current?.click()}
+              disabled={!!connectingProvider || uploadingCsv}
+              className="w-full text-left border border-gray-200 rounded-xl p-4 hover:border-blue-500 disabled:opacity-60"
             >
-              <div className="text-sm font-semibold text-gray-900">Import a CSV</div>
-              <div className="text-xs text-gray-500">Upload existing invoices manually</div>
+              <div className="text-sm font-semibold text-gray-900">
+                {uploadingCsv ? 'Importing CSV…' : 'Import a CSV'}
+              </div>
+              <div className="text-xs text-gray-500">Upload unpaid invoices from a spreadsheet</div>
             </button>
 
             <div className="flex items-center gap-3 text-xs text-gray-400">
@@ -112,14 +213,6 @@ export const Onboarding: React.FC = () => {
             >
               Try a sample invoice instead
             </button>
-            <div className="flex justify-end">
-              <button
-                onClick={() => advance.mutate({ step: 1, data: {} })}
-                className="bg-blue-600 text-white text-sm font-semibold px-4 py-2.5 rounded-lg"
-              >
-                I'm connected — continue
-              </button>
-            </div>
           </div>
         )}
 
@@ -131,7 +224,7 @@ export const Onboarding: React.FC = () => {
             </p>
             <div className="grid gap-3">
               <button
-                onClick={() => setSender('gentletap')}
+                onClick={() => chooseSender('gentletap')}
                 className={`text-left border rounded-xl p-4 ${
                   sender === 'gentletap' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
                 }`}
@@ -140,29 +233,28 @@ export const Onboarding: React.FC = () => {
                 <div className="text-xs text-gray-500">Sent from GentleTap's delivery domain — works instantly, no setup.</div>
               </button>
               <button
-                onClick={() => setSender('gmail')}
-                className={`text-left border rounded-xl p-4 ${
+                onClick={() => chooseSender('gmail')}
+                disabled={!!connectingProvider}
+                className={`text-left border rounded-xl p-4 disabled:opacity-60 ${
                   sender === 'gmail' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
-                <div className="text-sm font-semibold text-gray-900">Send from my Gmail</div>
-                <div className="text-xs text-gray-500">Reminders come from your own address. Higher deliverability, personal replies.</div>
+                <div className="text-sm font-semibold text-gray-900">
+                  {connectingProvider === 'gmail' ? 'Connecting Gmail…' : 'Send from my Gmail'}
+                </div>
+                <div className="text-xs text-gray-500">
+                  Reminders come from your own address — connects your Google account now.
+                </div>
               </button>
             </div>
-            {sender === 'gmail' && (
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-500">Requires a one-time Google connection.</span>
-                <button onClick={() => navigate('/integrations')} className="font-medium text-blue-600">
-                  Connect Gmail →
-                </button>
-              </div>
+            {sender === 'gentletap' && (
+              <button
+                onClick={() => advance.mutate({ step: 2, data: { sender: 'gentletap' } })}
+                className="bg-blue-600 text-white text-sm font-semibold px-4 py-2.5 rounded-lg"
+              >
+                Continue
+              </button>
             )}
-            <button
-              onClick={() => advance.mutate({ step: 2, data: { sender } })}
-              className="bg-blue-600 text-white text-sm font-semibold px-4 py-2.5 rounded-lg"
-            >
-              Continue
-            </button>
           </div>
         )}
 
@@ -191,6 +283,17 @@ export const Onboarding: React.FC = () => {
               ))}
             </div>
 
+            {draftsLoading && !heroDraft && <p className="text-xs text-gray-400">Preparing your draft…</p>}
+
+            {draftsError && !heroDraft && (
+              <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-3">
+                Could not load a draft.{' '}
+                <button onClick={() => refetchDrafts()} className="font-semibold underline">
+                  Try again
+                </button>
+              </div>
+            )}
+
             {heroDraft ? (
               <div className="border border-gray-200 rounded-xl p-4 bg-slate-50">
                 <div className="text-[10px] uppercase font-bold text-blue-600 mb-1">
@@ -199,9 +302,7 @@ export const Onboarding: React.FC = () => {
                 <div className="text-sm font-semibold text-gray-900">{heroDraft.subject}</div>
                 <p className="text-sm text-gray-600 mt-2 whitespace-pre-wrap leading-relaxed">{heroDraft.body}</p>
               </div>
-            ) : (
-              <p className="text-xs text-gray-400">Preparing your draft…</p>
-            )}
+            ) : null}
 
             <button
               onClick={() => advance.mutate({ step: 3, data: { templates_previewed: true, tone } })}

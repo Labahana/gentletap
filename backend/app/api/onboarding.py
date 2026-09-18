@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.api.deps import get_current_user_and_org
 from app.models.invoice import Invoice
-from app.services.ai.provider import generate_reminder
+from app.services.ai.provider import _build_context
+from app.services.ai.templates import render_static_body, render_static_subject
 from app.services.client_profile import get_or_create_profile
 from app.models.client import Client
 from app.services.onboarding import advance_onboarding, get_or_create_onboarding
@@ -90,6 +91,21 @@ class _SampleProfile:
     reliability_score = 92
 
 
+def _static_draft(invoice: Any, client: Any, profile: Any, tone: str, owner_name: str) -> Dict[str, str]:
+    """Build a draft instantly from static templates — no AI network call.
+
+    Onboarding previews must resolve immediately (the AI providers can take
+    30s+ or be unreachable), so we render the deterministic fallback bodies
+    directly rather than going through generate_reminder's LLM chain.
+    """
+    ctx = _build_context(invoice, client, profile, tone, owner_name)
+    return {
+        "subject": render_static_subject(tone, ctx),
+        "body": render_static_body(tone, ctx),
+        "provider": "template",
+    }
+
+
 @router.get("/preview-drafts")
 def preview_drafts(user_and_org=Depends(get_current_user_and_org), db: Session = Depends(get_db)):
     user, org = user_and_org
@@ -104,22 +120,15 @@ def preview_drafts(user_and_org=Depends(get_current_user_and_org), db: Session =
         client = db.query(Client).filter(Client.id == inv.client_id).first()
         profile = get_or_create_profile(db, inv.client_id, org.id)
         for tone in ("warm", "friendly", "professional"):
-            draft = generate_reminder(
-                invoice=inv,
-                client=client,
-                client_profile=profile,
-                step_index=0,
-                tone=tone,
-                owner_name=user.full_name or "Your Team",
-            )
+            draft = _static_draft(inv, client, profile, tone, user.full_name or "Your Team")
             drafts.append(
                 {
                     "invoice_id": inv.id,
                     "invoice_number": inv.number,
                     "tone": tone,
-                    "subject": draft.subject,
-                    "body": draft.body,
-                    "provider": draft.provider,
+                    "subject": draft["subject"],
+                    "body": draft["body"],
+                    "provider": draft["provider"],
                     "is_sample": False,
                 }
             )
@@ -128,22 +137,17 @@ def preview_drafts(user_and_org=Depends(get_current_user_and_org), db: Session =
     # draft so the first-value moment still lands instead of an empty box.
     if not invoices:
         for tone in ("warm", "friendly", "professional"):
-            draft = generate_reminder(
-                invoice=_SampleInvoice(),
-                client=_SampleClient(),
-                client_profile=_SampleProfile(),
-                step_index=0,
-                tone=tone,
-                owner_name=user.full_name or "Your Team",
+            draft = _static_draft(
+                _SampleInvoice(), _SampleClient(), _SampleProfile(), tone, user.full_name or "Your Team"
             )
             drafts.append(
                 {
                     "invoice_id": _SampleInvoice.id,
                     "invoice_number": _SampleInvoice.number,
                     "tone": tone,
-                    "subject": draft.subject,
-                    "body": draft.body,
-                    "provider": draft.provider,
+                    "subject": draft["subject"],
+                    "body": draft["body"],
+                    "provider": draft["provider"],
                     "is_sample": True,
                 }
             )
