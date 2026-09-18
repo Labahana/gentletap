@@ -121,9 +121,8 @@ def patch_operation_mode(
                 status_code=400,
                 detail="Confirm switching to Autopilot (confirm=true). This generates templates and a default sequence.",
             )
-        from app.services.plan_gating import require_feature
-
-        require_feature(org, "autopilot")
+        # Autopilot is available on every plan; the free plan is instead capped
+        # by the monthly collections quota.
         ensure_autopilot_assets(db, org.id)
         row.operation_mode = "autopilot"
     else:

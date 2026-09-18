@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plug, RefreshCw, CheckCircle2, AlertCircle, FileText, Zap, Mail } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -36,6 +37,28 @@ const XeroWaitlist: React.FC = () => {
 export const Integrations: React.FC = () => {
   const queryClient = useQueryClient();
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [flash, setFlash] = useState('');
+
+  // OAuth callbacks redirect back here with ?connected=… / ?connect_error=…
+  useEffect(() => {
+    const connected = searchParams.get('connected');
+    const connectError = searchParams.get('connect_error');
+    const message = searchParams.get('message');
+    if (!connected && !connectError) return;
+    if (connectError) {
+      setFlash(message || `Could not connect ${connectError}.`);
+    } else {
+      const invoices = searchParams.get('invoices');
+      setFlash(
+        connected === 'gmail'
+          ? `Gmail connected${searchParams.get('email') ? ` (${searchParams.get('email')})` : ''}.`
+          : `${connected === 'quickbooks' ? 'QuickBooks' : 'FreshBooks'} connected${invoices ? ` — ${invoices} invoices synced` : ''}.`
+      );
+    }
+    setSearchParams({}, { replace: true });
+    queryClient.invalidateQueries();
+  }, [searchParams, setSearchParams, queryClient]);
 
   const { data: connections = [], isLoading } = useQuery({
     queryKey: ['connections'],
@@ -64,37 +87,29 @@ export const Integrations: React.FC = () => {
     },
   });
 
-  const handleConnectQBO = async () => {
+  // Start the real OAuth redirect flow. With real provider credentials the
+  // browser is redirected to the provider and returns here with ?connected=…;
+  // in dev (no creds) the backend connects with mock tokens immediately.
+  const startConnect = async (provider: 'quickbooks' | 'freshbooks' | 'gmail') => {
     try {
-      const res = await api.get('/connections/quickbooks/callback');
+      const res = await api.post(
+        `/connections/${provider === 'gmail' ? 'google' : provider}/auth-url?dest=integrations`
+      );
+      if (res.data?.url) {
+        window.location.href = res.data.url;
+        return;
+      }
       queryClient.invalidateQueries({ queryKey: ['connections'] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      alert(`QuickBooks connected! ${res.data.invoices_synced} invoices synced.`);
-    } catch (err) {
-      alert('Failed to connect QuickBooks');
+      alert(`${provider === 'gmail' ? 'Gmail' : provider === 'quickbooks' ? 'QuickBooks' : 'FreshBooks'} connected (dev mode).`);
+    } catch {
+      alert(`Failed to connect ${provider}`);
     }
   };
 
-  const handleConnectFreshBooks = async () => {
-    try {
-      const res = await api.get('/connections/freshbooks/callback');
-      queryClient.invalidateQueries({ queryKey: ['connections'] });
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      alert(`FreshBooks connected! ${res.data.invoices_synced} invoices synced.`);
-    } catch (err) {
-      alert('Failed to connect FreshBooks');
-    }
-  };
-
-  const handleConnectGoogle = async () => {
-    try {
-      const res = await api.get('/connections/google/callback');
-      queryClient.invalidateQueries({ queryKey: ['connections'] });
-      alert(`Gmail account connected! ${res.data.connected_email} ready for sending.`);
-    } catch (err) {
-      alert('Failed to connect Google Gmail account');
-    }
-  };
+  const handleConnectQBO = () => startConnect('quickbooks');
+  const handleConnectFreshBooks = () => startConnect('freshbooks');
+  const handleConnectGoogle = () => startConnect('gmail');
 
   const qboConn = connections.find((c: any) => c.provider === 'quickbooks' && c.status === 'active');
   const fbConn = connections.find((c: any) => c.provider === 'freshbooks' && c.status === 'active');
@@ -106,6 +121,10 @@ export const Integrations: React.FC = () => {
         <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Integrations & Connections</h1>
         <p className="text-sm text-gray-500 mt-1">Connect your accounting platforms and custom sending email accounts</p>
       </div>
+
+      {flash && (
+        <div className="text-xs bg-slate-50 border border-gray-200 rounded-lg p-3 text-gray-700">{flash}</div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Google / Gmail OAuth Connection */}

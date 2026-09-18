@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from fastapi.responses import Response
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -24,7 +25,22 @@ router = APIRouter(prefix="/invoices", tags=["Invoices"])
 
 from app.services.plan_gating import normalize_plan
 
-FREE_PLAN_INVOICE_LIMIT = 3
+SAMPLE_IMPORT_CSV = (
+    "client_name,client_email,invoice_number,amount,currency,due_date,invoice_date\n"
+    "Acme Corp,billing@acmecorp.com,INV-1001,2450.00,USD,2026-08-04,2026-07-04\n"
+    "Starlight Design Studio,accounts@starlightdesign.io,INV-1002,3800.00,USD,2026-08-21,2026-07-21\n"
+    "Bluepeak Media,finance@bluepeak.io,INV-1003,950.00,USD,2026-09-01,2026-08-01\n"
+)
+
+
+@router.get("/import-sample")
+def download_import_sample():
+    """Public sample CSV so users can see the expected import format."""
+    return Response(
+        content=SAMPLE_IMPORT_CSV,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=gentletap-import-sample.csv"},
+    )
 
 
 @router.get("", response_model=List[InvoiceOut])
@@ -81,13 +97,14 @@ def create_invoice(
 ):
     user, org = user_and_org
 
-    # Enforce Free Plan 3-invoice limit
+    # Enforce free-plan invoice cap (aligned with the monthly collections quota)
     if normalize_plan(org.plan) == "starter":
+        limit = org.collections_quota or 5
         current_count = db.query(Invoice).filter(Invoice.org_id == org.id).count()
-        if current_count >= FREE_PLAN_INVOICE_LIMIT:
+        if current_count >= limit:
             raise HTTPException(
                 status_code=403,
-                detail=f"Starter plan limit of {FREE_PLAN_INVOICE_LIMIT} invoices reached. Please upgrade to unlock unlimited invoices.",
+                detail=f"Starter plan limit of {limit} invoices reached. Please upgrade to unlock unlimited invoices.",
             )
 
     client = db.query(Client).filter(Client.id == req.client_id, Client.org_id == org.id).first()

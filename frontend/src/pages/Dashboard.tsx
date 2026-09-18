@@ -13,6 +13,7 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, BarChart, 
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { EscalationRow, Escalation } from '@/components/EscalationRow';
+import { DashboardPlanCard } from '@/components/DashboardPlanCard';
 
 export const Dashboard: React.FC = () => {
   const queryClient = useQueryClient();
@@ -145,8 +146,10 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-xs">
-          <h3 className="text-base font-bold text-gray-900 mb-1">Recent Activity</h3>
+        <div className="space-y-6">
+          <DashboardPlanCard />
+          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-xs">
+            <h3 className="text-base font-bold text-gray-900 mb-1">Recent Activity</h3>
           <p className="text-xs text-gray-500 mb-4">Payments and sends</p>
           <div className="space-y-3 max-h-64 overflow-y-auto">
             {(summary?.recent_activities || []).length === 0 && (
@@ -168,6 +171,7 @@ export const Dashboard: React.FC = () => {
               </div>
             ))}
           </div>
+        </div>
         </div>
       </div>
 

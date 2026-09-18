@@ -11,7 +11,7 @@ from app.models.connection import Connection
 from app.models.onboarding_state import OnboardingState
 from app.models.organization import Organization
 from app.services.autopilot import ensure_autopilot_assets
-from app.services.plan_gating import can_use_autopilot, require_feature
+from app.services.plan_gating import can_use_autopilot  # noqa: F401  (kept for API compatibility)
 from app.services.reminder_engine import get_or_create_org_settings
 
 
@@ -59,8 +59,8 @@ def validate_step(db: Session, org: Organization, step: int, data: Dict[str, Any
         mode = data.get("operation_mode")
         if mode not in ("template", "autopilot"):
             return False, "Choose Template or Autopilot mode."
-        if mode == "autopilot" and not can_use_autopilot(org):
-            return False, "Upgrade to Pro to use Autopilot, or choose Template mode."
+        # Both modes are selectable on every plan — the free plan simply caps
+        # monthly collections; upgrading to Pro removes the cap.
         return True, ""
     if step == 5:
         return True, ""
@@ -105,7 +105,6 @@ def advance_onboarding(
         mode = data.get("operation_mode", "template")
         settings_row = get_or_create_org_settings(db, org.id)
         if mode == "autopilot":
-            require_feature(org, "autopilot")
             ensure_autopilot_assets(db, org.id)
             settings_row.operation_mode = "autopilot"
         else:

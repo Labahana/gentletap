@@ -11,6 +11,30 @@ from app.schemas.invoice import CSVPreviewRow, CSVImportPreviewResponse
 
 logger = logging.getLogger(__name__)
 
+# Fuzzy column matching — maps each canonical field to accepted header aliases.
+COLUMN_ALIASES = {
+    "invoice_number": ["invoice_number", "number", "invoice_id", "invoice_no", "inv_no", "invoice", "reference", "ref"],
+    "client_name": ["client_name", "client", "customer", "customer_name", "company", "company_name", "payer", "account"],
+    "client_email": ["client_email", "email", "customer_email", "contact_email", "email_address"],
+    "client_phone": ["client_phone", "phone", "customer_phone", "phone_number", "mobile"],
+    "amount": ["amount", "total", "invoice_amount", "total_amount", "grand_total", "balance", "amount_due", "total_due", "value"],
+    "currency": ["currency", "curr", "currency_code"],
+    "due_date": ["due_date", "duedate", "date_due", "payment_due", "due"],
+    "issue_date": ["issue_date", "invoice_date", "date_issued", "date", "created_date"],
+}
+
+
+def _map_row(row: Dict[str, str]) -> Dict[str, str]:
+    """Resolve a raw CSV row dict (normalized keys) to canonical field names."""
+    normalized = {k.strip().lower().replace(" ", "_"): (v or "").strip() for k, v in row.items() if k}
+    mapped: Dict[str, str] = {}
+    for field, aliases in COLUMN_ALIASES.items():
+        for alias in aliases:
+            if normalized.get(alias):
+                mapped[field] = normalized[alias]
+                break
+    return mapped
+
 
 def parse_and_preview_csv(file_contents: bytes) -> CSVImportPreviewResponse:
     text = file_contents.decode("utf-8-sig", errors="ignore")
@@ -20,15 +44,12 @@ def parse_and_preview_csv(file_contents: bytes) -> CSVImportPreviewResponse:
     valid_count = 0
     invalid_count = 0
 
-    # Normalize header names (lowercase, strip, replace spaces with underscores)
-    fieldnames = [f.strip().lower().replace(" ", "_") for f in (reader.fieldnames or [])]
-
     for idx, raw_row in enumerate(reader):
-        row = {k.strip().lower().replace(" ", "_"): v.strip() for k, v in raw_row.items() if k}
-        inv_num = row.get("invoice_number") or row.get("number") or row.get("invoice_id") or f"CSV-{idx+1}"
-        client_name = row.get("client_name") or row.get("client") or row.get("customer") or ""
-        client_email = row.get("client_email") or row.get("email") or None
-        amount_str = row.get("amount") or row.get("total") or "0"
+        row = _map_row(raw_row)
+        inv_num = row.get("invoice_number") or f"CSV-{idx+1}"
+        client_name = row.get("client_name") or ""
+        client_email = row.get("client_email") or None
+        amount_str = row.get("amount") or "0"
         currency = row.get("currency") or "USD"
         due_date = row.get("due_date") or None
         issue_date = row.get("issue_date") or None

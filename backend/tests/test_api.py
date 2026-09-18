@@ -83,8 +83,8 @@ def test_free_plan_invoice_limit():
     )
     client_id = client_res.json()["id"]
 
-    # Create 3 invoices (Free plan limit)
-    for i in range(1, 4):
+    # Create 5 invoices (free-plan collection quota)
+    for i in range(1, 6):
         res = client.post(
             "/api/v1/invoices",
             json={
@@ -97,11 +97,11 @@ def test_free_plan_invoice_limit():
         )
         assert res.status_code == 200
 
-    # 4th invoice creation should be blocked (403 Limit Exceeded)
+    # 6th invoice creation should be blocked (403 Limit Exceeded)
     blocked_res = client.post(
         "/api/v1/invoices",
         json={
-            "number": "INV-004",
+            "number": "INV-006",
             "client_id": client_id,
             "amount": 500.0,
             "currency": "USD",

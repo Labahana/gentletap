@@ -171,7 +171,7 @@ def test_onboarding_flow():
     assert s1.status_code == 200
     s2 = client.post(
         "/api/v1/onboarding/step",
-        json={"step": 2, "data": {"sender_email": "me@ex.com", "sender_verified": True}},
+        json={"step": 2, "data": {"sender": "gentletap"}},
         headers=headers,
     )
     assert s2.status_code == 200
@@ -192,8 +192,10 @@ def test_onboarding_flow():
     assert s5.json()["complete"] is True
 
 
-def test_paddle_signature_dev_accepts_empty_secret():
-    assert verify_paddle_signature(b'{"ok":true}', None) is True
+def test_paddle_signature_fails_closed_on_empty_secret():
+    # Webhook verification is deliberately fail-closed: no secret configured
+    # means every webhook is rejected (the old secret was once committed).
+    assert verify_paddle_signature(b'{"ok":true}', None) is False
 
 
 def test_public_plans():

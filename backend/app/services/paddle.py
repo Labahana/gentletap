@@ -22,14 +22,14 @@ settings = get_settings()
 def price_id_for_plan(plan: str, annual: bool) -> str:
     plan = normalize_plan(plan)
     mapping = {
-        ("pro", False): settings.paddle_plan_pro_monthly,
-        ("pro", True): settings.paddle_plan_pro_annual,
-        ("pro_plus", False): settings.paddle_plan_pro_plus_monthly,
-        ("pro_plus", True): settings.paddle_plan_pro_plus_annual,
-        ("team", False): settings.paddle_plan_team_monthly,
-        ("team", True): settings.paddle_plan_team_annual,
+        ("pro", False): settings.paddle_price_id_pro_monthly or settings.paddle_price_id_pro,
+        ("pro", True): settings.paddle_price_id_pro_annual or settings.paddle_price_id_pro,
+        ("pro_plus", False): settings.paddle_price_id_pro_plus_monthly,
+        ("pro_plus", True): settings.paddle_price_id_pro_plus_annual,
+        ("team", False): settings.paddle_price_id_team_monthly,
+        ("team", True): settings.paddle_price_id_team_annual,
     }
-    return mapping.get((plan, annual), settings.paddle_plan_pro_monthly)
+    return mapping.get((plan, annual), settings.paddle_price_id_pro_monthly or settings.paddle_price_id_pro)
 
 
 def verify_paddle_signature(raw_body: bytes, signature_header: Optional[str]) -> bool:

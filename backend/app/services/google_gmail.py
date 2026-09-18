@@ -3,6 +3,7 @@ import logging
 from email.mime.text import MIMEText
 from typing import Dict, Any, Tuple, Optional
 import httpx
+from urllib.parse import urlencode
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -37,7 +38,7 @@ def get_google_gmail_auth_url(state: str) -> str:
         "prompt": "consent",
         "state": state,
     }
-    query_str = "&".join(f"{k}={v}" for k, v in params.items())
+    query_str = urlencode(params)
     return f"{GOOGLE_AUTH_URL}?{query_str}"
 
 

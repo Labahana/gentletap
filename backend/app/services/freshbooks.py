@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Tuple, Optional
 import httpx
+from urllib.parse import urlencode
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -24,7 +25,7 @@ def get_freshbooks_auth_url(state: str) -> str:
         "redirect_uri": settings.freshbooks_redirect_uri,
         "state": state,
     }
-    query_str = "&".join(f"{k}={v}" for k, v in params.items())
+    query_str = urlencode(params)
     return f"{FRESHBOOKS_AUTH_URL}?{query_str}"
 
 

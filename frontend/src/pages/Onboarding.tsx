@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { CheckCircle2, Sparkles } from 'lucide-react';
 import { api, apiErrorMessage } from '@/lib/api';
 import { ProgressBar } from '@/components/onboarding/ProgressBar';
 import { ModeToggle } from '@/components/ModeToggle';
@@ -13,13 +14,16 @@ type Sender = 'gentletap' | 'gmail';
 export const Onboarding: React.FC = () => {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { step, setStep } = useOnboardingStore();
   const [sender, setSender] = useState<Sender>('gentletap');
   const [mode, setMode] = useState<'template' | 'autopilot'>('template');
   const [tone, setTone] = useState<Tone>('friendly');
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [connectingProvider, setConnectingProvider] = useState<'' | 'quickbooks' | 'freshbooks' | 'gmail'>('');
   const [uploadingCsv, setUploadingCsv] = useState(false);
+  const [upgrading, setUpgrading] = useState(false);
   const csvInputRef = useRef<HTMLInputElement>(null);
 
   const { data: state } = useQuery({
@@ -71,31 +75,77 @@ export const Onboarding: React.FC = () => {
     onError: (err: any) => setError(err?.response?.data?.detail || 'Could not go back'),
   });
 
-  // --- Step 1: in-flow connections -------------------------------------
+  // --- OAuth callback handling ------------------------------------------
+  // The backend provider callbacks 302 back here with query params:
+  //   ?connected=quickbooks&invoices=12  |  ?connect_error=gmail&message=...
+  useEffect(() => {
+    const connected = searchParams.get('connected');
+    const connectError = searchParams.get('connect_error');
+    const message = searchParams.get('message');
+    if (!connected && !connectError) return;
 
-  const connectQuickBooks = async () => {
-    setError('');
-    setConnectingProvider('quickbooks');
-    try {
-      await api.get('/connections/quickbooks/callback');
-      advance.mutate({ step: 1, data: { accounting_connected: true, provider: 'quickbooks' } });
-    } catch (err) {
-      setError(apiErrorMessage(err, 'Could not connect QuickBooks'));
-    } finally {
+    if (connectError) {
+      setError(message || `Could not connect ${connectError}. Please try again.`);
       setConnectingProvider('');
+    } else if (connected) {
+      setError('');
+      const label =
+        connected === 'gmail' ? 'Gmail' : connected === 'quickbooks' ? 'QuickBooks' : 'FreshBooks';
+      const email = searchParams.get('email');
+      const invoices = searchParams.get('invoices');
+      const syncFailed = searchParams.get('sync') === 'failed';
+      setNotice(
+        syncFailed
+          ? `${label} connected, but the first sync failed — you can retry it from Integrations later.`
+          : connected === 'gmail'
+            ? `${label}${email ? ` (${email})` : ''} connected.`
+            : `${label} connected${invoices ? ` — ${invoices} invoices synced` : ''}.`,
+      );
+      if (connected === 'gmail') {
+        setSender('gmail');
+        advance.mutate({ step: 2, data: { sender: 'gmail' } });
+      } else {
+        advance.mutate({ step: 1, data: { accounting_connected: true, provider: connected } });
+      }
+      // Sync results change invoice data everywhere.
+      qc.invalidateQueries();
     }
-  };
+    setSearchParams({}, { replace: true });
+  }, [searchParams, setSearchParams, qc]);
 
-  const connectFreshBooks = async () => {
+  // --- Step 1: in-flow connections -------------------------------------
+  // Ask the backend for a provider authorization URL. If real OAuth creds
+  // are configured the browser is redirected to the provider and the
+  // backend callback brings us back with ?connected=...; otherwise the
+  // backend connects in mock mode (dev) and we advance immediately.
+
+  const startConnect = async (provider: 'quickbooks' | 'freshbooks' | 'gmail') => {
     setError('');
-    setConnectingProvider('freshbooks');
+    setNotice('');
+    setConnectingProvider(provider);
     try {
-      await api.get('/connections/freshbooks/callback');
-      advance.mutate({ step: 1, data: { accounting_connected: true, provider: 'freshbooks' } });
-    } catch (err) {
-      setError(apiErrorMessage(err, 'Could not connect FreshBooks'));
-    } finally {
+      const res = await api.post(`/connections/${provider === 'gmail' ? 'google' : provider}/auth-url`);
+      const url = res.data?.url;
+      if (url) {
+        window.location.href = url; // full redirect to provider
+        return; // page navigates away
+      }
+      // Mock mode: backend connected immediately with mock tokens.
+      setNotice(
+        provider === 'gmail'
+          ? 'Gmail connected (dev mode — no real Google credentials configured).'
+          : `${provider === 'quickbooks' ? 'QuickBooks' : 'FreshBooks'} connected (dev mode) with sample data.`,
+      );
       setConnectingProvider('');
+      if (provider === 'gmail') {
+        setSender('gmail');
+        advance.mutate({ step: 2, data: { sender: 'gmail' } });
+      } else {
+        advance.mutate({ step: 1, data: { accounting_connected: true, provider } });
+      }
+    } catch (err) {
+      setConnectingProvider('');
+      setError(apiErrorMessage(err, `Could not connect ${provider}`));
     }
   };
 
@@ -104,6 +154,7 @@ export const Onboarding: React.FC = () => {
     e.target.value = '';
     if (!file) return;
     setError('');
+    setNotice('');
     setUploadingCsv(true);
     try {
       const form = new FormData();
@@ -113,10 +164,11 @@ export const Onboarding: React.FC = () => {
       ).data;
       const rows = (preview?.preview || []).filter((r: any) => r.is_valid);
       if (!rows.length) {
-        setError('No valid invoices found in that file. Check the columns and try again.');
+        setError('No valid invoices found in that file. Download the sample CSV to see the expected format.');
         return;
       }
       await api.post('/invoices/confirm-import', { rows });
+      setNotice(`${rows.length} invoices imported.`);
       advance.mutate({ step: 1, data: { accounting_connected: true, provider: 'csv' } });
     } catch (err) {
       setError(apiErrorMessage(err, 'Could not import that file'));
@@ -125,20 +177,35 @@ export const Onboarding: React.FC = () => {
     }
   };
 
-  // --- Step 2: Gmail connect-in-flow -----------------------------------
+  // --- Step 2: sender choice --------------------------------------------
 
-  const chooseSender = async (chosen: Sender) => {
+  const chooseSender = (chosen: Sender) => {
     setSender(chosen);
-    if (chosen === 'gentletap') return;
+    if (chosen === 'gmail') {
+      startConnect('gmail');
+    }
+  };
+
+  // --- Step 4: upgrade ----------------------------------------------------
+
+  const upgradeToPro = async () => {
     setError('');
-    setConnectingProvider('gmail');
+    setUpgrading(true);
     try {
-      await api.get('/connections/google/callback');
-      advance.mutate({ step: 2, data: { sender: 'gmail' } });
+      const res = await api.post('/billing/checkout', { plan: 'pro', annual: false });
+      if (res.data?.url) {
+        window.location.href = res.data.url; // Paddle hosted checkout
+        return;
+      }
+      // Mock checkout applied instantly (dev) — refresh onboarding state so
+      // autopilot becomes selectable, then switch to it.
+      await qc.invalidateQueries({ queryKey: ['onboarding'] });
+      setNotice('Upgraded to Pro! Autopilot is now unlocked.');
+      setMode('autopilot');
     } catch (err) {
-      setError(apiErrorMessage(err, 'Could not connect Gmail'));
+      setError(apiErrorMessage(err, 'Could not start checkout'));
     } finally {
-      setConnectingProvider('');
+      setUpgrading(false);
     }
   };
 
@@ -166,6 +233,12 @@ export const Onboarding: React.FC = () => {
         <ProgressBar step={step} />
 
         {error && <div className="mb-4 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-3">{error}</div>}
+        {notice && !error && (
+          <div className="mb-4 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-3 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            {notice}
+          </div>
+        )}
 
         {step === 1 && (
           <div className="space-y-4">
@@ -173,8 +246,8 @@ export const Onboarding: React.FC = () => {
             <p className="text-sm text-gray-600">Connect your accounting tool and we'll draft reminders for your real invoices.</p>
             <div className="grid gap-3">
               <button
-                onClick={connectQuickBooks}
-                disabled={!!connectingProvider}
+                onClick={() => startConnect('quickbooks')}
+                disabled={!!connectingProvider || uploadingCsv}
                 className="text-left border border-gray-200 rounded-xl p-4 hover:border-blue-500 disabled:opacity-60"
               >
                 <div className="text-sm font-semibold text-gray-900">
@@ -183,8 +256,8 @@ export const Onboarding: React.FC = () => {
                 <div className="text-xs text-gray-500">Sync unpaid invoices & customers automatically</div>
               </button>
               <button
-                onClick={connectFreshBooks}
-                disabled={!!connectingProvider}
+                onClick={() => startConnect('freshbooks')}
+                disabled={!!connectingProvider || uploadingCsv}
                 className="text-left border border-gray-200 rounded-xl p-4 hover:border-blue-500 disabled:opacity-60"
               >
                 <div className="text-sm font-semibold text-gray-900">
@@ -211,18 +284,26 @@ export const Onboarding: React.FC = () => {
               <div className="text-xs text-gray-500">Upload unpaid invoices from a spreadsheet</div>
             </button>
 
-            <div className="flex items-center gap-3 text-xs text-gray-400">
+            <div className="flex items-center justify-between text-xs text-gray-400">
               <span className="h-px bg-gray-200 flex-1" />
               or
               <span className="h-px bg-gray-200 flex-1" />
             </div>
 
-            <button
-              onClick={() => advance.mutate({ step: 1, data: { sample: true } })}
-              className="text-sm font-semibold text-blue-600"
-            >
-              Try a sample invoice instead
-            </button>
+            <div className="flex items-center gap-4 text-xs">
+              <button
+                onClick={() => advance.mutate({ step: 1, data: { sample: true } })}
+                className="font-semibold text-blue-600"
+              >
+                Try a sample invoice instead
+              </button>
+              <a
+                href="/api/v1/invoices/import-sample"
+                className="text-gray-500 hover:text-gray-800 underline"
+              >
+                Download sample CSV
+              </a>
+            </div>
           </div>
         )}
 
@@ -345,15 +426,36 @@ export const Onboarding: React.FC = () => {
             </button>
             <h2 className="text-lg font-bold text-gray-900">How hands-on do you want to be?</h2>
             <p className="text-sm text-gray-600">
-              Start in <span className="font-semibold text-gray-800">Template mode</span> — you review and approve each
-              reminder before it goes out. Switch to Autopilot any time once you trust the flow.
+              Both modes are available on every plan. Template mode keeps you in control; Autopilot
+              sends reminders on its own schedule. Free plan includes 5 invoice collections per month —
+              upgrade to Pro any time for unlimited collections and Autopilot.
             </p>
             <ModeToggle mode={mode} onChange={setMode} />
+            <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+              <div className="flex items-start gap-3">
+                <Sparkles className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                <div className="text-xs text-gray-700">
+                  <div className="font-semibold text-gray-900">Unlock everything with Pro — $19/mo</div>
+                  <ul className="mt-1 space-y-0.5">
+                    <li>• Unlimited invoice collections (free plan: 5/mo)</li>
+                    <li>• Autopilot — reminders send automatically</li>
+                    <li>• Full QuickBooks &amp; FreshBooks live sync</li>
+                  </ul>
+                </div>
+              </div>
+              <button
+                onClick={upgradeToPro}
+                disabled={upgrading}
+                className="mt-3 w-full bg-white text-blue-700 border border-blue-200 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-50 disabled:opacity-60"
+              >
+                {upgrading ? 'Starting checkout…' : 'Upgrade to Pro'}
+              </button>
+            </div>
             <button
               onClick={() => advance.mutate({ step: 4, data: { operation_mode: mode } })}
               className="bg-blue-600 text-white text-sm font-semibold px-4 py-2.5 rounded-lg"
             >
-              Continue
+              Continue {mode === 'autopilot' ? 'with Autopilot' : 'on the free plan'}
             </button>
           </div>
         )}
