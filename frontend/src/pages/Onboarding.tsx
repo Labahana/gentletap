@@ -31,7 +31,7 @@ export const Onboarding: React.FC = () => {
 
   useEffect(() => {
     if (state?.step) setStep(Math.min(state.step, 5));
-    if (state?.complete) navigate('/dashboard');
+    if (state?.complete || state?.dismissed) navigate('/dashboard');
   }, [state, setStep, navigate]);
 
   const advance = useMutation({

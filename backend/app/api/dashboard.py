@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, date, timezone
+import builtins
 from typing import List
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -164,7 +165,7 @@ def get_dashboard_charts(
     days = 90 if range == "90d" else 30
     step = max(1, days // 12)
 
-    for i in range(11, -1, -1):
+    for i in builtins.range(11, -1, -1):
         target_date = today - timedelta(days=i * step)
         date_str = target_date.strftime("%b %d")
         collected = (

@@ -46,7 +46,7 @@ export const GoogleAuthCallback: React.FC = () => {
           accessToken: data.access_token,
           refreshToken: data.refresh_token,
         });
-        navigate('/dashboard', { replace: true });
+        navigate('/onboarding', { replace: true });
       })
       .catch((err) => {
         setError(err.response?.data?.detail || 'Google authentication failed. Please try again.');

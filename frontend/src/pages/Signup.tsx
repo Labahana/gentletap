@@ -40,7 +40,7 @@ export const Signup: React.FC = () => {
       if (!localStorage.getItem('gentletap_access_token')) {
         throw new Error('Session could not be stored. Enable site data and retry.');
       }
-      window.location.replace('/dashboard');
+      window.location.replace('/onboarding');
       return;
     } catch (err: any) {
       setError(apiErrorMessage(err, 'Failed to create account'));

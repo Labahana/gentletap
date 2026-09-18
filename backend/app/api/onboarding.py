@@ -28,11 +28,13 @@ def get_onboarding(user_and_org=Depends(get_current_user_and_org), db: Session =
     _, org = user_and_org
     state = get_or_create_onboarding(db, org.id)
     db.commit()
+    data = state.data or {}
     return {
         "step": state.step,
         "completed_at": state.completed_at,
-        "data": state.data or {},
+        "data": data,
         "complete": state.step >= 5 and state.completed_at is not None,
+        "dismissed": bool(data.get("dismissed")),
     }
 
 
@@ -58,7 +60,11 @@ def post_step(
 def skip_onboarding(user_and_org=Depends(get_current_user_and_org), db: Session = Depends(get_db)):
     _, org = user_and_org
     state = get_or_create_onboarding(db, org.id)
-    # keep current step so wizard can resume
+    # Mark dismissed so the wizard doesn't re-open on next login. Keep the
+    # current step in case they later choose to come back and finish.
+    data = dict(state.data or {})
+    data["dismissed"] = True
+    state.data = data
     db.commit()
     return {"step": state.step, "skipped": True}
 
