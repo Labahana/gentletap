@@ -1,4 +1,4 @@
-"""Send reminder emails via Resend."""
+"""Send reminder emails via the org's preferred channel (Gmail OAuth or Resend)."""
 
 from __future__ import annotations
 
@@ -12,11 +12,37 @@ from app.models.audit_log import AuditLog
 from app.models.client import Client
 from app.models.invoice import Invoice
 from app.models.message import Message
-from app.services.email import send_email_via_resend, append_opt_out_footer
+from app.services.email import send_email_dispatch, append_opt_out_footer
+from app.services.reminder_engine import get_or_create_org_settings
 from app.workers.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+
+def resolve_org_send_via(db, org_id: str) -> str:
+    """Return the org's preferred sender channel ('gmail' or 'resend').
+
+    Falls back to 'resend' (GentleTap's domain) unless the org explicitly
+    chose Gmail during onboarding and has an active Gmail connection.
+    """
+    settings_row = get_or_create_org_settings(db, org_id)
+    pref = (settings_row.reminder_defaults or {}).get("sender_pref")
+    if pref != "gmail":
+        return "resend"
+    from app.models.connection import Connection
+
+    has_gmail = (
+        db.query(Connection)
+        .filter(
+            Connection.org_id == org_id,
+            Connection.provider.in_(["gmail", "google"]),
+            Connection.status == "active",
+        )
+        .count()
+        > 0
+    )
+    return "gmail" if has_gmail else "resend"
 
 
 def create_and_send_message(
@@ -51,7 +77,15 @@ def create_and_send_message(
     db.add(msg)
     db.flush()
 
-    result = send_email_via_resend(to_email, subject, body_with_footer)
+    send_via = resolve_org_send_via(db, org_id)
+    result = send_email_dispatch(
+        org_id=org_id,
+        to_email=to_email,
+        subject=subject,
+        body=body_with_footer,
+        send_via=send_via,
+        db=db,
+    )
     msg.provider_message_id = result.get("id")
     msg.status = "sent"
     msg.sent_at = datetime.now(timezone.utc)
@@ -94,7 +128,14 @@ def send_email_task(message_id: str) -> Dict[str, Any]:
             db.commit()
             return {"status": "error", "reason": "no_email"}
 
-        result = send_email_via_resend(client.email, msg.subject, msg.body)
+        result = send_email_dispatch(
+            org_id=msg.org_id,
+            to_email=client.email,
+            subject=msg.subject,
+            body=msg.body,
+            send_via=resolve_org_send_via(db, msg.org_id),
+            db=db,
+        )
         msg.provider_message_id = result.get("id")
         msg.status = "sent"
         msg.sent_at = datetime.now(timezone.utc)

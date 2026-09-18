@@ -1,5 +1,4 @@
-from datetime import datetime
-from typing import List, Optional, Any, Dict
+from typing import Any, Dict, Optional
 from pydantic import BaseModel, EmailStr
 
 
@@ -50,7 +49,7 @@ class ReminderDefaultsOut(BaseModel):
     stop_after_days: int = 30
     contact_window_enabled: bool = True
     send_thank_you: bool = True
-    reminder_defaults: Optional[List[Dict[str, Any]]] = None
+    reminder_defaults: Optional[Dict[str, Any]] = None
     operation_mode: str = "template"
 
 
@@ -58,4 +57,4 @@ class ReminderDefaultsUpdate(BaseModel):
     stop_after_days: Optional[int] = None
     contact_window_enabled: Optional[bool] = None
     send_thank_you: Optional[bool] = None
-    reminder_defaults: Optional[List[Dict[str, Any]]] = None
+    reminder_defaults: Optional[Dict[str, Any]] = None

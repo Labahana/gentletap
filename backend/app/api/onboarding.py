@@ -1,5 +1,6 @@
 """Onboarding wizard API."""
 
+from datetime import date, timedelta
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends
@@ -62,6 +63,27 @@ def skip_onboarding(user_and_org=Depends(get_current_user_and_org), db: Session 
     return {"step": state.step, "skipped": True}
 
 
+class _SampleInvoice:
+    """Lightweight stand-in so a fresh org still reaches the 'aha' draft.
+
+    Mirrors only the fields generate_reminder reads, so no DB row is required.
+    """
+
+    id = "sample"
+    number = "INV-1042"
+    amount = 1250.00
+    currency = "USD"
+    due_date = date.today() - timedelta(days=9)
+
+
+class _SampleClient:
+    name = "Acme Studio"
+
+
+class _SampleProfile:
+    reliability_score = 92
+
+
 @router.get("/preview-drafts")
 def preview_drafts(user_and_org=Depends(get_current_user_and_org), db: Session = Depends(get_db)):
     user, org = user_and_org
@@ -92,7 +114,32 @@ def preview_drafts(user_and_org=Depends(get_current_user_and_org), db: Session =
                     "subject": draft.subject,
                     "body": draft.body,
                     "provider": draft.provider,
+                    "is_sample": False,
+                }
+            )
+
+    # No unpaid invoices yet (fresh account or skipped connect): seed one sample
+    # draft so the first-value moment still lands instead of an empty box.
+    if not invoices:
+        for tone in ("warm", "friendly", "professional"):
+            draft = generate_reminder(
+                invoice=_SampleInvoice(),
+                client=_SampleClient(),
+                client_profile=_SampleProfile(),
+                step_index=0,
+                tone=tone,
+                owner_name=user.full_name or "Your Team",
+            )
+            drafts.append(
+                {
+                    "invoice_id": _SampleInvoice.id,
+                    "invoice_number": _SampleInvoice.number,
+                    "tone": tone,
+                    "subject": draft.subject,
+                    "body": draft.body,
+                    "provider": draft.provider,
+                    "is_sample": True,
                 }
             )
     db.commit()
-    return {"drafts": drafts}
+    return {"drafts": drafts, "is_sample": bool(not invoices)}

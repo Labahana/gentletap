@@ -29,12 +29,27 @@ def validate_step(db: Session, org: Organization, step: int, data: Dict[str, Any
     if step == 1:
         has_conn = db.query(Connection).filter(Connection.org_id == org.id).count() > 0
         csv_ok = bool(data.get("accounting_connected") or data.get("csv_imported"))
-        if not has_conn and not csv_ok:
-            return False, "Connect QuickBooks, FreshBooks, or import a CSV to continue."
+        sample_ok = bool(data.get("sample"))
+        if not has_conn and not csv_ok and not sample_ok:
+            return False, "Connect QuickBooks, FreshBooks, import a CSV, or try a sample invoice to continue."
         return True, ""
     if step == 2:
-        if not data.get("sender_verified") and not data.get("sender_email"):
-            return False, "Add a sender email to continue."
+        sender = data.get("sender")
+        if sender not in ("gentletap", "gmail"):
+            return False, "Choose a sender to continue."
+        if sender == "gmail":
+            has_gmail = (
+                db.query(Connection)
+                .filter(
+                    Connection.org_id == org.id,
+                    Connection.provider.in_(["gmail", "google"]),
+                    Connection.status == "active",
+                )
+                .count()
+                > 0
+            )
+            if not has_gmail:
+                return False, "Connect your Gmail account first, or use GentleTap's sender."
         return True, ""
     if step == 3:
         if not data.get("templates_previewed"):
@@ -70,15 +85,22 @@ def advance_onboarding(
         raise HTTPException(status_code=400, detail=err)
 
     if step == 1:
-        data["accounting_connected"] = True
+        if not data.get("sample"):
+            data["accounting_connected"] = True
     if step == 2:
-        data["sender_verified"] = True
-        if payload and payload.get("sender_email"):
-            settings_row = get_or_create_org_settings(db, org.id)
-            # store sender hint in signature area / preferences
-            data["sender_email"] = payload["sender_email"]
+        data["sender"] = data.get("sender") or "gentletap"
+        settings_row = get_or_create_org_settings(db, org.id)
+        defaults = dict(settings_row.reminder_defaults or {})
+        defaults["sender_pref"] = data["sender"]
+        settings_row.reminder_defaults = defaults
     if step == 3:
         data["templates_previewed"] = True
+        tone = data.get("tone")
+        if tone in ("warm", "friendly", "professional", "firm", "urgent"):
+            settings_row = get_or_create_org_settings(db, org.id)
+            defaults = dict(settings_row.reminder_defaults or {})
+            defaults["default_tone"] = tone
+            settings_row.reminder_defaults = defaults
     if step == 4:
         mode = data.get("operation_mode", "template")
         settings_row = get_or_create_org_settings(db, org.id)

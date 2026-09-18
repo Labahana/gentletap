@@ -104,6 +104,11 @@ def build_schedule_for_assignment(
     tz = org_settings.timezone or tz_name or "America/New_York"
     window_on = org_settings.contact_window_enabled
 
+    # Org-level default tone (chosen during onboarding) is used as the tone
+    # preference only when no per-client preference was supplied.
+    if tone_pref is None:
+        tone_pref = (org_settings.reminder_defaults or {}).get("default_tone")
+
     created: List[ReminderSchedule] = []
     steps = sequence.steps or []
     for idx, step in enumerate(steps):
