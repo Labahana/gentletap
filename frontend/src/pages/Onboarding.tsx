@@ -61,6 +61,16 @@ export const Onboarding: React.FC = () => {
     navigate('/dashboard');
   };
 
+  const back = useMutation({
+    mutationFn: async () => (await api.post('/onboarding/back')).data,
+    onSuccess: (data) => {
+      setError('');
+      setStep(data.step);
+      qc.invalidateQueries({ queryKey: ['onboarding'] });
+    },
+    onError: (err: any) => setError(err?.response?.data?.detail || 'Could not go back'),
+  });
+
   // --- Step 1: in-flow connections -------------------------------------
 
   const connectQuickBooks = async () => {
@@ -218,6 +228,12 @@ export const Onboarding: React.FC = () => {
 
         {step === 2 && (
           <div className="space-y-4">
+            <button
+              onClick={() => back.mutate()}
+              className="text-xs font-medium text-gray-500 hover:text-gray-800"
+            >
+              ← Back
+            </button>
             <h2 className="text-lg font-bold text-gray-900">How should reminders be sent?</h2>
             <p className="text-sm text-gray-600">
               Reminders go out as email. Choose whose address they come from.
@@ -260,6 +276,12 @@ export const Onboarding: React.FC = () => {
 
         {step === 3 && (
           <div className="space-y-4">
+            <button
+              onClick={() => back.mutate()}
+              className="text-xs font-medium text-gray-500 hover:text-gray-800"
+            >
+              ← Back
+            </button>
             <h2 className="text-lg font-bold text-gray-900">Here's a draft we'd send</h2>
             {isSample && (
               <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">
@@ -315,6 +337,12 @@ export const Onboarding: React.FC = () => {
 
         {step === 4 && (
           <div className="space-y-4">
+            <button
+              onClick={() => back.mutate()}
+              className="text-xs font-medium text-gray-500 hover:text-gray-800"
+            >
+              ← Back
+            </button>
             <h2 className="text-lg font-bold text-gray-900">How hands-on do you want to be?</h2>
             <p className="text-sm text-gray-600">
               Start in <span className="font-semibold text-gray-800">Template mode</span> — you review and approve each
@@ -336,12 +364,20 @@ export const Onboarding: React.FC = () => {
             <p className="text-sm text-gray-600">
               Your first reminder is ready to review{heroDraft ? ` for invoice ${heroDraft.invoice_number}` : ''}.
             </p>
-            <button
-              onClick={() => advance.mutate({ step: 5, data: {} })}
-              className="bg-blue-600 text-white text-sm font-semibold px-5 py-2.5 rounded-lg"
-            >
-              Review my first reminder
-            </button>
+            <div className="flex flex-col items-center gap-3">
+              <button
+                onClick={() => advance.mutate({ step: 5, data: {} })}
+                className="bg-blue-600 text-white text-sm font-semibold px-5 py-2.5 rounded-lg"
+              >
+                Review my first reminder
+              </button>
+              <button
+                onClick={() => back.mutate()}
+                className="text-xs font-medium text-gray-500 hover:text-gray-800"
+              >
+                ← Back
+              </button>
+            </div>
           </div>
         )}
       </div>

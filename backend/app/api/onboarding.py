@@ -70,6 +70,25 @@ def skip_onboarding(user_and_org=Depends(get_current_user_and_org), db: Session 
     return {"step": state.step, "skipped": True}
 
 
+@router.post("/back")
+def back_onboarding(user_and_org=Depends(get_current_user_and_org), db: Session = Depends(get_db)):
+    _, org = user_and_org
+    state = get_or_create_onboarding(db, org.id)
+    state.step = max(1, state.step - 1)
+    # Revisiting a step undoes completion; a user can't be "done" while going back.
+    state.completed_at = None
+    db.commit()
+    db.refresh(state)
+    data = state.data or {}
+    return {
+        "step": state.step,
+        "completed_at": state.completed_at,
+        "data": data,
+        "complete": False,
+        "dismissed": bool(data.get("dismissed")),
+    }
+
+
 class _SampleInvoice:
     """Lightweight stand-in so a fresh org still reaches the 'aha' draft.
 
