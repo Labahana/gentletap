@@ -1,8 +1,5 @@
 """Billing API — Paddle checkout, portal, plan changes."""
 
-from datetime import datetime, timezone
-from typing import Optional
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -11,9 +8,10 @@ from app.database import get_db
 from app.api.deps import get_current_user_and_org
 from app.models.subscription import Subscription
 from app.models.whatsapp_credit import WhatsAppCredit
-from app.services.plan_gating import PLAN_PRICES, apply_plan_quotas, normalize_plan, require_owner
+from app.services.plan_gating import PLAN_PRICES, normalize_plan, require_owner
 from app.services.paddle import (
     apply_subscription_to_org,
+    cancel_paddle_subscription,
     create_checkout_url,
     create_credit_pack_checkout,
     create_portal_url,
@@ -50,25 +48,6 @@ def create_checkout(
         annual=req.annual,
         customer_id=org.paddle_customer_id,
     )
-    # Dev mock: immediately apply plan so local UX works without Paddle
-    if result.get("mock"):
-        apply_subscription_to_org(
-            org,
-            plan,
-            customer_id=org.paddle_customer_id or f"cus_mock_{org.id[:8]}",
-            subscription_id=org.paddle_subscription_id or f"sub_mock_{org.id[:8]}",
-            annual=req.annual,
-        )
-        sub = db.query(Subscription).filter(Subscription.org_id == org.id).first()
-        if not sub:
-            sub = Subscription(org_id=org.id)
-            db.add(sub)
-        sub.plan = plan
-        sub.status = "active"
-        sub.paddle_customer_id = org.paddle_customer_id
-        sub.paddle_subscription_id = org.paddle_subscription_id
-        sub.current_period_start = datetime.now(timezone.utc)
-        db.commit()
     return result
 
 
@@ -122,6 +101,8 @@ def cancel_subscription(
     sub = db.query(Subscription).filter(Subscription.org_id == org.id).first()
     if not sub:
         raise HTTPException(status_code=404, detail="No active subscription")
+    if sub.paddle_subscription_id:
+        cancel_paddle_subscription(sub.paddle_subscription_id)
     sub.cancel_at_period_end = True
     db.commit()
     return {"status": "cancelled_at_period_end"}
@@ -152,15 +133,6 @@ def change_plan(
         annual=req.annual,
         customer_id=org.paddle_customer_id,
     )
-    if result.get("mock"):
-        apply_subscription_to_org(org, plan, annual=req.annual)
-        sub = db.query(Subscription).filter(Subscription.org_id == org.id).first()
-        if not sub:
-            sub = Subscription(org_id=org.id)
-            db.add(sub)
-        sub.plan = plan
-        sub.status = "active"
-        db.commit()
     return result
 
 
@@ -171,19 +143,6 @@ def buy_credits(user_and_org=Depends(get_current_user_and_org), db: Session = De
     if normalize_plan(org.plan) not in ("pro_plus", "team"):
         raise HTTPException(status_code=403, detail="Upgrade to Pro+ to unlock WhatsApp.")
     result = create_credit_pack_checkout(org.id, user.email)
-    if result.get("mock"):
-        db.add(
-            WhatsAppCredit(
-                org_id=org.id,
-                paddle_transaction_id=f"txn_mock_{org.id[:8]}",
-                amount_paid=15.0,
-                credits_added=500,
-                credits_used=0,
-                status="active",
-            )
-        )
-        db.commit()
-        result["applied"] = True
     return result
 
 

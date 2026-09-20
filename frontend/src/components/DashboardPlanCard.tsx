@@ -19,10 +19,10 @@ export const DashboardPlanCard: React.FC = () => {
   const checkout = useMutation({
     mutationFn: async () => (await api.post('/billing/checkout', { plan: 'pro', annual: false })).data,
     onSuccess: (data) => {
-      if (data?.url) {
-        window.location.href = data.url; // Paddle hosted checkout
+      if (data?.checkout_url && !data.mock) {
+        window.location.href = data.checkout_url; // Paddle hosted checkout
       } else {
-        navigate('/billing'); // mock checkout already applied
+        navigate('/billing'); // mock checkout — show billing page
       }
     },
   });

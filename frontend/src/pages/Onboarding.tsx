@@ -193,14 +193,14 @@ export const Onboarding: React.FC = () => {
     setUpgrading(true);
     try {
       const res = await api.post('/billing/checkout', { plan: 'pro', annual: false });
-      if (res.data?.url) {
-        window.location.href = res.data.url; // Paddle hosted checkout
+      if (res.data?.checkout_url && !res.data.mock) {
+        window.location.href = res.data.checkout_url; // Paddle hosted checkout
         return;
       }
-      // Mock checkout applied instantly (dev) — refresh onboarding state so
+      // Mock checkout (dev) — refresh onboarding state so
       // autopilot becomes selectable, then switch to it.
       await qc.invalidateQueries({ queryKey: ['onboarding'] });
-      setNotice('Upgraded to Pro! Autopilot is now unlocked.');
+      setNotice('Pro checkout started. Complete payment to unlock Autopilot.');
       setMode('autopilot');
     } catch (err) {
       setError(apiErrorMessage(err, 'Could not start checkout'));

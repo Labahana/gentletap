@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import json
 import logging
 import time
 from typing import Any, Dict, Optional
@@ -109,7 +108,7 @@ def create_checkout_url(
     try:
         with httpx.Client(timeout=20.0) as client:
             res = client.post(
-                f"{settings.paddle_base}/transactions",
+                f"{settings.paddle_api_base}/transactions",
                 headers=_headers(),
                 json=payload,
             )
@@ -139,7 +138,7 @@ def create_portal_url(customer_id: str) -> Dict[str, Any]:
     try:
         with httpx.Client(timeout=20.0) as client:
             res = client.post(
-                f"{settings.paddle_base}/customers/{customer_id}/portal-sessions",
+                f"{settings.paddle_api_base}/customers/{customer_id}/portal-sessions",
                 headers=_headers(),
                 json={},
             )
@@ -160,13 +159,13 @@ def create_credit_pack_checkout(org_id: str, user_email: str) -> Dict[str, Any]:
             "amount": 15,
         }
     payload = {
-        "items": [{"price_id": settings.paddle_credit_pack_500, "quantity": 1}],
+        "items": [{"price_id": settings.paddle_price_id_whatsapp_500, "quantity": 1}],
         "custom_data": {"org_id": org_id, "type": "whatsapp_credits", "credits": 500},
         "customer": {"email": user_email},
     }
     try:
         with httpx.Client(timeout=20.0) as client:
-            res = client.post(f"{settings.paddle_base}/transactions", headers=_headers(), json=payload)
+            res = client.post(f"{settings.paddle_api_base}/transactions", headers=_headers(), json=payload)
             if res.status_code in (200, 201):
                 data = res.json().get("data", {})
                 return {
@@ -182,6 +181,25 @@ def create_credit_pack_checkout(org_id: str, user_email: str) -> Dict[str, Any]:
         "credits": 500,
         "amount": 15,
     }
+
+
+def cancel_paddle_subscription(subscription_id: str) -> Dict[str, Any]:
+    """Cancel a Paddle subscription at the end of the current billing period."""
+    if not subscription_id or not settings.paddle_api_key:
+        return {"cancelled": False, "mock": True}
+    try:
+        with httpx.Client(timeout=20.0) as client:
+            res = client.post(
+                f"{settings.paddle_api_base}/subscriptions/{subscription_id}/cancel",
+                headers=_headers(),
+                json={"effective_from": "next_billing_period"},
+            )
+            if res.status_code in (200, 201):
+                return {"cancelled": True, "mock": False}
+            logger.warning("Paddle cancel failed: %s %s", res.status_code, res.text[:300])
+    except Exception as exc:
+        logger.warning("Paddle cancel error: %s", exc)
+    return {"cancelled": False, "mock": True}
 
 
 def apply_subscription_to_org(org, plan: str, *, customer_id=None, subscription_id=None, annual=False):
