@@ -1,5 +1,7 @@
 """Billing API — Paddle checkout, portal, plan changes."""
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session

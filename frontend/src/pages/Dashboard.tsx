@@ -18,17 +18,17 @@ import { DashboardPlanCard } from '@/components/DashboardPlanCard';
 export const Dashboard: React.FC = () => {
   const queryClient = useQueryClient();
 
-  const { data: summary, isLoading: summaryLoading } = useQuery({
+  const { data: summary, isLoading: summaryLoading, error: summaryError } = useQuery({
     queryKey: ['dashboardSummary'],
     queryFn: async () => (await api.get('/dashboard/summary')).data,
   });
 
-  const { data: charts, isLoading: chartsLoading } = useQuery({
+  const { data: charts, isLoading: chartsLoading, error: chartsError } = useQuery({
     queryKey: ['dashboardCharts'],
     queryFn: async () => (await api.get('/dashboard/charts?range=90d')).data,
   });
 
-  const { data: escalations = [] } = useQuery({
+  const { data: escalations = [], error: escalationsError } = useQuery({
     queryKey: ['dashboardEscalations'],
     queryFn: async () => (await api.get('/dashboard/escalations')).data,
   });
@@ -59,6 +59,12 @@ export const Dashboard: React.FC = () => {
           View all escalations <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </div>
+
+      {summaryError && (
+        <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-sm text-rose-700">
+          Failed to load dashboard data. Please refresh the page.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {[
@@ -124,7 +130,11 @@ export const Dashboard: React.FC = () => {
             <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-full">90 days</span>
           </div>
           <div className="h-64 w-full">
-            {chartsLoading || !charts ? (
+            {chartsError ? (
+              <div className="h-full flex items-center justify-center text-xs text-rose-500">
+                Failed to load charts. Please refresh the page.
+              </div>
+            ) : chartsLoading || !charts ? (
               <div className="h-full flex items-center justify-center text-xs text-gray-400">Loading…</div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">

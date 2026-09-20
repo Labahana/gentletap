@@ -1,9 +1,12 @@
 from datetime import datetime, timedelta, date, timezone
 import builtins
+import logging
 from typing import List
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+
+logger = logging.getLogger(__name__)
 
 from app.database import get_db
 from app.api.deps import get_current_user_and_org
@@ -44,113 +47,127 @@ def get_dashboard_summary(
 ):
     _, org = user_and_org
 
-    total_outstanding = db.query(func.coalesce(func.sum(Invoice.balance), 0.0)).filter(
-        Invoice.org_id == org.id, Invoice.status.notin_(["paid", "closed"])
-    ).scalar()
+    try:
+        total_outstanding = db.query(func.coalesce(func.sum(Invoice.balance), 0.0)).filter(
+            Invoice.org_id == org.id, Invoice.status.notin_(["paid", "closed"])
+        ).scalar()
 
-    total_invoices_count = db.query(Invoice).filter(Invoice.org_id == org.id).count()
+        total_invoices_count = db.query(Invoice).filter(Invoice.org_id == org.id).count()
 
-    thirty_days_ago = date.today() - timedelta(days=30)
-    at_risk_count = (
-        db.query(Invoice)
-        .filter(
-            Invoice.org_id == org.id,
-            Invoice.status.in_(["unpaid", "chasing"]),
-            Invoice.due_date.isnot(None),
-            Invoice.due_date <= thirty_days_ago,
-        )
-        .count()
-    )
-
-    recent_sends_count = db.query(Message).filter(Message.org_id == org.id).count()
-
-    seven_days = date.today() + timedelta(days=7)
-    expected_collections_7d = float(
-        db.query(func.coalesce(func.sum(Invoice.balance), 0.0))
-        .filter(
-            Invoice.org_id == org.id,
-            Invoice.status.in_(["unpaid", "chasing"]),
-            Invoice.due_date.isnot(None),
-            Invoice.due_date <= seven_days,
-        )
-        .scalar()
-        or 0
-    )
-
-    active_campaigns_count = (
-        db.query(SequenceAssignment).filter(SequenceAssignment.status == "active").count()
-    )
-    # Scope to org via invoices
-    active_campaigns_count = (
-        db.query(SequenceAssignment)
-        .join(Invoice, SequenceAssignment.invoice_id == Invoice.id)
-        .filter(Invoice.org_id == org.id, SequenceAssignment.status == "active")
-        .count()
-    )
-
-    recent_payments_count = (
-        db.query(Payout)
-        .filter(
-            Payout.org_id == org.id,
-            Payout.paid_at >= datetime.now(timezone.utc) - timedelta(days=7),
-        )
-        .count()
-    )
-
-    activities: List[DashboardActivity] = []
-    messages = (
-        db.query(Message, Client.name.label("client_name"), Invoice.number.label("invoice_number"))
-        .join(Client, Message.client_id == Client.id)
-        .join(Invoice, Message.invoice_id == Invoice.id)
-        .filter(Message.org_id == org.id)
-        .order_by(Message.created_at.desc())
-        .limit(8)
-        .all()
-    )
-    for msg, c_name, inv_num in messages:
-        activities.append(
-            DashboardActivity(
-                id=f"msg_{msg.id}",
-                type="send",
-                title=f"Reminder sent to {c_name}",
-                subtitle=f"Invoice #{inv_num} • {msg.subject[:40]}",
-                timestamp=msg.created_at,
+        thirty_days_ago = date.today() - timedelta(days=30)
+        at_risk_count = (
+            db.query(Invoice)
+            .filter(
+                Invoice.org_id == org.id,
+                Invoice.status.in_(["unpaid", "chasing"]),
+                Invoice.due_date.isnot(None),
+                Invoice.due_date <= thirty_days_ago,
             )
+            .count()
         )
 
-    payouts = (
-        db.query(Payout, Invoice.number.label("invoice_number"), Client.name.label("client_name"))
-        .join(Invoice, Payout.invoice_id == Invoice.id)
-        .join(Client, Invoice.client_id == Client.id)
-        .filter(Payout.org_id == org.id)
-        .order_by(Payout.paid_at.desc())
-        .limit(8)
-        .all()
-    )
-    for payout, inv_num, c_name in payouts:
-        activities.append(
-            DashboardActivity(
-                id=f"payout_{payout.id}",
-                type="payment",
-                title=f"Payment received from {c_name}",
-                subtitle=f"Invoice #{inv_num}",
-                amount=float(payout.amount),
-                timestamp=payout.paid_at,
+        recent_sends_count = db.query(Message).filter(Message.org_id == org.id).count()
+
+        seven_days = date.today() + timedelta(days=7)
+        expected_collections_7d = float(
+            db.query(func.coalesce(func.sum(Invoice.balance), 0.0))
+            .filter(
+                Invoice.org_id == org.id,
+                Invoice.status.in_(["unpaid", "chasing"]),
+                Invoice.due_date.isnot(None),
+                Invoice.due_date <= seven_days,
             )
+            .scalar()
+            or 0
         )
 
-    activities.sort(key=lambda a: a.timestamp, reverse=True)
+        active_campaigns_count = (
+            db.query(SequenceAssignment).filter(SequenceAssignment.status == "active").count()
+        )
+        # Scope to org via invoices
+        active_campaigns_count = (
+            db.query(SequenceAssignment)
+            .join(Invoice, SequenceAssignment.invoice_id == Invoice.id)
+            .filter(Invoice.org_id == org.id, SequenceAssignment.status == "active")
+            .count()
+        )
 
-    return DashboardSummaryOut(
-        total_outstanding=float(total_outstanding or 0),
-        total_invoices_count=total_invoices_count,
-        at_risk_count=at_risk_count,
-        recent_sends_count=recent_sends_count,
-        expected_collections_7d=expected_collections_7d,
-        active_campaigns_count=active_campaigns_count,
-        recent_payments_count=recent_payments_count,
-        recent_activities=activities[:8],
-    )
+        recent_payments_count = (
+            db.query(Payout)
+            .filter(
+                Payout.org_id == org.id,
+                Payout.paid_at >= datetime.now(timezone.utc) - timedelta(days=7),
+            )
+            .count()
+        )
+
+        activities: List[DashboardActivity] = []
+        messages = (
+            db.query(Message, Client.name.label("client_name"), Invoice.number.label("invoice_number"))
+            .join(Client, Message.client_id == Client.id)
+            .join(Invoice, Message.invoice_id == Invoice.id)
+            .filter(Message.org_id == org.id)
+            .order_by(Message.created_at.desc())
+            .limit(8)
+            .all()
+        )
+        for msg, c_name, inv_num in messages:
+            activities.append(
+                DashboardActivity(
+                    id=f"msg_{msg.id}",
+                    type="send",
+                    title=f"Reminder sent to {c_name}",
+                    subtitle=f"Invoice #{inv_num} • {msg.subject[:40]}",
+                    timestamp=msg.created_at,
+                )
+            )
+
+        payouts = (
+            db.query(Payout, Invoice.number.label("invoice_number"), Client.name.label("client_name"))
+            .join(Invoice, Payout.invoice_id == Invoice.id)
+            .join(Client, Invoice.client_id == Client.id)
+            .filter(Payout.org_id == org.id)
+            .order_by(Payout.paid_at.desc())
+            .limit(8)
+            .all()
+        )
+        for payout, inv_num, c_name in payouts:
+            activities.append(
+                DashboardActivity(
+                    id=f"payout_{payout.id}",
+                    type="payment",
+                    title=f"Payment received from {c_name}",
+                    subtitle=f"Invoice #{inv_num}",
+                    amount=float(payout.amount),
+                    timestamp=payout.paid_at,
+                )
+            )
+
+        activities.sort(key=lambda a: a.timestamp, reverse=True)
+
+        return DashboardSummaryOut(
+            total_outstanding=float(total_outstanding or 0),
+            total_invoices_count=total_invoices_count,
+            at_risk_count=at_risk_count,
+            recent_sends_count=recent_sends_count,
+            expected_collections_7d=expected_collections_7d,
+            active_campaigns_count=active_campaigns_count,
+            recent_payments_count=recent_payments_count,
+            recent_activities=activities[:8],
+        )
+    except Exception as exc:
+        logger.error("Dashboard summary query failed: %s", exc, exc_info=True)
+        # Return safe defaults so the frontend doesn't hang
+        return DashboardSummaryOut(
+            total_outstanding=0.0,
+            total_invoices_count=0,
+            at_risk_count=0,
+            recent_sends_count=0,
+            expected_collections_7d=0.0,
+            active_campaigns_count=0,
+            recent_payments_count=0,
+            recent_activities=[],
+        )
 
 
 @router.get("/charts", response_model=DashboardChartsOut)
@@ -165,50 +182,61 @@ def get_dashboard_charts(
     days = 90 if range == "90d" else 30
     step = max(1, days // 12)
 
-    for i in builtins.range(11, -1, -1):
-        target_date = today - timedelta(days=i * step)
-        date_str = target_date.strftime("%b %d")
-        collected = (
-            db.query(func.coalesce(func.sum(Payout.amount), 0.0))
-            .filter(Payout.org_id == org.id, func.date(Payout.paid_at) <= target_date)
-            .scalar()
-        )
-        outstanding = (
-            db.query(func.coalesce(func.sum(Invoice.balance), 0.0))
-            .filter(Invoice.org_id == org.id, Invoice.status.notin_(["paid", "closed"]))
-            .scalar()
-        )
-        points.append(
-            ChartDataPoint(
-                date=date_str,
-                collected=float(collected or 0),
-                outstanding=float(outstanding or 0),
+    try:
+        for i in builtins.range(11, -1, -1):
+            target_date = today - timedelta(days=i * step)
+            date_str = target_date.strftime("%b %d")
+            # Convert date to datetime for comparison (more compatible than func.date())
+            target_datetime = datetime.combine(target_date, datetime.max.time())
+            collected = (
+                db.query(func.coalesce(func.sum(Payout.amount), 0.0))
+                .filter(Payout.org_id == org.id, Payout.paid_at <= target_datetime)
+                .scalar()
             )
-        )
+            outstanding = (
+                db.query(func.coalesce(func.sum(Invoice.balance), 0.0))
+                .filter(Invoice.org_id == org.id, Invoice.status.notin_(["paid", "closed"]))
+                .scalar()
+            )
+            points.append(
+                ChartDataPoint(
+                    date=date_str,
+                    collected=float(collected or 0),
+                    outstanding=float(outstanding or 0),
+                )
+            )
+    except Exception as exc:
+        logger.error("Dashboard charts query failed: %s", exc, exc_info=True)
+        # Return empty points so the frontend doesn't hang
+        return DashboardChartsOut(range=range, points=[], recovery_by_client=[])
 
     # Recovery rate by client (paid / total invoices)
     recovery: List[RecoveryByClientPoint] = []
-    clients = db.query(Client).filter(Client.org_id == org.id).limit(10).all()
-    for c in clients:
-        total = db.query(Invoice).filter(Invoice.client_id == c.id).count()
-        if not total:
-            continue
-        paid = db.query(Invoice).filter(Invoice.client_id == c.id, Invoice.status == "paid").count()
-        collected_amt = float(
-            db.query(func.coalesce(func.sum(Payout.amount), 0.0))
-            .join(Invoice, Payout.invoice_id == Invoice.id)
-            .filter(Invoice.client_id == c.id)
-            .scalar()
-            or 0
-        )
-        recovery.append(
-            RecoveryByClientPoint(
-                client_name=c.name,
-                recovery_rate=round(paid / total * 100, 1),
-                collected=collected_amt,
+    try:
+        clients = db.query(Client).filter(Client.org_id == org.id).limit(10).all()
+        for c in clients:
+            total = db.query(Invoice).filter(Invoice.client_id == c.id).count()
+            if not total:
+                continue
+            paid = db.query(Invoice).filter(Invoice.client_id == c.id, Invoice.status == "paid").count()
+            collected_amt = float(
+                db.query(func.coalesce(func.sum(Payout.amount), 0.0))
+                .join(Invoice, Payout.invoice_id == Invoice.id)
+                .filter(Invoice.client_id == c.id)
+                .scalar()
+                or 0
             )
-        )
-    recovery.sort(key=lambda r: r.recovery_rate, reverse=True)
+            recovery.append(
+                RecoveryByClientPoint(
+                    client_name=c.name,
+                    recovery_rate=round(paid / total * 100, 1),
+                    collected=collected_amt,
+                )
+            )
+        recovery.sort(key=lambda r: r.recovery_rate, reverse=True)
+    except Exception as exc:
+        logger.error("Dashboard recovery query failed: %s", exc, exc_info=True)
+        # Continue with empty recovery list
 
     return DashboardChartsOut(range=range, points=points, recovery_by_client=recovery[:8])
 

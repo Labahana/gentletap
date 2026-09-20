@@ -18,12 +18,12 @@ export const Billing: React.FC = () => {
   const [creditsOpen, setCreditsOpen] = useState(false);
   const qc = useQueryClient();
 
-  const { data: sub, isLoading } = useQuery({
+  const { data: sub, isLoading, error: subError } = useQuery({
     queryKey: ['billingSubscription'],
     queryFn: async () => (await api.get('/billing/subscription')).data,
   });
 
-  const { data: plansData } = useQuery({
+  const { data: plansData, error: plansError } = useQuery({
     queryKey: ['publicPlans'],
     queryFn: async () => (await api.get('/public/plans')).data,
   });
@@ -119,7 +119,18 @@ export const Billing: React.FC = () => {
         <PricingToggle annual={annual} onChange={setAnnual} />
       </div>
 
+      {plansError && (
+        <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-sm text-rose-700">
+          Failed to load plans. Please refresh the page or try again later.
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {plans.length === 0 && !plansError && (
+          <div className="col-span-full text-center py-8 text-sm text-gray-500">
+            Loading plans...
+          </div>
+        )}
         {plans.map((p: any) => (
           <PlanCard
             key={p.id}
