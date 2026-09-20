@@ -132,11 +132,16 @@ def get_or_create_customer(org_id: str, user_email: str) -> str:
 
 
 def _checkout_result(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Extract checkout URL and transaction ID from Paddle response."""
-    transaction_id = data.get("id")
-    checkout_url = (data.get("checkout") or {}).get("url") or data.get("url")
-    if not checkout_url:
-        raise ValueError("Paddle did not return a checkout URL")
+    """Extract transaction ID and hosted checkout URL (when available).
+
+    Paddle.js overlay checkout only needs the transaction ID. The hosted URL is
+    only returned when an approved default payment link is configured, so treat
+    it as an optional fallback rather than a requirement.
+    """
+    transaction_id = (data.get("id") or "").strip()
+    checkout_url = ((data.get("checkout") or {}).get("url") or data.get("url") or "").strip()
+    if not transaction_id and not checkout_url:
+        raise ValueError("Paddle did not return a transaction ID or checkout URL")
     return {
         "checkout_url": checkout_url,
         "transaction_id": transaction_id,
@@ -277,6 +282,7 @@ def public_config() -> Dict[str, Any]:
     return {
         "enabled": _paddle_configured(),
         "environment": "sandbox" if paddle_env_lower == "sandbox" else "production",
+        "client_token": settings.paddle_client_token,
         "api_base": settings.paddle_api_base,
     }
 

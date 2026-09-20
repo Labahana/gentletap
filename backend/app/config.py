@@ -104,6 +104,7 @@ class Settings(BaseSettings):
 
     # Paddle Billing
     paddle_api_key: str = Field(default="", validation_alias=AliasChoices("PADDLE_API_KEY", "paddle_api_key"))
+    paddle_client_token: str = Field(default="", validation_alias=AliasChoices("PADDLE_CLIENT_TOKEN", "paddle_client_token"))
     paddle_webhook_secret: str = Field(default="", validation_alias=AliasChoices("PADDLE_WEBHOOK_SECRET", "paddle_webhook_secret"))
     paddle_env: str = Field(default="production", validation_alias=AliasChoices("PADDLE_ENVIRONMENT", "paddle_environment"))
     paddle_api_base: str = Field(default="", validation_alias=AliasChoices("PADDLE_API_BASE", "paddle_api_base"))

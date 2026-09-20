@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, apiErrorMessage } from '@/lib/api';
+import { openOverlayCheckout, usePaddleConfig } from '@/lib/paddle';
 import { PlanCard } from '@/components/billing/PlanCard';
 import { PricingToggle } from '@/components/billing/PricingToggle';
 import { UsageBar } from '@/components/billing/UsageBar';
@@ -17,6 +18,7 @@ export const Billing: React.FC = () => {
   const [annual, setAnnual] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
   const qc = useQueryClient();
+  const { data: paddleConfig } = usePaddleConfig();
 
   const { data: sub, isLoading, error: subError } = useQuery({
     queryKey: ['billingSubscription'],
@@ -29,13 +31,22 @@ export const Billing: React.FC = () => {
   });
 
   const checkout = useMutation({
-    mutationFn: async (plan: string) => (await api.post('/billing/checkout', { plan, annual })).data,
-    onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: ['billingSubscription'] });
+    mutationFn: async (plan: string) => {
+      const { data } = await api.post('/billing/checkout', { plan, annual });
+      const opened = await openOverlayCheckout({
+        config: paddleConfig,
+        transactionId: data.transaction_id,
+        successUrl: `${window.location.origin}/billing?checkout=success`,
+      });
+      if (opened) return data;
       if (data.checkout_url) {
         window.location.href = data.checkout_url;
+        return data;
       }
-      // If no checkout_url, error will be shown via isError
+      throw new Error('Checkout is not available right now. Please try again later.');
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['billingSubscription'] });
     },
   });
 
@@ -45,7 +56,20 @@ export const Billing: React.FC = () => {
   });
 
   const credits = useMutation({
-    mutationFn: async () => (await api.post('/billing/credit-packs')).data,
+    mutationFn: async () => {
+      const { data } = await api.post('/billing/credit-packs');
+      const opened = await openOverlayCheckout({
+        config: paddleConfig,
+        transactionId: data.transaction_id,
+        successUrl: `${window.location.origin}/billing?credits=success`,
+      });
+      if (opened) return data;
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+        return data;
+      }
+      throw new Error('Checkout is not available right now. Please try again later.');
+    },
     onSuccess: () => {
       setCreditsOpen(false);
       qc.invalidateQueries({ queryKey: ['billingSubscription'] });

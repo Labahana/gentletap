@@ -121,13 +121,12 @@ def test_starter_collection_limit():
                 break
 
 
-def test_mock_checkout_upgrades_plan():
+def test_checkout_fails_loudly_without_paddle_transaction():
     headers, _ = _auth()
     res = client.post("/api/v1/billing/checkout", json={"plan": "pro_plus", "annual": False}, headers=headers)
-    assert res.status_code == 200
+    assert res.status_code == 400
     sub = client.get("/api/v1/billing/subscription", headers=headers)
-    assert sub.json()["plan"] == "pro_plus"
-    assert sub.json()["usage"]["whatsapp_quota"] == 450
+    assert sub.json()["plan"] == "starter"
 
 
 def test_team_seat_limit():

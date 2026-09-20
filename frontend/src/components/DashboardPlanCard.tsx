@@ -3,6 +3,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { Sparkles, Check } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, apiErrorMessage } from '@/lib/api';
+import { openOverlayCheckout, usePaddleConfig } from '@/lib/paddle';
 
 /**
  * Free-plan usage meter + upgrade CTA, shown on the dashboard for Starter orgs.
@@ -10,6 +11,7 @@ import { api, apiErrorMessage } from '@/lib/api';
  */
 export const DashboardPlanCard: React.FC = () => {
   const navigate = useNavigate();
+  const { data: paddleConfig } = usePaddleConfig();
 
   const { data: usage } = useQuery({
     queryKey: ['usage'],
@@ -17,15 +19,19 @@ export const DashboardPlanCard: React.FC = () => {
   });
 
   const checkout = useMutation({
-    mutationFn: async () => (await api.post('/billing/checkout', { plan: 'pro', annual: false })).data,
-    onSuccess: (data) => {
-      if (data?.checkout_url && !data.mock) {
-        window.location.href = data.checkout_url; // Paddle hosted checkout
-      } else if (data?.checkout_url) {
-        // Mock checkout URL — navigate to it
-        window.location.href = data.checkout_url;
+    mutationFn: async () => {
+      const { data } = await api.post('/billing/checkout', { plan: 'pro', annual: false });
+      const opened = await openOverlayCheckout({
+        config: paddleConfig,
+        transactionId: data.transaction_id,
+        successUrl: `${window.location.origin}/billing?checkout=success`,
+      });
+      if (opened) return data;
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url; // Paddle hosted checkout fallback
+        return data;
       }
-      // If no checkout_url, error will be shown via isError
+      throw new Error('Checkout is not available right now. Please try again later.');
     },
   });
 
