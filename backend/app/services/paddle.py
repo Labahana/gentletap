@@ -135,8 +135,8 @@ def _checkout_result(data: Dict[str, Any]) -> Dict[str, Any]:
     """Extract checkout URL and transaction ID from Paddle response."""
     transaction_id = data.get("id")
     checkout_url = (data.get("checkout") or {}).get("url") or data.get("url")
-    if not checkout_url and not transaction_id:
-        raise ValueError("Paddle did not return a checkout URL or transaction ID")
+    if not checkout_url:
+        raise ValueError("Paddle did not return a checkout URL")
     return {
         "checkout_url": checkout_url,
         "transaction_id": transaction_id,
@@ -180,6 +180,7 @@ def create_checkout_url(
     }
 
     data = _request("POST", "/transactions", json_body=payload)
+    logger.info("Paddle transaction response: %s", data)
     result = _checkout_result(data)
     result["plan"] = plan
     return result
