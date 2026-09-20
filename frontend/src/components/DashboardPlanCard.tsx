@@ -21,9 +21,11 @@ export const DashboardPlanCard: React.FC = () => {
     onSuccess: (data) => {
       if (data?.checkout_url && !data.mock) {
         window.location.href = data.checkout_url; // Paddle hosted checkout
-      } else {
-        navigate('/billing'); // mock checkout — show billing page
+      } else if (data?.checkout_url) {
+        // Mock checkout URL — navigate to it
+        window.location.href = data.checkout_url;
       }
+      // If no checkout_url, error will be shown via isError
     },
   });
 

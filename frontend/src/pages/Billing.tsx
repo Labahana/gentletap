@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { api, apiErrorMessage } from '@/lib/api';
 import { PlanCard } from '@/components/billing/PlanCard';
 import { PricingToggle } from '@/components/billing/PricingToggle';
 import { UsageBar } from '@/components/billing/UsageBar';
@@ -32,7 +32,10 @@ export const Billing: React.FC = () => {
     mutationFn: async (plan: string) => (await api.post('/billing/checkout', { plan, annual })).data,
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['billingSubscription'] });
-      if (data.checkout_url && !data.mock) window.location.href = data.checkout_url;
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+      }
+      // If no checkout_url, error will be shown via isError
     },
   });
 
@@ -122,6 +125,12 @@ export const Billing: React.FC = () => {
       {plansError && (
         <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-sm text-rose-700">
           Failed to load plans. Please refresh the page or try again later.
+        </div>
+      )}
+
+      {checkout.isError && (
+        <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-sm text-rose-700">
+          {apiErrorMessage(checkout.error as any, 'Checkout failed')}
         </div>
       )}
 

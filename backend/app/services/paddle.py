@@ -7,7 +7,6 @@ import hmac
 import logging
 import time
 from typing import Any, Dict, Optional
-from urllib.parse import urlencode
 
 import httpx
 
@@ -16,6 +15,40 @@ from app.services.plan_gating import PLAN_PRICES, apply_plan_quotas, normalize_p
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+
+def _paddle_configured() -> bool:
+    """Check if Paddle API key is configured."""
+    return bool(settings.paddle_api_key and settings.paddle_api_key.strip())
+
+
+def _headers() -> Dict[str, str]:
+    return {
+        "Authorization": f"Bearer {settings.paddle_api_key}",
+        "Content-Type": "application/json",
+    }
+
+
+def _request(method: str, path: str, *, json_body: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Make a Paddle API request. Raises ValueError on failures.
+    Uses dynamic sandbox/production URL based on paddle_env setting.
+    """
+    if not _paddle_configured():
+        raise ValueError("Paddle is not configured. Set PADDLE_API_KEY in the environment.")
+
+    url = f"{settings.paddle_api_base}{path}"
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            response = client.request(method, url, headers=_headers(), json=json_body)
+            if response.status_code >= 400:
+                detail = response.text[:500]
+                logger.error("Paddle API error (%s): %s", response.status_code, detail)
+                raise ValueError(f"Paddle API error ({response.status_code}): {detail}")
+            return response.json().get("data", response.json())
+    except httpx.RequestError as exc:
+        logger.error("Paddle request failed: %s", exc)
+        raise ValueError(f"Paddle request failed: {exc}") from exc
 
 
 def price_id_for_plan(plan: str, annual: bool) -> str:
@@ -28,16 +61,17 @@ def price_id_for_plan(plan: str, annual: bool) -> str:
         ("team", False): settings.paddle_price_id_team_monthly,
         ("team", True): settings.paddle_price_id_team_annual,
     }
-    return mapping.get((plan, annual), settings.paddle_price_id_pro_monthly or settings.paddle_price_id_pro)
+    price_id = mapping.get((plan, annual), settings.paddle_price_id_pro_monthly or settings.paddle_price_id_pro)
+    if not price_id:
+        raise ValueError(f"No Paddle price ID configured for plan={plan}, annual={annual}")
+    return price_id
 
 
 def verify_paddle_signature(raw_body: bytes, signature_header: Optional[str]) -> bool:
     """
     Verify Paddle Billing webhook signature.
     Header format: ts=...;h1=...
-    FAIL-CLOSED: an empty PADDLE_WEBHOOK_SECRET rejects every webhook (the
-    secret was once committed to the repo — it must come from the environment
-    and be rotated). Without this, anyone could forge subscription upgrades.
+    FAIL-CLOSED: an empty PADDLE_WEBHOOK_SECRET rejects every webhook.
     """
     secret = settings.paddle_webhook_secret
     if not secret:
@@ -66,20 +100,14 @@ def verify_paddle_signature(raw_body: bytes, signature_header: Optional[str]) ->
     return hmac.compare_digest(expected, h1)
 
 
-def _headers() -> Dict[str, str]:
-    return {
-        "Authorization": f"Bearer {settings.paddle_api_key}",
-        "Content-Type": "application/json",
-    }
+def get_or_create_customer(org_id: str, user_email: str) -> str:
+    """Get existing customer ID or create a new Paddle customer. Raises on failure."""
+    if not _paddle_configured():
+        raise ValueError("Paddle is not configured")
 
-
-def get_or_create_customer(org_id: str, user_email: str) -> Optional[str]:
-    """Get existing customer ID or create a new Paddle customer."""
-    if not settings.paddle_api_key:
-        return None
+    # Try to find existing customer by email
     try:
-        with httpx.Client(timeout=20.0) as client:
-            # Try to find existing customer by email
+        with httpx.Client(timeout=30.0) as client:
             res = client.get(
                 f"{settings.paddle_api_base}/customers",
                 headers=_headers(),
@@ -89,22 +117,31 @@ def get_or_create_customer(org_id: str, user_email: str) -> Optional[str]:
                 customers = res.json().get("data", [])
                 if customers:
                     return customers[0].get("id")
-            
-            # Create new customer
-            res = client.post(
-                f"{settings.paddle_api_base}/customers",
-                headers=_headers(),
-                json={
-                    "email": user_email,
-                    "custom_data": {"org_id": org_id},
-                },
-            )
-            if res.status_code in (200, 201):
-                data = res.json().get("data", {})
-                return data.get("id")
     except Exception as exc:
-        logger.warning("Paddle customer error: %s", exc)
-    return None
+        logger.debug("Customer lookup failed: %s", exc)
+
+    # Create new customer
+    data = _request("POST", "/customers", json_body={
+        "email": user_email,
+        "custom_data": {"org_id": org_id},
+    })
+    customer_id = data.get("id")
+    if not customer_id:
+        raise ValueError("Paddle did not return a customer ID")
+    return customer_id
+
+
+def _checkout_result(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract checkout URL and transaction ID from Paddle response."""
+    transaction_id = data.get("id")
+    checkout_url = (data.get("checkout") or {}).get("url") or data.get("url")
+    if not checkout_url and not transaction_id:
+        raise ValueError("Paddle did not return a checkout URL or transaction ID")
+    return {
+        "checkout_url": checkout_url,
+        "transaction_id": transaction_id,
+        "mock": False,
+    }
 
 
 def create_checkout_url(
@@ -115,31 +152,19 @@ def create_checkout_url(
     annual: bool,
     customer_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Create a Paddle transaction/checkout. Falls back to mock URL in dev."""
+    """Create a Paddle transaction/checkout. Raises ValueError on failure."""
     plan = normalize_plan(plan)
     if plan == "starter":
-        return {"checkout_url": None, "mock": True, "plan": plan}
+        raise ValueError("Starter is free — no checkout needed.")
 
     price_id = price_id_for_plan(plan, annual)
-    if not settings.paddle_api_key or settings.paddle_api_key.startswith("test_"):
-        # Dev mock checkout
-        qs = urlencode({"org_id": org_id, "plan": plan, "annual": str(annual).lower()})
-        return {
-            "checkout_url": f"{settings.frontend_url}/billing?mock_checkout=1&{qs}",
-            "mock": True,
-            "plan": plan,
-            "price_id": price_id,
-        }
 
     # Get or create customer
     if not customer_id:
         customer_id = get_or_create_customer(org_id, user_email)
-    if not customer_id:
-        logger.error("Could not create Paddle customer for %s", user_email)
-        return {"checkout_url": None, "mock": True, "plan": plan}
 
-    success_url = f"{settings.frontend_url}/billing?checkout=success"
-    cancel_url = f"{settings.frontend_url}/billing?checkout=cancelled"
+    success_url = f"{settings.web_url}/billing?checkout=success"
+    cancel_url = f"{settings.web_url}/billing?checkout=cancelled"
 
     payload: Dict[str, Any] = {
         "items": [{"price_id": price_id, "quantity": 1}],
@@ -154,63 +179,33 @@ def create_checkout_url(
         },
     }
 
-    try:
-        with httpx.Client(timeout=20.0) as client:
-            res = client.post(
-                f"{settings.paddle_api_base}/transactions",
-                headers=_headers(),
-                json=payload,
-            )
-            if res.status_code in (200, 201):
-                data = res.json().get("data", {})
-                checkout_url = (data.get("checkout") or {}).get("url") or data.get("url")
-                return {
-                    "checkout_url": checkout_url,
-                    "transaction_id": data.get("id"),
-                    "mock": False,
-                    "plan": plan,
-                }
-            logger.warning("Paddle checkout failed: %s %s", res.status_code, res.text[:300])
-    except Exception as exc:
-        logger.warning("Paddle checkout error: %s", exc)
-
-    return {"checkout_url": None, "mock": True, "plan": plan}
+    data = _request("POST", "/transactions", json_body=payload)
+    result = _checkout_result(data)
+    result["plan"] = plan
+    return result
 
 
 def create_portal_url(customer_id: str) -> Dict[str, Any]:
-    if not customer_id or not settings.paddle_api_key:
-        return {"portal_url": f"{settings.frontend_url}/billing", "mock": True}
-    try:
-        with httpx.Client(timeout=20.0) as client:
-            res = client.post(
-                f"{settings.paddle_api_base}/customers/{customer_id}/portal-sessions",
-                headers=_headers(),
-                json={},
-            )
-            if res.status_code in (200, 201):
-                data = res.json().get("data", {})
-                return {"portal_url": data.get("urls", {}).get("general", {}).get("overview"), "mock": False}
-    except Exception as exc:
-        logger.warning("Paddle portal error: %s", exc)
-    return {"portal_url": f"{settings.frontend_url}/billing", "mock": True}
+    """Create a Paddle customer portal session. Raises ValueError on failure."""
+    if not customer_id:
+        raise ValueError("No Paddle customer ID — cannot create portal session")
+
+    data = _request("POST", f"/customers/{customer_id}/portal-sessions", json_body={})
+    portal_url = (data.get("urls") or {}).get("general", {}).get("overview")
+    if not portal_url:
+        raise ValueError("Paddle did not return a portal URL")
+    return {"portal_url": portal_url, "mock": False}
 
 
 def create_credit_pack_checkout(org_id: str, user_email: str) -> Dict[str, Any]:
-    if not settings.paddle_api_key:
-        return {
-            "checkout_url": f"{settings.frontend_url}/billing?mock_credits=1&org_id={org_id}",
-            "mock": True,
-            "credits": 500,
-            "amount": 15,
-        }
-    
-    customer_id = get_or_create_customer(org_id, user_email)
-    if not customer_id:
-        logger.error("Could not create Paddle customer for credit pack: %s", user_email)
-        return {"checkout_url": None, "mock": True, "credits": 500}
+    """Create checkout for WhatsApp credit pack. Raises ValueError on failure."""
+    if not settings.paddle_price_id_whatsapp_500:
+        raise ValueError("WhatsApp credit pack price ID not configured")
 
-    success_url = f"{settings.frontend_url}/billing?credits=success"
-    cancel_url = f"{settings.frontend_url}/billing?credits=cancelled"
+    customer_id = get_or_create_customer(org_id, user_email)
+
+    success_url = f"{settings.web_url}/billing?credits=success"
+    cancel_url = f"{settings.web_url}/billing?credits=cancelled"
 
     payload = {
         "items": [{"price_id": settings.paddle_price_id_whatsapp_500, "quantity": 1}],
@@ -224,40 +219,22 @@ def create_credit_pack_checkout(org_id: str, user_email: str) -> Dict[str, Any]:
             },
         },
     }
-    try:
-        with httpx.Client(timeout=20.0) as client:
-            res = client.post(f"{settings.paddle_api_base}/transactions", headers=_headers(), json=payload)
-            if res.status_code in (200, 201):
-                data = res.json().get("data", {})
-                checkout_url = (data.get("checkout") or {}).get("url")
-                return {
-                    "checkout_url": checkout_url,
-                    "transaction_id": data.get("id"),
-                    "mock": False,
-                    "credits": 500,
-                }
-    except Exception as exc:
-        logger.warning("Credit pack checkout failed: %s", exc)
-    return {"checkout_url": None, "mock": True, "credits": 500}
+
+    data = _request("POST", "/transactions", json_body=payload)
+    result = _checkout_result(data)
+    result["credits"] = 500
+    return result
 
 
 def cancel_paddle_subscription(subscription_id: str) -> Dict[str, Any]:
     """Cancel a Paddle subscription at the end of the current billing period."""
-    if not subscription_id or not settings.paddle_api_key:
-        return {"cancelled": False, "mock": True}
-    try:
-        with httpx.Client(timeout=20.0) as client:
-            res = client.post(
-                f"{settings.paddle_api_base}/subscriptions/{subscription_id}/cancel",
-                headers=_headers(),
-                json={"effective_from": "next_billing_period"},
-            )
-            if res.status_code in (200, 201):
-                return {"cancelled": True, "mock": False}
-            logger.warning("Paddle cancel failed: %s %s", res.status_code, res.text[:300])
-    except Exception as exc:
-        logger.warning("Paddle cancel error: %s", exc)
-    return {"cancelled": False, "mock": True}
+    if not subscription_id:
+        raise ValueError("No subscription ID to cancel")
+
+    _request("POST", f"/subscriptions/{subscription_id}/cancel", json_body={
+        "effective_from": "next_billing_period",
+    })
+    return {"cancelled": True, "mock": False}
 
 
 def apply_subscription_to_org(org, plan: str, *, customer_id=None, subscription_id=None, annual=False):
@@ -291,6 +268,16 @@ def public_plans() -> list:
         }
         for key, val in PLAN_PRICES.items()
     ]
+
+
+def public_config() -> Dict[str, Any]:
+    """Return Paddle config for frontend Paddle.js initialization."""
+    paddle_env_lower = (settings.paddle_env or "production").lower()
+    return {
+        "enabled": _paddle_configured(),
+        "environment": "sandbox" if paddle_env_lower == "sandbox" else "production",
+        "api_base": settings.paddle_api_base,
+    }
 
 
 def PLAN_QUOTAS_SAFE(key: str):

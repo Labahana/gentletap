@@ -106,7 +106,7 @@ class Settings(BaseSettings):
     paddle_api_key: str = Field(default="", validation_alias=AliasChoices("PADDLE_API_KEY", "paddle_api_key"))
     paddle_webhook_secret: str = Field(default="", validation_alias=AliasChoices("PADDLE_WEBHOOK_SECRET", "paddle_webhook_secret"))
     paddle_env: str = Field(default="production", validation_alias=AliasChoices("PADDLE_ENVIRONMENT", "paddle_environment"))
-    paddle_api_base: str = "https://api.paddle.com"
+    paddle_api_base: str = Field(default="", validation_alias=AliasChoices("PADDLE_API_BASE", "paddle_api_base"))
     paddle_price_id_pro: str = Field(default="", validation_alias=AliasChoices("PADDLE_PRICE_ID_PRO", "paddle_price_id_pro"))
     paddle_price_id_pro_monthly: str = Field(default="", validation_alias=AliasChoices("PADDLE_PRICE_ID_PRO_MONTHLY", "paddle_price_id_pro_monthly"))
     paddle_price_id_pro_annual: str = Field(default="", validation_alias=AliasChoices("PADDLE_PRICE_ID_PRO_ANNUAL", "paddle_price_id_pro_annual"))
@@ -183,6 +183,14 @@ class Settings(BaseSettings):
             self.celery_broker_url = f"redis://{redis_auth}{self.redis_host}:{self.redis_port}/0"
         if not self.celery_result_backend:
             self.celery_result_backend = f"redis://{redis_auth}{self.redis_host}:{self.redis_port}/1"
+
+        # Paddle API base URL — dynamic based on environment (unless explicitly set)
+        if not self.paddle_api_base:
+            paddle_env_lower = (self.paddle_env or "production").lower()
+            self.paddle_api_base = (
+                "https://sandbox-api.paddle.com" if paddle_env_lower == "sandbox"
+                else "https://api.paddle.com"
+            )
 
         # 2. Enforce credentials from the environment — no hardcoded fallbacks.
         is_prod = (self.environment or "").lower() == "production"

@@ -1,10 +1,13 @@
 """Billing API — Paddle checkout, portal, plan changes."""
 
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.database import get_db
 from app.api.deps import get_current_user_and_org
@@ -17,6 +20,7 @@ from app.services.paddle import (
     create_checkout_url,
     create_credit_pack_checkout,
     create_portal_url,
+    public_config,
 )
 
 router = APIRouter(prefix="/billing", tags=["Billing"])
@@ -43,21 +47,27 @@ def create_checkout(
     plan = normalize_plan(req.plan)
     if plan == "starter":
         raise HTTPException(status_code=400, detail="Starter is free — no checkout needed.")
-    result = create_checkout_url(
-        org_id=org.id,
-        user_email=user.email,
-        plan=plan,
-        annual=req.annual,
-        customer_id=org.paddle_customer_id,
-    )
-    return result
+    try:
+        result = create_checkout_url(
+            org_id=org.id,
+            user_email=user.email,
+            plan=plan,
+            annual=req.annual,
+            customer_id=org.paddle_customer_id,
+        )
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @router.get("/portal")
 def get_portal(user_and_org=Depends(get_current_user_and_org)):
     user, org = user_and_org
     require_owner(user, org)
-    return create_portal_url(org.paddle_customer_id or "")
+    try:
+        return create_portal_url(org.paddle_customer_id or "")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @router.get("/subscription")
@@ -104,7 +114,10 @@ def cancel_subscription(
     if not sub:
         raise HTTPException(status_code=404, detail="No active subscription")
     if sub.paddle_subscription_id:
-        cancel_paddle_subscription(sub.paddle_subscription_id)
+        try:
+            cancel_paddle_subscription(sub.paddle_subscription_id)
+        except ValueError as exc:
+            logger.warning("Paddle cancel failed (continuing with local cancel): %s", exc)
     sub.cancel_at_period_end = True
     db.commit()
     return {"status": "cancelled_at_period_end"}
@@ -128,14 +141,17 @@ def change_plan(
         db.commit()
         return {"plan": "starter", "status": "downgraded"}
 
-    result = create_checkout_url(
-        org_id=org.id,
-        user_email=user.email,
-        plan=plan,
-        annual=req.annual,
-        customer_id=org.paddle_customer_id,
-    )
-    return result
+    try:
+        result = create_checkout_url(
+            org_id=org.id,
+            user_email=user.email,
+            plan=plan,
+            annual=req.annual,
+            customer_id=org.paddle_customer_id,
+        )
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @router.post("/credit-packs")
@@ -144,8 +160,11 @@ def buy_credits(user_and_org=Depends(get_current_user_and_org), db: Session = De
     require_owner(user, org)
     if normalize_plan(org.plan) not in ("pro_plus", "team"):
         raise HTTPException(status_code=403, detail="Upgrade to Pro+ to unlock WhatsApp.")
-    result = create_credit_pack_checkout(org.id, user.email)
-    return result
+    try:
+        result = create_credit_pack_checkout(org.id, user.email)
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @router.get("/invoices")
@@ -166,3 +185,9 @@ def list_invoices(user_and_org=Depends(get_current_user_and_org)):
         if normalize_plan(org.plan) != "starter"
         else []
     }
+
+
+@router.get("/config")
+def get_billing_config():
+    """Return Paddle config for frontend initialization."""
+    return public_config()
