@@ -73,6 +73,40 @@ def _headers() -> Dict[str, str]:
     }
 
 
+def get_or_create_customer(org_id: str, user_email: str) -> Optional[str]:
+    """Get existing customer ID or create a new Paddle customer."""
+    if not settings.paddle_api_key:
+        return None
+    try:
+        with httpx.Client(timeout=20.0) as client:
+            # Try to find existing customer by email
+            res = client.get(
+                f"{settings.paddle_api_base}/customers",
+                headers=_headers(),
+                params={"email": user_email},
+            )
+            if res.status_code == 200:
+                customers = res.json().get("data", [])
+                if customers:
+                    return customers[0].get("id")
+            
+            # Create new customer
+            res = client.post(
+                f"{settings.paddle_api_base}/customers",
+                headers=_headers(),
+                json={
+                    "email": user_email,
+                    "custom_data": {"org_id": org_id},
+                },
+            )
+            if res.status_code in (200, 201):
+                data = res.json().get("data", {})
+                return data.get("id")
+    except Exception as exc:
+        logger.warning("Paddle customer error: %s", exc)
+    return None
+
+
 def create_checkout_url(
     *,
     org_id: str,
@@ -97,13 +131,28 @@ def create_checkout_url(
             "price_id": price_id,
         }
 
+    # Get or create customer
+    if not customer_id:
+        customer_id = get_or_create_customer(org_id, user_email)
+    if not customer_id:
+        logger.error("Could not create Paddle customer for %s", user_email)
+        return {"checkout_url": None, "mock": True, "plan": plan}
+
+    success_url = f"{settings.frontend_url}/billing?checkout=success"
+    cancel_url = f"{settings.frontend_url}/billing?checkout=cancelled"
+
     payload: Dict[str, Any] = {
         "items": [{"price_id": price_id, "quantity": 1}],
-        "custom_data": {"org_id": org_id, "plan": plan, "annual": annual},
-        "customer": {"email": user_email},
+        "customer_id": customer_id,
+        "collection_mode": "automatic",
+        "custom_data": {"org_id": org_id, "plan": plan, "annual": annual, "type": "subscription"},
+        "checkout": {
+            "settings": {
+                "success_url": success_url,
+                "cancel_url": cancel_url,
+            },
+        },
     }
-    if customer_id:
-        payload["customer_id"] = customer_id
 
     try:
         with httpx.Client(timeout=20.0) as client:
@@ -114,8 +163,9 @@ def create_checkout_url(
             )
             if res.status_code in (200, 201):
                 data = res.json().get("data", {})
+                checkout_url = (data.get("checkout") or {}).get("url") or data.get("url")
                 return {
-                    "checkout_url": data.get("checkout", {}).get("url") or data.get("url"),
+                    "checkout_url": checkout_url,
                     "transaction_id": data.get("id"),
                     "mock": False,
                     "plan": plan,
@@ -124,12 +174,7 @@ def create_checkout_url(
     except Exception as exc:
         logger.warning("Paddle checkout error: %s", exc)
 
-    qs = urlencode({"org_id": org_id, "plan": plan, "annual": str(annual).lower()})
-    return {
-        "checkout_url": f"{settings.frontend_url}/billing?mock_checkout=1&{qs}",
-        "mock": True,
-        "plan": plan,
-    }
+    return {"checkout_url": None, "mock": True, "plan": plan}
 
 
 def create_portal_url(customer_id: str) -> Dict[str, Any]:
@@ -158,29 +203,42 @@ def create_credit_pack_checkout(org_id: str, user_email: str) -> Dict[str, Any]:
             "credits": 500,
             "amount": 15,
         }
+    
+    customer_id = get_or_create_customer(org_id, user_email)
+    if not customer_id:
+        logger.error("Could not create Paddle customer for credit pack: %s", user_email)
+        return {"checkout_url": None, "mock": True, "credits": 500}
+
+    success_url = f"{settings.frontend_url}/billing?credits=success"
+    cancel_url = f"{settings.frontend_url}/billing?credits=cancelled"
+
     payload = {
         "items": [{"price_id": settings.paddle_price_id_whatsapp_500, "quantity": 1}],
+        "customer_id": customer_id,
+        "collection_mode": "automatic",
         "custom_data": {"org_id": org_id, "type": "whatsapp_credits", "credits": 500},
-        "customer": {"email": user_email},
+        "checkout": {
+            "settings": {
+                "success_url": success_url,
+                "cancel_url": cancel_url,
+            },
+        },
     }
     try:
         with httpx.Client(timeout=20.0) as client:
             res = client.post(f"{settings.paddle_api_base}/transactions", headers=_headers(), json=payload)
             if res.status_code in (200, 201):
                 data = res.json().get("data", {})
+                checkout_url = (data.get("checkout") or {}).get("url")
                 return {
-                    "checkout_url": data.get("checkout", {}).get("url"),
+                    "checkout_url": checkout_url,
+                    "transaction_id": data.get("id"),
                     "mock": False,
                     "credits": 500,
                 }
     except Exception as exc:
         logger.warning("Credit pack checkout failed: %s", exc)
-    return {
-        "checkout_url": f"{settings.frontend_url}/billing?mock_credits=1&org_id={org_id}",
-        "mock": True,
-        "credits": 500,
-        "amount": 15,
-    }
+    return {"checkout_url": None, "mock": True, "credits": 500}
 
 
 def cancel_paddle_subscription(subscription_id: str) -> Dict[str, Any]:
