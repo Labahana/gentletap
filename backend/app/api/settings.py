@@ -10,11 +10,14 @@ from app.schemas.settings import (
     OperationModeUpdate,
     ReminderDefaultsOut,
     ReminderDefaultsUpdate,
+    AutomationPauseIn,
 )
 from app.services.reminder_engine import get_or_create_org_settings
 from app.services.autopilot import ensure_autopilot_assets, disable_autopilot_assignment
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
+
+_APPROVAL_MODES = ("off", "first_batch", "amount_threshold")
 
 
 def _settings_out(user, org, row) -> SettingsOut:
@@ -34,6 +37,19 @@ def _settings_out(user, org, row) -> SettingsOut:
         escalation_alerts=row.escalation_alerts,
         stop_after_days=row.stop_after_days,
         contact_window_enabled=row.contact_window_enabled,
+        pause_all=row.pause_all,
+        pause_until=row.pause_until,
+        pause_reason=row.pause_reason,
+        min_amount=float(row.min_amount) if row.min_amount is not None else None,
+        suppress_on_reply=row.suppress_on_reply,
+        approval_mode=row.approval_mode or "off",
+        approval_threshold_amount=(
+            float(row.approval_threshold_amount) if row.approval_threshold_amount is not None else None
+        ),
+        whatsapp_delay_hours=row.whatsapp_delay_hours,
+        whatsapp_quiet_hours=row.whatsapp_quiet_hours,
+        send_window_days=row.send_window_days,
+        skip_weekends=row.skip_weekends,
     )
 
 
@@ -83,12 +99,100 @@ def update_settings_data(
         row.stop_after_days = req.stop_after_days
     if req.contact_window_enabled is not None:
         row.contact_window_enabled = req.contact_window_enabled
+    if req.min_amount is not None:
+        row.min_amount = req.min_amount
+    elif "min_amount" in req.model_fields_set:
+        row.min_amount = None  # explicit null clears the floor
+    if req.suppress_on_reply is not None:
+        row.suppress_on_reply = req.suppress_on_reply
+    if req.approval_mode is not None:
+        if req.approval_mode not in _APPROVAL_MODES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"approval_mode must be one of {list(_APPROVAL_MODES)}",
+            )
+        row.approval_mode = req.approval_mode
+    if req.approval_threshold_amount is not None:
+        row.approval_threshold_amount = req.approval_threshold_amount
+    elif "approval_threshold_amount" in req.model_fields_set:
+        row.approval_threshold_amount = None
+    if req.whatsapp_delay_hours is not None:
+        row.whatsapp_delay_hours = req.whatsapp_delay_hours
+    if req.whatsapp_quiet_hours is not None:
+        row.whatsapp_quiet_hours = _validate_quiet_hours(req.whatsapp_quiet_hours)
+    elif "whatsapp_quiet_hours" in req.model_fields_set:
+        row.whatsapp_quiet_hours = None
+    if req.send_window_days is not None:
+        row.send_window_days = _validate_send_window_days(req.send_window_days)
+    elif "send_window_days" in req.model_fields_set:
+        row.send_window_days = None
+    if req.skip_weekends is not None:
+        row.skip_weekends = req.skip_weekends
 
     db.commit()
     db.refresh(user)
     db.refresh(org)
     db.refresh(row)
     return _settings_out(user, org, row)
+
+
+def _validate_quiet_hours(value):
+    if value == {}:
+        return None
+    try:
+        start = int(value["start"])
+        end = int(value["end"])
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="quiet_hours needs integer 'start' and 'end' (0-23)")
+    if not (0 <= start <= 23 and 0 <= end <= 23):
+        raise HTTPException(status_code=400, detail="quiet_hours hours must be 0-23")
+    return {"start": start, "end": end}
+
+
+def _validate_send_window_days(value):
+    if value == []:
+        return None
+    try:
+        days = sorted({int(d) for d in value})
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="send_window_days must be a list of weekday numbers 0-6")
+    if not days or days[0] < 0 or days[-1] > 6:
+        raise HTTPException(status_code=400, detail="send_window_days must be weekday numbers 0-6")
+    return days
+
+
+@router.post("/pause-all")
+def pause_all_reminders(
+    req: AutomationPauseIn,
+    user_and_org=Depends(get_current_user_and_org),
+    db: Session = Depends(get_db),
+):
+    _, org = user_and_org
+    row = get_or_create_org_settings(db, org.id)
+    row.pause_all = True
+    row.pause_until = req.until
+    row.pause_reason = (req.reason or "")[:255] or None
+    db.commit()
+    return {
+        "status": "paused",
+        "pause_all": True,
+        "pause_until": row.pause_until,
+        "pause_reason": row.pause_reason,
+    }
+
+
+@router.post("/resume-all")
+def resume_all_reminders(
+    user_and_org=Depends(get_current_user_and_org),
+    db: Session = Depends(get_db),
+):
+    _, org = user_and_org
+    row = get_or_create_org_settings(db, org.id)
+    row.pause_all = False
+    row.pause_until = None
+    row.pause_reason = None
+    db.commit()
+    return {"status": "resumed", "pause_all": False}
 
 
 @router.get("/operation-mode", response_model=OperationModeOut)

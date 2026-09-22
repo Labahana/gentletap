@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
+from app.models.client import Client
 from app.models.invoice import Invoice
 from app.models.org_settings import OrgSettings
 from app.models.reminder_schedule import ReminderSchedule
@@ -109,9 +110,23 @@ def build_schedule_for_assignment(
     if tone_pref is None:
         tone_pref = (org_settings.reminder_defaults or {}).get("default_tone")
 
+    # Per-client cadence override: replaces the sequence's day offsets while
+    # reusing each step's tone/template by position.
+    override_days: Optional[List[int]] = None
+    client = db.query(Client).filter(Client.id == invoice.client_id).first()
+    if client and client.cadence_override:
+        try:
+            override_days = sorted({int(d) for d in client.cadence_override})
+        except (TypeError, ValueError):
+            override_days = None
+
     created: List[ReminderSchedule] = []
     steps = sequence.steps or []
-    for idx, step in enumerate(steps):
+    total = len(override_days) if override_days else len(steps)
+    for idx in range(total):
+        step = steps[min(idx, len(steps) - 1)] if steps else None
+        if step is None:
+            break
         if isinstance(step, dict):
             enabled = step.get("enabled", True)
             day_offset = int(step.get("day_offset", 0))
@@ -125,9 +140,11 @@ def build_schedule_for_assignment(
             )
             template_id = getattr(step, "template_id", None)
 
-        if not enabled:
+        if not enabled and not override_days:
             continue
 
+        if override_days:
+            day_offset = override_days[idx]
         # Adjust tone if not explicitly set in step with preference logic
         if isinstance(step, dict) and not step.get("tone"):
             tone = select_tone(day_offset, reliability_score, dispute_count, tone_pref)

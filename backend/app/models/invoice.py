@@ -29,5 +29,6 @@ class Invoice(Base, TimestampMixin):
     first_overdue_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     stop_reminders: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     imported_from: Mapped[str] = mapped_column(String(20), default="manual", nullable=False)  # quickbooks|freshbooks|csv|manual
+    expected_payment_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
 
     client: Mapped["Client"] = relationship("Client", lazy="joined")

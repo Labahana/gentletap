@@ -1,5 +1,7 @@
+from datetime import datetime
 from typing import Any, Dict, Optional
-from pydantic import BaseModel, EmailStr
+
+from pydantic import BaseModel, EmailStr, Field
 
 
 class SettingsOut(BaseModel):
@@ -18,6 +20,18 @@ class SettingsOut(BaseModel):
     escalation_alerts: bool = True
     stop_after_days: int = 30
     contact_window_enabled: bool = True
+    # Control-center guardrails
+    pause_all: bool = False
+    pause_until: Optional[datetime] = None
+    pause_reason: Optional[str] = None
+    min_amount: Optional[float] = None
+    suppress_on_reply: bool = True
+    approval_mode: str = "off"
+    approval_threshold_amount: Optional[float] = None
+    whatsapp_delay_hours: int = 3
+    whatsapp_quiet_hours: Optional[Dict[str, int]] = None
+    send_window_days: Optional[list] = None
+    skip_weekends: bool = False
 
 
 class SettingsUpdate(BaseModel):
@@ -34,6 +48,19 @@ class SettingsUpdate(BaseModel):
     escalation_alerts: Optional[bool] = None
     stop_after_days: Optional[int] = None
     contact_window_enabled: Optional[bool] = None
+    min_amount: Optional[float] = None
+    suppress_on_reply: Optional[bool] = None
+    approval_mode: Optional[str] = None
+    approval_threshold_amount: Optional[float] = None
+    whatsapp_delay_hours: Optional[int] = Field(default=None, ge=0, le=168)
+    whatsapp_quiet_hours: Optional[Dict[str, int]] = None
+    send_window_days: Optional[list] = None
+    skip_weekends: Optional[bool] = None
+
+
+class AutomationPauseIn(BaseModel):
+    until: Optional[datetime] = None  # null = indefinite
+    reason: Optional[str] = None
 
 
 class OperationModeOut(BaseModel):

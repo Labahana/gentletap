@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
+from typing import Optional
 
-from sqlalchemy import func
+from sqlalchemy import func, update
 
 from app.config import get_settings
 from app.database import SessionLocal
@@ -20,6 +21,7 @@ from app.services.reminder_engine import (
     get_or_create_org_settings,
     is_within_contact_window,
     next_valid_send_time,
+    resolve_timezone,
 )
 from app.services.client_profile import get_or_create_profile
 from app.tasks.draft_message import draft_reminder_content
@@ -28,6 +30,57 @@ from app.workers.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+STUCK_PROCESSING_MINUTES = 15
+MAX_SEND_ATTEMPTS = 5
+SEND_RETRY_BACKOFF_MINUTES = 15
+_RETRYABLE_MARKERS = (
+    "429",
+    "rate limit",
+    "timeout",
+    "temporarily",
+    "connection",
+    "unavailable",
+    "503",
+    "502",
+    "500",
+    "timed out",
+    "try again",
+)
+
+
+def _claim_schedule(db, schedule_id: str) -> Optional[ReminderSchedule]:
+    """Atomically move a pending schedule row to processing. Returns None if lost."""
+    claimed = db.execute(
+        update(ReminderSchedule)
+        .where(ReminderSchedule.id == schedule_id, ReminderSchedule.status == "pending")
+        .values(status="processing", updated_at=datetime.now(timezone.utc))
+    ).rowcount
+    if claimed != 1:
+        return None
+    return db.query(ReminderSchedule).filter(ReminderSchedule.id == schedule_id).first()
+
+
+def _next_allowed_window(now, org_settings, best_hour: Optional[int]) -> Optional[datetime]:
+    """Apply send_window_days + skip_weekends. Returns next allowed UTC datetime, or None if unconstrained."""
+    allowed = org_settings.send_window_days
+    if not allowed and not org_settings.skip_weekends:
+        return None
+    tz = resolve_timezone(org_settings.timezone)
+    local = now.astimezone(tz)
+    hour = best_hour or 9
+    for i in range(0, 8):
+        day = local.date() + timedelta(days=i)
+        weekday = day.weekday()
+        if allowed and weekday not in allowed:
+            continue
+        if org_settings.skip_weekends and weekday >= 5:
+            continue
+        candidate = datetime.combine(day, time(hour=hour), tzinfo=tz)
+        if i == 0 and candidate <= local:
+            continue
+        return candidate.astimezone(timezone.utc)
+    return None
 
 
 def _is_suppressed(db, org_id: str, email: str) -> bool:
@@ -113,9 +166,9 @@ def process_single_reminder(db, schedule: ReminderSchedule) -> dict:
         if not acquired:
             return {"status": "skipped", "reason": "locked"}
 
-        # Re-fetch for freshness
-        schedule = db.query(ReminderSchedule).filter(ReminderSchedule.id == schedule.id).first()
-        if not schedule or schedule.status != "pending":
+        # Atomic DB claim: only one worker may move pending -> processing.
+        schedule = _claim_schedule(db, schedule.id)
+        if schedule is None:
             return {"status": "skipped", "reason": "not_pending"}
 
         invoice = db.query(Invoice).filter(Invoice.id == schedule.invoice_id).first()
@@ -138,6 +191,47 @@ def process_single_reminder(db, schedule: ReminderSchedule) -> dict:
 
         org_settings = get_or_create_org_settings(db, invoice.org_id)
         now = datetime.now(timezone.utc)
+
+        # --- Control-center guardrails ---
+        if org_settings.pause_all:
+            if org_settings.pause_until and org_settings.pause_until <= now:
+                # Time-boxed pause expired; auto-resume.
+                org_settings.pause_all = False
+                org_settings.pause_until = None
+                org_settings.pause_reason = None
+            else:
+                resume_at = org_settings.pause_until or (now + timedelta(hours=6))
+                if resume_at < now + timedelta(hours=1):
+                    resume_at = now + timedelta(hours=1)
+                schedule.status = "pending"
+                schedule.scheduled_at = resume_at
+                schedule.skip_reason = "paused"
+                return {
+                    "status": "rescheduled",
+                    "reason": "paused",
+                    "scheduled_at": resume_at.isoformat(),
+                }
+
+        if org_settings.min_amount is not None and float(invoice.amount or 0) < float(
+            org_settings.min_amount
+        ):
+            schedule.status = "skipped"
+            schedule.skip_reason = "below_min_amount"
+            return {"status": "skipped", "reason": "below_min_amount"}
+
+        if invoice.expected_payment_date:
+            today_local = now.astimezone(resolve_timezone(org_settings.timezone)).date()
+            if invoice.expected_payment_date >= today_local:
+                retry_at = now + timedelta(days=1)
+                schedule.status = "pending"
+                schedule.scheduled_at = retry_at
+                schedule.skip_reason = "awaiting_expected_payment"
+                return {
+                    "status": "rescheduled",
+                    "reason": "awaiting_expected_payment",
+                    "scheduled_at": retry_at.isoformat(),
+                }
+
         profile = get_or_create_profile(db, invoice.client_id, invoice.org_id)
         prefs = profile.preferences or {}
         best_hour = None
@@ -150,16 +244,29 @@ def process_single_reminder(db, schedule: ReminderSchedule) -> dict:
         if org_settings.contact_window_enabled and not is_within_contact_window(
             now, tz_name=org_settings.timezone, enabled=True
         ):
+            schedule.status = "pending"
             schedule.scheduled_at = next_valid_send_time(
                 now, tz_name=org_settings.timezone, best_send_hour=best_hour or 9, enabled=True
             )
             return {"status": "rescheduled", "scheduled_at": schedule.scheduled_at.isoformat()}
 
+        window_next = _next_allowed_window(now, org_settings, best_hour)
+        if window_next is not None and window_next > now + timedelta(minutes=15):
+            schedule.status = "pending"
+            schedule.scheduled_at = window_next
+            return {
+                "status": "rescheduled",
+                "reason": "send_window",
+                "scheduled_at": window_next.isoformat(),
+            }
+
         if _org_daily_send_count(db, invoice.org_id) >= settings.org_daily_email_cap:
+            schedule.status = "pending"
             schedule.scheduled_at = now + timedelta(hours=1)
             return {"status": "rescheduled", "reason": "org_cap"}
 
         if _client_sent_in_last_24h(db, invoice.client_id):
+            schedule.status = "pending"
             schedule.scheduled_at = now + timedelta(hours=24)
             return {"status": "rescheduled", "reason": "client_24h_cap"}
 
@@ -185,9 +292,17 @@ def process_single_reminder(db, schedule: ReminderSchedule) -> dict:
             )
             if ctx is not None:
                 should_send, reason = intel_engine.should_send(ctx)
+                if (
+                    not should_send
+                    and reason == "client_responded"
+                    and not org_settings.suppress_on_reply
+                ):
+                    # User opted out of reply-based suppression — keep chasing.
+                    should_send, reason = True, None
                 if not should_send:
                     if reason == "client_responded":
                         # Give the thread air — retry after a day.
+                        schedule.status = "pending"
                         schedule.scheduled_at = now + timedelta(hours=24)
                         schedule.skip_reason = "intel_client_responded"
                         db.commit()
@@ -214,6 +329,7 @@ def process_single_reminder(db, schedule: ReminderSchedule) -> dict:
                 if ctx.invoice.sequence_step >= 1:
                     optimal = next_send_window(ctx, now=now)
                     if optimal > now + timedelta(minutes=30):
+                        schedule.status = "pending"
                         schedule.scheduled_at = optimal
                         return {
                             "status": "rescheduled",
@@ -234,16 +350,59 @@ def process_single_reminder(db, schedule: ReminderSchedule) -> dict:
             template_id = schedule.template_id
             draft = {"subject": schedule.draft_subject, "body": schedule.draft_body}
 
-        msg = create_and_send_message(
-            db,
-            org_id=invoice.org_id,
-            invoice_id=invoice.id,
-            client_id=invoice.client_id,
-            subject=draft["subject"],
-            body=draft["body"],
-            template_id=template_id,
-            ai_provider_used=provider,
+        # Final payment recheck under a row lock: a webhook or the hourly
+        # sync may have settled the invoice while this send was queued.
+        from app.services.payment_detect import detect_and_stop_if_paid
+
+        invoice = (
+            db.query(Invoice)
+            .filter(Invoice.id == invoice.id)
+            .populate_existing()
+            .with_for_update(of=Invoice)
+            .first()
         )
+        detect_and_stop_if_paid(db, invoice, method="pre_send_recheck")
+        if invoice.stop_reminders or invoice.status in ("paid", "closed", "disputed") or float(invoice.balance or 0) <= 0:
+            schedule.status = "cancelled"
+            schedule.skip_reason = "invoice_paid_or_stopped"
+            return {"status": "cancelled", "reason": "invoice_paid_or_stopped"}
+
+        try:
+            msg = create_and_send_message(
+                db,
+                org_id=invoice.org_id,
+                invoice_id=invoice.id,
+                client_id=invoice.client_id,
+                subject=draft["subject"],
+                body=draft["body"],
+                template_id=template_id,
+                ai_provider_used=provider,
+            )
+        except Exception as exc:
+            err_text = str(exc).lower()
+            schedule.attempts = (schedule.attempts or 0) + 1
+            retryable = any(marker in err_text for marker in _RETRYABLE_MARKERS)
+            if not retryable or schedule.attempts >= MAX_SEND_ATTEMPTS:
+                schedule.status = "failed"
+                schedule.skip_reason = f"send_error:{str(exc)[:220]}"
+                logger.warning(
+                    "Send failed terminally for schedule %s (attempts=%s): %s",
+                    schedule.id, schedule.attempts, exc,
+                )
+                return {"status": "failed", "reason": schedule.skip_reason}
+            schedule.status = "pending"
+            schedule.scheduled_at = now + timedelta(
+                minutes=SEND_RETRY_BACKOFF_MINUTES * schedule.attempts
+            )
+            logger.info(
+                "Send retry scheduled for schedule %s (attempt %s) in %sm: %s",
+                schedule.id, schedule.attempts, SEND_RETRY_BACKOFF_MINUTES * schedule.attempts, exc,
+            )
+            return {
+                "status": "retry",
+                "attempt": schedule.attempts,
+                "scheduled_at": schedule.scheduled_at.isoformat(),
+            }
         schedule.status = "sent"
         schedule.sent_message_id = msg.id
         if invoice.status == "unpaid":
@@ -265,9 +424,10 @@ def process_single_reminder(db, schedule: ReminderSchedule) -> dict:
                 and channel_pref in ("email_whatsapp", "whatsapp_only")
                 and can_send_whatsapp(org, db)
             ):
+                wa_settings = get_or_create_org_settings(db, org.id)
                 send_whatsapp_followup_task.apply_async(
                     args=[invoice.id, schedule.step_index, msg.id],
-                    countdown=3 * 3600,
+                    countdown=max(0, wa_settings.whatsapp_delay_hours) * 3600,
                 )
         except Exception as exc:
             logger.warning("WhatsApp enqueue skipped: %s", exc)
@@ -297,6 +457,27 @@ def send_whatsapp_followup_task(invoice_id: str, step_index: int, email_message_
         client = db.query(Client).filter(Client.id == invoice.client_id).first()
         if not org or not client or not client.phone:
             return {"status": "skipped", "reason": "no_phone"}
+
+        wa_settings = get_or_create_org_settings(db, org.id)
+        qh = wa_settings.whatsapp_quiet_hours or {}
+        if qh:
+            local_hour = datetime.now(timezone.utc).astimezone(
+                resolve_timezone(wa_settings.timezone)
+            ).hour
+            start, end = int(qh.get("start", 21)), int(qh.get("end", 8))
+            in_quiet = (
+                start <= local_hour < end
+                if start <= end
+                else local_hour >= start or local_hour < end
+            )
+            if in_quiet:
+                delay_hours = (end - local_hour) % 24 or 24
+                send_whatsapp_followup_task.apply_async(
+                    args=[invoice_id, step_index, email_message_id],
+                    countdown=delay_hours * 3600,
+                )
+                return {"status": "deferred", "reason": "quiet_hours", "hours": delay_hours}
+
         if not can_send_whatsapp(org, db):
             db.add(
                 AuditLog(
@@ -360,6 +541,28 @@ def process_reminders_task():
     results = []
     try:
         now = datetime.now(timezone.utc)
+
+        # Requeue rows stuck in processing (worker crashed mid-send or the
+        # post-dispatch commit was lost). Each requeue burns an attempt so a
+        # permanently crashing job eventually fails instead of looping.
+        stuck_cutoff = now - timedelta(minutes=STUCK_PROCESSING_MINUTES)
+        stuck = (
+            db.query(ReminderSchedule)
+            .filter(ReminderSchedule.status == "processing", ReminderSchedule.updated_at <= stuck_cutoff)
+            .order_by(ReminderSchedule.updated_at.asc())
+            .limit(100)
+            .all()
+        )
+        for row in stuck:
+            row.attempts = (row.attempts or 0) + 1
+            if row.attempts >= MAX_SEND_ATTEMPTS:
+                row.status = "failed"
+                row.skip_reason = "max_attempts_stuck"
+            else:
+                row.status = "pending"
+        if stuck:
+            db.commit()
+
         due = (
             db.query(ReminderSchedule)
             .filter(ReminderSchedule.status == "pending", ReminderSchedule.scheduled_at <= now)

@@ -76,16 +76,42 @@ def create_and_send_message(
     )
     db.add(msg)
     db.flush()
+    # Commit the queued row up-front so a dispatch crash leaves a durable,
+    # resumable record (send_email_task) instead of a lost send.
+    db.commit()
 
-    send_via = resolve_org_send_via(db, org_id)
-    result = send_email_dispatch(
-        org_id=org_id,
-        to_email=to_email,
-        subject=subject,
-        body=body_with_footer,
-        send_via=send_via,
-        db=db,
-    )
+    try:
+        send_via = resolve_org_send_via(db, org_id)
+        result = send_email_dispatch(
+            org_id=org_id,
+            to_email=to_email,
+            subject=subject,
+            body=body_with_footer,
+            send_via=send_via,
+            db=db,
+        )
+    except Exception as exc:
+        msg.status = "failed"
+        db.add(
+            AuditLog(
+                org_id=org_id,
+                actor_type="system",
+                actor_id=None,
+                action="automated_send_failed",
+                entity_type="message",
+                entity_id=msg.id,
+                details={
+                    "invoice_id": invoice_id,
+                    "client_id": client_id,
+                    "subject": subject,
+                    "to": to_email,
+                    "error": str(exc)[:500],
+                },
+            )
+        )
+        db.commit()
+        raise
+
     msg.provider_message_id = result.get("id")
     msg.status = "sent"
     msg.sent_at = datetime.now(timezone.utc)

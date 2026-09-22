@@ -182,6 +182,7 @@ def update_invoice(
     if req.due_date is not None: invoice.due_date = req.due_date
     if req.issue_date is not None: invoice.issue_date = req.issue_date
     if req.status is not None: invoice.status = req.status
+    if req.expected_payment_date is not None: invoice.expected_payment_date = req.expected_payment_date
 
     db.commit()
     db.refresh(invoice)

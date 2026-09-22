@@ -21,6 +21,7 @@ class Client(Base):
     currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
     relationship_started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     meta: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    cadence_override: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)  # day offsets, e.g. [0, 5, 10]
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

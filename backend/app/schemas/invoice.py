@@ -21,6 +21,7 @@ class InvoiceUpdate(BaseModel):
     due_date: Optional[date] = None
     issue_date: Optional[date] = None
     status: Optional[str] = None
+    expected_payment_date: Optional[date] = None
 
 
 class InvoiceOut(BaseModel):

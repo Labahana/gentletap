@@ -1,8 +1,9 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -28,6 +29,18 @@ class OrgSettings(Base):
     email_notifications: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     digest_frequency: Mapped[str] = mapped_column(String(20), default="daily", nullable=False)
     reminder_defaults: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    # Control-center guardrails (phase 6)
+    pause_all: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    pause_until: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    pause_reason: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    min_amount: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2), nullable=True)
+    suppress_on_reply: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    approval_mode: Mapped[str] = mapped_column(String(20), default="off", nullable=False)  # off|first_batch|amount_threshold
+    approval_threshold_amount: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2), nullable=True)
+    whatsapp_delay_hours: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
+    whatsapp_quiet_hours: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # {"start": 21, "end": 8}
+    send_window_days: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)  # [0..6], null = every day
+    skip_weekends: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

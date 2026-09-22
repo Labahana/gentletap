@@ -21,11 +21,18 @@ class ReminderSchedule(Base):
     channel: Mapped[str] = mapped_column(String(20), default="email", nullable=False)
     status: Mapped[str] = mapped_column(
         String(20), default="pending", nullable=False
-    )  # pending|sent|skipped|cancelled|failed
+    )  # pending|processing|sent|skipped|cancelled|failed
     skip_reason: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     sent_message_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("messages.id"), nullable=True)
     draft_subject: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     draft_body: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
     )
