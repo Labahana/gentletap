@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.api.deps import get_current_user_and_org
 from app.models.invoice import Invoice
+from app.models.reminder_job import ReminderJob
 from app.models.reminder_schedule import ReminderSchedule
 from app.models.sequence import Sequence, SequenceAssignment
 from app.schemas.reminder import (
@@ -18,6 +19,7 @@ from app.schemas.reminder import (
     DraftRegenerateOut,
 )
 from app.services.reminder_engine import pause_pending_reminders, resume_pending_reminders
+from app.services.sequences import execute_job, materialize_step
 from app.tasks.draft_message import draft_reminder_content
 from app.tasks.process_reminders import process_single_reminder
 from app.tasks.send_email import create_and_send_message
@@ -74,6 +76,18 @@ def update_schedule_step(
 
     if req.scheduled_at is not None:
         row.scheduled_at = req.scheduled_at
+        # Keep the owning dispatch job in sync when the current step moves.
+        job = (
+            db.query(ReminderJob)
+            .filter(
+                ReminderJob.invoice_id == invoice.id,
+                ReminderJob.sequence_step == row.step_index,
+                ReminderJob.status == "pending",
+            )
+            .first()
+        )
+        if job is not None:
+            job.scheduled_for = req.scheduled_at
     if req.tone is not None:
         row.tone = req.tone
         row.draft_body = None
@@ -137,6 +151,20 @@ def send_now(
     if invoice.stop_reminders or invoice.status in ("paid", "closed"):
         raise HTTPException(status_code=400, detail="Invoice is not eligible for sending")
 
+    job = (
+        db.query(ReminderJob)
+        .filter(ReminderJob.invoice_id == invoice.id, ReminderJob.status == "pending")
+        .order_by(ReminderJob.scheduled_for.asc())
+        .first()
+    )
+    if job is not None:
+        job.status = "processing"
+        db.flush()
+        result = execute_job(db, job)
+        db.commit()
+        return result
+
+    # Legacy invoices without a dispatch job: fall back to the raw pending row.
     schedule = (
         db.query(ReminderSchedule)
         .filter(ReminderSchedule.invoice_id == invoice.id, ReminderSchedule.status == "pending")
@@ -166,6 +194,21 @@ def regenerate_draft(
         .order_by(ReminderSchedule.step_index.asc())
         .first()
     )
+    if schedule is None:
+        # Lazy scheduling: materialize the current job's step on demand.
+        job = (
+            db.query(ReminderJob)
+            .filter(
+                ReminderJob.invoice_id == invoice.id,
+                ReminderJob.status.in_(["pending", "processing"]),
+            )
+            .order_by(ReminderJob.sequence_step.asc())
+            .first()
+        )
+        if job is not None and job.sequence_id:
+            sequence = db.query(Sequence).filter(Sequence.id == job.sequence_id).first()
+            if sequence is not None:
+                schedule = materialize_step(db, invoice, sequence, job.sequence_step)
     if not schedule:
         raise HTTPException(status_code=404, detail="No pending step to draft")
 

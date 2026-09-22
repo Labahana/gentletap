@@ -9,6 +9,7 @@ from app.models.message import Message
 from app.models.audit_log import AuditLog
 from app.models.payout import Payout
 from app.models.reminder_schedule import ReminderSchedule
+from app.models.reminder_job import ReminderJob
 from app.models.client_profile import ClientProfile
 from app.models.suppression import Suppression
 from app.models.org_settings import OrgSettings
@@ -42,6 +43,7 @@ __all__ = [
     "AuditLog",
     "Payout",
     "ReminderSchedule",
+    "ReminderJob",
     "ClientProfile",
     "Suppression",
     "OrgSettings",

@@ -80,6 +80,7 @@ class Settings(BaseSettings):
     # Reminder contact window (org-level settings override these defaults)
     contact_window_start_hour: int = Field(default=9, validation_alias=AliasChoices("CONTACT_WINDOW_START_HOUR", "contact_window_start_hour"))
     contact_window_end_hour: int = Field(default=20, validation_alias=AliasChoices("CONTACT_WINDOW_END_HOUR", "contact_window_end_hour"))
+    org_daily_email_cap: int = Field(default=200, validation_alias=AliasChoices("ORG_DAILY_EMAIL_CAP", "org_daily_email_cap"))
     resend_webhook_secret: str = Field(default="", validation_alias=AliasChoices("RESEND_WEBHOOK_SECRET", "resend_webhook_secret"))
     auth_email_from: str = Field(default="GentleTap <noreply@gentletap.co>", validation_alias=AliasChoices("AUTH_EMAIL_FROM", "auth_email_from", "RESEND_FROM_EMAIL", "resend_from_email"))
     platform_email_address: str = Field(default="accounts@notify.gentletap.co", validation_alias=AliasChoices("PLATFORM_EMAIL_ADDRESS", "platform_email_address"))

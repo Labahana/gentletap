@@ -13,6 +13,7 @@ from app.config import get_settings
 from app.models.client import Client
 from app.models.invoice import Invoice
 from app.models.org_settings import OrgSettings
+from app.models.reminder_job import ReminderJob
 from app.models.reminder_schedule import ReminderSchedule
 from app.models.sequence import Sequence, SequenceAssignment
 from app.services.ai.tones import select_tone
@@ -177,7 +178,58 @@ def build_schedule_for_assignment(
             invoice.first_overdue_at = datetime.now(timezone.utc)
 
     db.flush()
+    if created:
+        sync_reminder_job(
+            db, invoice, sequence.id, created[0].step_index, created[0].scheduled_at
+        )
     return created
+
+
+def sync_reminder_job(
+    db: Session,
+    invoice: Invoice,
+    sequence_id: Optional[str],
+    step_index: int,
+    scheduled_for: datetime,
+) -> ReminderJob:
+    """Create or revive the dispatch job for an invoice's current step.
+
+    Jobs at a step that already completed (cancelled/failed/sent) are revived
+    to pending — this is what lets a reopened invoice re-enter the sequence.
+    """
+    if scheduled_for is not None and scheduled_for.tzinfo is None:
+        scheduled_for = scheduled_for.replace(tzinfo=timezone.utc)
+    existing = (
+        db.query(ReminderJob)
+        .filter(
+            ReminderJob.invoice_id == invoice.id,
+            ReminderJob.sequence_step == step_index,
+        )
+        .first()
+    )
+    if existing is not None:
+        if existing.status in ("cancelled", "failed", "sent"):
+            existing.status = "pending"
+            existing.scheduled_for = scheduled_for
+            existing.attempts = 0
+            existing.last_error = None
+        elif existing.status == "pending":
+            existing.scheduled_for = scheduled_for
+        if sequence_id and not existing.sequence_id:
+            existing.sequence_id = sequence_id
+        db.flush()
+        return existing
+    job = ReminderJob(
+        org_id=invoice.org_id,
+        invoice_id=invoice.id,
+        sequence_id=sequence_id,
+        sequence_step=step_index,
+        scheduled_for=scheduled_for,
+        status="pending",
+    )
+    db.add(job)
+    db.flush()
+    return job
 
 
 def assign_sequence_and_schedule(
@@ -229,6 +281,14 @@ def cancel_pending_reminders(db: Session, invoice_id: str, reason: str = "cancel
     for row in rows:
         row.status = "cancelled"
         row.skip_reason = reason
+    db.flush()
+    jobs = (
+        db.query(ReminderJob)
+        .filter(ReminderJob.invoice_id == invoice_id, ReminderJob.status == "pending")
+        .all()
+    )
+    for job in jobs:
+        job.status = "cancelled"
     return len(rows)
 
 
@@ -244,6 +304,14 @@ def pause_pending_reminders(db: Session, invoice_id: str) -> int:
     for row in rows:
         row.status = "skipped"
         row.skip_reason = "paused"
+    db.flush()
+    jobs = (
+        db.query(ReminderJob)
+        .filter(ReminderJob.invoice_id == invoice_id, ReminderJob.status == "pending")
+        .all()
+    )
+    for job in jobs:
+        job.status = "cancelled"
     return len(rows)
 
 
@@ -264,8 +332,26 @@ def resume_pending_reminders(db: Session, invoice: Invoice, sequence: Optional[S
     )
     now = datetime.now(timezone.utc)
     for row in rows:
-        if row.scheduled_at < now:
+        scheduled_at = row.scheduled_at
+        if scheduled_at is not None and scheduled_at.tzinfo is None:
+            scheduled_at = scheduled_at.replace(tzinfo=timezone.utc)
+            row.scheduled_at = scheduled_at
+        if scheduled_at < now:
             row.scheduled_at = next_valid_send_time(now)
         row.status = "pending"
         row.skip_reason = None
+    if rows:
+        first = min(rows, key=lambda r: (r.step_index, r.scheduled_at))
+        assignment = (
+            db.query(SequenceAssignment)
+            .filter(SequenceAssignment.invoice_id == invoice.id)
+            .first()
+        )
+        sync_reminder_job(
+            db,
+            invoice,
+            assignment.sequence_id if assignment else None,
+            first.step_index,
+            first.scheduled_at,
+        )
     return len(rows)

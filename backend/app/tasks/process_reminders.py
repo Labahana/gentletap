@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, time, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from sqlalchemy import func, update
+from sqlalchemy import update
 
 from app.config import get_settings
 from app.database import SessionLocal
@@ -14,6 +14,7 @@ from app.models.client import Client
 from app.models.invoice import Invoice
 from app.models.message import Message
 from app.models.org_settings import OrgSettings
+from app.models.reminder_job import ReminderJob
 from app.models.reminder_schedule import ReminderSchedule
 from app.models.suppression import Suppression
 from app.services.redis_lock import redis_lock
@@ -23,6 +24,16 @@ from app.services.reminder_engine import (
     next_valid_send_time,
     resolve_timezone,
 )
+from app.services.sequences import (
+    MAX_SEND_ATTEMPTS,
+    RETRYABLE_MARKERS,
+    SEND_RETRY_BACKOFF_MINUTES,
+    STUCK_PROCESSING_MINUTES,
+    _next_allowed_window,
+    claim_due_jobs,
+    execute_job,
+    requeue_stuck_jobs,
+)
 from app.services.client_profile import get_or_create_profile
 from app.tasks.draft_message import draft_reminder_content
 from app.tasks.send_email import create_and_send_message
@@ -30,23 +41,6 @@ from app.workers.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
-
-STUCK_PROCESSING_MINUTES = 15
-MAX_SEND_ATTEMPTS = 5
-SEND_RETRY_BACKOFF_MINUTES = 15
-_RETRYABLE_MARKERS = (
-    "429",
-    "rate limit",
-    "timeout",
-    "temporarily",
-    "connection",
-    "unavailable",
-    "503",
-    "502",
-    "500",
-    "timed out",
-    "try again",
-)
 
 
 def _claim_schedule(db, schedule_id: str) -> Optional[ReminderSchedule]:
@@ -59,28 +53,6 @@ def _claim_schedule(db, schedule_id: str) -> Optional[ReminderSchedule]:
     if claimed != 1:
         return None
     return db.query(ReminderSchedule).filter(ReminderSchedule.id == schedule_id).first()
-
-
-def _next_allowed_window(now, org_settings, best_hour: Optional[int]) -> Optional[datetime]:
-    """Apply send_window_days + skip_weekends. Returns next allowed UTC datetime, or None if unconstrained."""
-    allowed = org_settings.send_window_days
-    if not allowed and not org_settings.skip_weekends:
-        return None
-    tz = resolve_timezone(org_settings.timezone)
-    local = now.astimezone(tz)
-    hour = best_hour or 9
-    for i in range(0, 8):
-        day = local.date() + timedelta(days=i)
-        weekday = day.weekday()
-        if allowed and weekday not in allowed:
-            continue
-        if org_settings.skip_weekends and weekday >= 5:
-            continue
-        candidate = datetime.combine(day, time(hour=hour), tzinfo=tz)
-        if i == 0 and candidate <= local:
-            continue
-        return candidate.astimezone(timezone.utc)
-    return None
 
 
 def _is_suppressed(db, org_id: str, email: str) -> bool:
@@ -381,7 +353,7 @@ def process_single_reminder(db, schedule: ReminderSchedule) -> dict:
         except Exception as exc:
             err_text = str(exc).lower()
             schedule.attempts = (schedule.attempts or 0) + 1
-            retryable = any(marker in err_text for marker in _RETRYABLE_MARKERS)
+            retryable = any(marker in err_text for marker in RETRYABLE_MARKERS)
             if not retryable or schedule.attempts >= MAX_SEND_ATTEMPTS:
                 schedule.status = "failed"
                 schedule.skip_reason = f"send_error:{str(exc)[:220]}"
@@ -535,16 +507,47 @@ def send_whatsapp_followup_task(invoice_id: str, step_index: int, email_message_
         db.close()
 
 
+@celery_app.task(name="app.tasks.process_reminders.send_reminder_job_task")
+def send_reminder_job_task(job_id: str, pre_claimed: bool = False):
+    db = SessionLocal()
+    try:
+        if not pre_claimed:
+            # Atomically claim: only one of (immediate dispatch, beat poll) may win.
+            claimed = db.execute(
+                update(ReminderJob)
+                .where(ReminderJob.id == job_id, ReminderJob.status == "pending")
+                .values(status="processing", updated_at=datetime.now(timezone.utc))
+            ).rowcount
+            db.commit()
+            if claimed != 1:
+                return {"status": "skipped", "reason": "not_pending"}
+        job = db.query(ReminderJob).filter(ReminderJob.id == job_id).first()
+        if job is None or job.status != "processing":
+            return {"status": "skipped", "reason": "not_processing"}
+        result = execute_job(db, job)
+        db.commit()
+        return result
+    except Exception:
+        db.rollback()
+        logger.exception("send_reminder_job_task failed: %s", job_id)
+        raise
+    finally:
+        db.close()
+
+
 @celery_app.task(name="app.tasks.process_reminders.process_reminders_task")
 def process_reminders_task():
+    """Lightweight scheduler: requeue orphans, claim due jobs, fan out to workers."""
     db = SessionLocal()
-    results = []
     try:
         now = datetime.now(timezone.utc)
 
-        # Requeue rows stuck in processing (worker crashed mid-send or the
-        # post-dispatch commit was lost). Each requeue burns an attempt so a
-        # permanently crashing job eventually fails instead of looping.
+        # Jobs orphaned in processing by a crashed worker go back to pending;
+        # each requeue burns an attempt so a permanently crashing job fails.
+        requeued_jobs = requeue_stuck_jobs(db, now)
+
+        # Same reaper for the materialized schedule rows so a revived job can
+        # re-claim the row its step points at.
         stuck_cutoff = now - timedelta(minutes=STUCK_PROCESSING_MINUTES)
         stuck = (
             db.query(ReminderSchedule)
@@ -563,30 +566,18 @@ def process_reminders_task():
         if stuck:
             db.commit()
 
-        due = (
-            db.query(ReminderSchedule)
-            .filter(ReminderSchedule.status == "pending", ReminderSchedule.scheduled_at <= now)
-            .order_by(ReminderSchedule.scheduled_at.asc())
-            .limit(200)
-            .all()
-        )
-        for schedule in due:
-            try:
-                result = process_single_reminder(db, schedule)
-                results.append(result)
-                db.commit()
-            except Exception as exc:
-                db.rollback()
-                logger.exception("Failed processing schedule %s: %s", schedule.id, exc)
-                try:
-                    s = db.query(ReminderSchedule).filter(ReminderSchedule.id == schedule.id).first()
-                    if s and s.status == "pending":
-                        s.status = "failed"
-                        s.skip_reason = str(exc)[:240]
-                        db.commit()
-                except Exception:
-                    db.rollback()
-                results.append({"status": "failed", "error": str(exc)})
-        return {"processed": len(results), "results": results}
+        job_ids = claim_due_jobs(db, now)
     finally:
         db.close()
+
+    for job_id in job_ids:
+        send_reminder_job_task.apply_async(
+            args=[job_id], kwargs={"pre_claimed": True}, expires=14 * 60
+        )
+    if job_ids:
+        logger.info("process_reminders_task dispatched %s job(s)", len(job_ids))
+    return {
+        "dispatched": len(job_ids),
+        "requeued_stuck": requeued_jobs,
+        "requeued_rows": len(stuck),
+    }
