@@ -275,7 +275,10 @@ def assign_sequence_and_schedule(
 def cancel_pending_reminders(db: Session, invoice_id: str, reason: str = "cancelled") -> int:
     rows = (
         db.query(ReminderSchedule)
-        .filter(ReminderSchedule.invoice_id == invoice_id, ReminderSchedule.status == "pending")
+        .filter(
+            ReminderSchedule.invoice_id == invoice_id,
+            ReminderSchedule.status.in_(["pending", "awaiting_approval"]),
+        )
         .all()
     )
     for row in rows:

@@ -40,7 +40,9 @@ def draft_reminder_content(db, schedule: ReminderSchedule) -> Dict[str, Any]:
     owner = db.query(User).filter(User.id == org.owner_user_id).first() if org else None
     owner_name = (owner.full_name if owner and owner.full_name else None) or "Your Team"
 
-    # Prefer saved org template for this tone when present
+    # Anchor: rendered org template for this tone when present, else the static
+    # tone template. The AI chain imitates it; if every provider fails (or no
+    # keys are configured) the anchor is returned verbatim as the fallback.
     template = None
     if schedule.template_id:
         template = db.query(Template).filter(Template.id == schedule.template_id).first()
@@ -56,22 +58,36 @@ def draft_reminder_content(db, schedule: ReminderSchedule) -> Dict[str, Any]:
             .first()
         )
 
+    from datetime import date
+
+    from app.services.ai.templates import render_static_body, render_static_subject
+
+    days_overdue = 0
+    if invoice.due_date:
+        days_overdue = max(0, (date.today() - invoice.due_date).days)
+    anchor_ctx = {
+        "client_first_name": (client.name if client else "there").split()[0],
+        "invoice_number": invoice.number,
+        "amount": f"{float(invoice.amount):,.2f}",
+        "currency": invoice.currency or "USD",
+        "due_date": str(invoice.due_date) if invoice.due_date else "N/A",
+        "days_overdue": days_overdue,
+        "payment_link": "the payment link on your invoice",
+        "owner_name": owner_name,
+    }
     if template and template.body:
         ctx = {
             "client_name": client.name if client else "there",
             "invoice_number": invoice.number,
             "amount": float(invoice.amount),
             "due_date": str(invoice.due_date) if invoice.due_date else "",
-            "days_overdue": 0,
+            "days_overdue": days_overdue,
         }
-        from datetime import date
-
-        if invoice.due_date:
-            ctx["days_overdue"] = max(0, (date.today() - invoice.due_date).days)
-        subject = render_template_placeholders(template.subject, ctx)
-        body = render_template_placeholders(template.body, ctx)
-        provider = "template" if not template.ai_generated else "template"
-        return {"subject": subject, "body": body, "provider": provider, "template_id": template.id}
+        anchor_subject = render_template_placeholders(template.subject, ctx)
+        anchor_body = render_template_placeholders(template.body, ctx)
+    else:
+        anchor_subject = render_static_subject(schedule.tone, anchor_ctx)
+        anchor_body = render_static_body(schedule.tone, anchor_ctx)
 
     draft = generate_reminder(
         invoice=invoice,
@@ -81,12 +97,21 @@ def draft_reminder_content(db, schedule: ReminderSchedule) -> Dict[str, Any]:
         tone=schedule.tone,
         history=history,
         owner_name=owner_name,
+        anchor_body=anchor_body,
     )
+    if draft.provider == "template":
+        # Whole chain failed (or no AI keys) — anchor verbatim, as before.
+        return {
+            "subject": anchor_subject,
+            "body": anchor_body,
+            "provider": "template",
+            "template_id": template.id if template else None,
+        }
     return {
         "subject": draft.subject,
         "body": draft.body,
         "provider": draft.provider,
-        "template_id": schedule.template_id,
+        "template_id": template.id if template else schedule.template_id,
     }
 
 

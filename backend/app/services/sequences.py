@@ -309,10 +309,12 @@ def reconcile_job_after_processing(
 
     job.attempts = schedule.attempts or job.attempts
     job.last_error = (schedule.skip_reason or schedule.status)[:240]
-    job.status = "cancelled" if schedule.status in ("skipped", "cancelled") else "failed"
+    job.status = (
+        "cancelled" if schedule.status in ("skipped", "cancelled", "awaiting_approval") else "failed"
+    )
 
 
-def execute_job(db: Session, job: ReminderJob) -> dict:
+def execute_job(db: Session, job: ReminderJob, bypass_approval: bool = False) -> dict:
     """Materialize the job's step row and run the hardened send pipeline.
 
     Owns its rollback/commit on the failure path; the caller commits the
@@ -351,7 +353,7 @@ def execute_job(db: Session, job: ReminderJob) -> dict:
         return {"status": "retry", "reason": "not_pending", "attempts": job.attempts}
 
     try:
-        result = process_single_reminder(db, schedule)
+        result = process_single_reminder(db, schedule, bypass_approval=bypass_approval)
     except Exception as exc:  # noqa: BLE001 - classify retryability at job level
         db.rollback()
         job = db.query(ReminderJob).filter(ReminderJob.id == job.id).first()

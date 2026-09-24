@@ -92,10 +92,12 @@ def update_schedule_step(
         row.tone = req.tone
         row.draft_body = None
         row.draft_subject = None
+        row.approved_at = None
     if req.template_id is not None:
         row.template_id = req.template_id
         row.draft_body = None
         row.draft_subject = None
+        row.approved_at = None
     if row.status == "skipped":
         row.status = "pending"
         row.skip_reason = None
@@ -160,7 +162,8 @@ def send_now(
     if job is not None:
         job.status = "processing"
         db.flush()
-        result = execute_job(db, job)
+        # Manual send is itself the human approval — don't park it in the queue.
+        result = execute_job(db, job, bypass_approval=True)
         db.commit()
         return result
 
@@ -175,7 +178,7 @@ def send_now(
         raise HTTPException(status_code=404, detail="No pending reminder to send")
 
     schedule.scheduled_at = datetime.now(timezone.utc)
-    result = process_single_reminder(db, schedule)
+    result = process_single_reminder(db, schedule, bypass_approval=True)
     db.commit()
     return result
 
@@ -212,30 +215,14 @@ def regenerate_draft(
     if not schedule:
         raise HTTPException(status_code=404, detail="No pending step to draft")
 
-    # Force AI path by clearing template preference temporarily for draft regen
+    # Force a fresh draft (draft_reminder_content is AI-first with the tone
+    # template as anchor; the provider chain falls back to the anchor verbatim).
     schedule.draft_body = None
     schedule.draft_subject = None
     result = draft_reminder_content(db, schedule)
-    # Prefer AI chain: call generate_reminder directly if template was used
-    from app.services.ai.provider import generate_reminder
-    from app.models.client import Client
-    from app.services.client_profile import get_or_create_profile
-    from app.models.organization import Organization
-    from app.models.user import User
-
-    client = db.query(Client).filter(Client.id == invoice.client_id).first()
-    profile = get_or_create_profile(db, invoice.client_id, invoice.org_id)
-    org_row = db.query(Organization).filter(Organization.id == org.id).first()
-    owner = db.query(User).filter(User.id == org_row.owner_user_id).first() if org_row else None
-    draft = generate_reminder(
-        invoice=invoice,
-        client=client,
-        client_profile=profile,
-        step_index=schedule.step_index,
-        tone=schedule.tone,
-        owner_name=(owner.full_name if owner and owner.full_name else "Your Team"),
-    )
-    schedule.draft_subject = draft.subject
-    schedule.draft_body = draft.body
+    schedule.draft_subject = result["subject"]
+    schedule.draft_body = result["body"]
     db.commit()
-    return DraftRegenerateOut(subject=draft.subject, body=draft.body, provider=draft.provider)
+    return DraftRegenerateOut(
+        subject=result["subject"], body=result["body"], provider=result["provider"]
+    )

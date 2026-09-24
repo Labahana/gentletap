@@ -17,6 +17,7 @@ from app.models.org_settings import OrgSettings
 from app.models.reminder_job import ReminderJob
 from app.models.reminder_schedule import ReminderSchedule
 from app.models.suppression import Suppression
+from app.services.approval import requires_approval
 from app.services.redis_lock import redis_lock
 from app.services.reminder_engine import (
     get_or_create_org_settings,
@@ -132,7 +133,7 @@ def _notify_escalation(db, invoice, ctx) -> None:
         logger.warning("Escalation notification failed: %s", exc)
 
 
-def process_single_reminder(db, schedule: ReminderSchedule) -> dict:
+def process_single_reminder(db, schedule: ReminderSchedule, bypass_approval: bool = False) -> dict:
     lock_key = f"reminder:{schedule.invoice_id}:{schedule.step_index}"
     with redis_lock(lock_key, ttl_seconds=300) as acquired:
         if not acquired:
@@ -293,6 +294,23 @@ def process_single_reminder(db, schedule: ReminderSchedule) -> dict:
                 if not schedule.template_id and not schedule.draft_body:
                     risk = score_risk(ctx)
                     schedule.tone = select_tone(ctx, risk).value
+                    from app.models.audit_log import AuditLog
+
+                    db.add(
+                        AuditLog(
+                            org_id=invoice.org_id,
+                            actor_type="system",
+                            action="engine_tone_selected",
+                            entity_type="invoice",
+                            entity_id=invoice.id,
+                            details={
+                                "step": schedule.step_index,
+                                "tone": schedule.tone,
+                                "risk": risk.value,
+                                "days_overdue": ctx.invoice.days_overdue,
+                            },
+                        )
+                    )
 
                 # Timing optimizer: follow-ups (step 1+) defer to the next
                 # business-hours weekday window (step 0 always fires now).
@@ -338,6 +356,34 @@ def process_single_reminder(db, schedule: ReminderSchedule) -> dict:
             schedule.status = "cancelled"
             schedule.skip_reason = "invoice_paid_or_stopped"
             return {"status": "cancelled", "reason": "invoice_paid_or_stopped"}
+
+        # --- Autonomy gate: park the draft for human review when the org's
+        # approval_mode demands it. The draft is already generated above so the
+        # approval queue shows exactly what would have been sent. ---
+        if not bypass_approval:
+            needs_approval, why = requires_approval(db, org_settings, invoice)
+            if needs_approval and schedule.approved_at is None:
+                schedule.status = "awaiting_approval"
+                schedule.skip_reason = why
+                from app.models.audit_log import AuditLog
+
+                db.add(
+                    AuditLog(
+                        org_id=invoice.org_id,
+                        actor_type="system",
+                        action="reminder_awaiting_approval",
+                        entity_type="invoice",
+                        entity_id=invoice.id,
+                        details={
+                            "schedule_id": schedule.id,
+                            "step": schedule.step_index,
+                            "reason": why,
+                            "amount": float(invoice.amount or 0),
+                            "currency": invoice.currency,
+                        },
+                    )
+                )
+                return {"status": "awaiting_approval", "reason": why}
 
         try:
             msg = create_and_send_message(

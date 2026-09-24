@@ -28,6 +28,7 @@ from app.api import (
     settings as settings_router,
     webhooks,
     reminders,
+    approvals,
     client_profiles,
     billing,
     team,
@@ -110,6 +111,7 @@ app.include_router(users.router, prefix=api_prefix)
 app.include_router(organizations.router, prefix=api_prefix)
 app.include_router(connections.router, prefix=api_prefix)
 app.include_router(reminders.router, prefix=api_prefix)
+app.include_router(approvals.router, prefix=api_prefix)
 app.include_router(invoices.router, prefix=api_prefix)
 app.include_router(client_profiles.router, prefix=api_prefix)
 app.include_router(clients.router, prefix=api_prefix)

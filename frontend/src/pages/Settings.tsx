@@ -34,6 +34,8 @@ export const Settings: React.FC = () => {
   const [pauseAll, setPauseAll] = useState(false);
   const [pauseUntil, setPauseUntil] = useState('');
   const [pauseReason, setPauseReason] = useState('');
+  const [approvalMode, setApprovalMode] = useState<'off' | 'first_batch' | 'amount_threshold'>('off');
+  const [approvalThreshold, setApprovalThreshold] = useState('');
 
   const { data: settingsData } = useQuery({
     queryKey: ['settings'],
@@ -67,6 +69,10 @@ export const Settings: React.FC = () => {
       settingsData.pause_until ? new Date(settingsData.pause_until).toISOString().slice(0, 16) : ''
     );
     setPauseReason(settingsData.pause_reason || '');
+    setApprovalMode((settingsData.approval_mode as 'off' | 'first_batch' | 'amount_threshold') || 'off');
+    setApprovalThreshold(
+      settingsData.approval_threshold_amount != null ? String(settingsData.approval_threshold_amount) : ''
+    );
   }, [settingsData]);
 
   const updateMutation = useMutation({
@@ -89,6 +95,11 @@ export const Settings: React.FC = () => {
           send_window_days: sendWindowDays.length === 7 ? null : sendWindowDays,
           whatsapp_delay_hours: waDelay,
           whatsapp_quiet_hours: waQuietEnabled ? { start: Number(waQuietStart), end: Number(waQuietEnd) } : null,
+          approval_mode: approvalMode,
+          approval_threshold_amount:
+            approvalMode === 'amount_threshold' && approvalThreshold !== ''
+              ? Number(approvalThreshold)
+              : null,
         })
       ).data,
     onSuccess: (data) => {
@@ -246,6 +257,37 @@ export const Settings: React.FC = () => {
           <p className="text-xs text-gray-500 mt-2">
             Applies on top of your operation mode — you stay in control of what GentleTap may send.
           </p>
+        </div>
+
+        <div className="rounded-lg border border-gray-200 p-4">
+          <label className="block text-xs font-semibold text-gray-700 mb-1">Autonomy level</label>
+          <select
+            value={approvalMode}
+            onChange={(event) => setApprovalMode(event.target.value as 'off' | 'first_batch' | 'amount_threshold')}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+          >
+            <option value="off">Automatic — send every reminder</option>
+            <option value="first_batch">Review the first reminder per invoice</option>
+            <option value="amount_threshold">Review reminders above an amount</option>
+          </select>
+          <p className="mt-1 text-[11px] text-gray-400">
+            Approval holds a ready-to-send draft in the Approval Queue; approved reminders resume automatically.
+          </p>
+          {approvalMode === 'amount_threshold' && (
+            <label className="mt-3 block text-xs font-semibold text-gray-700">
+              Require approval at or above
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                required
+                value={approvalThreshold}
+                onChange={(event) => setApprovalThreshold(event.target.value)}
+                placeholder="e.g. 1000"
+                className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-normal"
+              />
+            </label>
+          )}
         </div>
 
         {pauseAll ? (
@@ -433,8 +475,8 @@ export const Settings: React.FC = () => {
 
       <button
         onClick={() => updateMutation.mutate()}
-        disabled={updateMutation.isPending}
-        className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-2.5 rounded-lg text-sm shadow-xs"
+        disabled={updateMutation.isPending || (approvalMode === 'amount_threshold' && approvalThreshold === '')}
+        className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium px-5 py-2.5 rounded-lg text-sm shadow-xs"
       >
         {updateMutation.isPending ? 'Saving…' : 'Save Settings'}
       </button>

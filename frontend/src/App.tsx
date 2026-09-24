@@ -26,6 +26,7 @@ import { Templates } from '@/pages/Templates';
 import { Settings } from '@/pages/Settings';
 import { Integrations } from '@/pages/Integrations';
 import { Escalations } from '@/pages/Escalations';
+import { Approvals } from '@/pages/Approvals';
 import { Unsubscribe } from '@/pages/Unsubscribe';
 import { Billing } from '@/pages/Billing';
 import { Team } from '@/pages/Team';
@@ -140,6 +141,7 @@ export const App: React.FC = () => {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/escalations" element={<Escalations />} />
+              <Route path="/approvals" element={<Approvals />} />
               <Route path="/invoices" element={<Invoices />} />
               <Route path="/invoices/:id" element={<InvoiceDetail />} />
               <Route path="/clients" element={<Clients />} />

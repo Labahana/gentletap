@@ -98,13 +98,26 @@ def generate_reminder(
     history: Optional[List[Any]] = None,
     owner_name: str = "Your Team",
     payment_link: str = "",
+    anchor_body: Optional[str] = None,
 ) -> ReminderDraft:
     """
     Returns subject + body via chain: Kimi -> Z.AI -> Static Template.
     Retries once on banned phrases per provider before falling through.
+
+    When anchor_body is given, it is rendered example text (org template or
+    static tone template) injected into the prompt as a few-shot voice anchor;
+    the static fallback still returns it rendered verbatim by the caller.
     """
     ctx = _build_context(invoice, client, client_profile, tone, owner_name, payment_link)
     prompt = REMINDER_PROMPT.format(**ctx)
+    if anchor_body:
+        prompt += (
+            "\nMatch the voice, length, and structure of this example email "
+            "(write for the invoice above, do not copy it word for word):\n"
+            "---\n"
+            f"{anchor_body}\n"
+            "---\n"
+        )
     subject = render_static_subject(tone, ctx)
 
     # 1) Kimi primary (retry once on banned)
