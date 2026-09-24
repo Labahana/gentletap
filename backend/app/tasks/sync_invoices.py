@@ -30,8 +30,17 @@ def sync_invoices_task(self, connection_id: str):
             if not conn:
                 return {"status": "error", "reason": "connection_not_found"}
 
-            # Provider-specific pull is stubbed for Phase 2; refresh local unpaid balances
-            # and apply autopilot assignment / payment detection on existing rows.
+            # Pull fresh data from provider API
+            invoices_synced = 0
+            clients_synced = 0
+            if conn.provider == "quickbooks":
+                from app.services.quickbooks import sync_qbo_data
+                invoices_synced, clients_synced = sync_qbo_data(db, conn.org_id, conn)
+            elif conn.provider == "freshbooks":
+                from app.services.freshbooks import sync_freshbooks_data
+                invoices_synced, clients_synced = sync_freshbooks_data(db, conn.org_id, conn)
+
+            # Process local unpaid invoices: payment detection + autopilot assignment
             invoices = (
                 db.query(Invoice)
                 .filter(
@@ -83,6 +92,8 @@ def sync_invoices_task(self, connection_id: str):
             return {
                 "status": "ok",
                 "connection_id": connection_id,
+                "invoices_synced": invoices_synced,
+                "clients_synced": clients_synced,
                 "checked": len(invoices),
                 "stopped": stopped,
                 "assigned": assigned,
