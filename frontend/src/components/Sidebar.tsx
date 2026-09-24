@@ -11,37 +11,82 @@ import {
   Settings,
   HelpCircle,
   LogOut,
-  Zap,
   Plug,
   AlertTriangle,
   ShieldCheck,
   CreditCard,
   UsersRound,
   BarChart3,
+  Bot,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
+import { useAutopilotStatus } from '@/hooks/useAutopilotStatus';
 
 interface SidebarProps {
   onUpgradeClick: () => void;
 }
 
+interface NavItem {
+  name: string;
+  path: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: number;
+  pill?: { label: string; tone: 'on' | 'paused' | 'off' };
+}
+
 export const Sidebar: React.FC<SidebarProps> = ({ onUpgradeClick }) => {
   const { logout, plan } = useAuthStore();
   const navigate = useNavigate();
+  const { data: autopilot } = useAutopilotStatus();
 
-  const mainNav = [
-    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Analytics', path: '/analytics', icon: BarChart3 },
-    { name: 'Escalations', path: '/escalations', icon: AlertTriangle },
-    { name: 'Approvals', path: '/approvals', icon: ShieldCheck },
-    { name: 'Invoices', path: '/invoices', icon: FileText },
-    { name: 'Clients', path: '/clients', icon: Users },
-    { name: 'Sequences', path: '/sequences', icon: GitMerge },
-    { name: 'Send History', path: '/history', icon: History },
-    { name: 'Payouts', path: '/payouts', icon: DollarSign },
-    { name: 'Templates', path: '/templates', icon: Mail },
-    { name: 'Billing', path: '/billing', icon: CreditCard },
-    { name: 'Team', path: '/team', icon: UsersRound },
+  const autopilotPill: NavItem['pill'] = autopilot
+    ? autopilot.active
+      ? { label: 'On', tone: 'on' }
+      : autopilot.mode === 'autopilot'
+        ? { label: 'Paused', tone: 'paused' }
+        : { label: 'Off', tone: 'off' }
+    : undefined;
+
+  const groups: { label?: string; items: NavItem[] }[] = [
+    {
+      items: [
+        { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+        { name: 'Autopilot', path: '/autopilot', icon: Bot, pill: autopilotPill },
+        {
+          name: 'Approvals',
+          path: '/approvals',
+          icon: ShieldCheck,
+          badge: autopilot?.pending_approvals || 0,
+        },
+        { name: 'Escalations', path: '/escalations', icon: AlertTriangle },
+      ],
+    },
+    {
+      label: 'Autopilot output',
+      items: [
+        { name: 'Invoices', path: '/invoices', icon: FileText },
+        { name: 'Clients', path: '/clients', icon: Users },
+        { name: 'Send History', path: '/history', icon: History },
+        { name: 'Payouts', path: '/payouts', icon: DollarSign },
+        { name: 'Analytics', path: '/analytics', icon: BarChart3 },
+      ],
+    },
+    {
+      label: 'Content',
+      items: [
+        { name: 'Sequences', path: '/sequences', icon: GitMerge },
+        { name: 'Voice & Templates', path: '/templates', icon: Mail },
+      ],
+    },
+    {
+      label: 'Account',
+      items: [
+        { name: 'Billing', path: '/billing', icon: CreditCard },
+        { name: 'Team', path: '/team', icon: UsersRound },
+        { name: 'Settings', path: '/settings', icon: Settings },
+        { name: 'Integrations', path: '/integrations', icon: Plug },
+      ],
+    },
   ];
 
   const handleLogout = () => {
@@ -49,9 +94,48 @@ export const Sidebar: React.FC<SidebarProps> = ({ onUpgradeClick }) => {
     navigate('/login');
   };
 
+  const renderItem = (item: NavItem) => {
+    const Icon = item.icon;
+    return (
+      <NavLink
+        key={item.path}
+        to={item.path}
+        className={({ isActive }) =>
+          `flex items-center space-x-3 px-3 py-2.5 rounded-md text-sm transition-colors ${
+            isActive
+              ? 'border-l-4 border-blue-600 bg-blue-50 text-blue-600 font-semibold'
+              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium'
+          }`
+        }
+      >
+        <Icon className="w-4 h-4 shrink-0" />
+        <span className="flex-1 truncate">{item.name}</span>
+        {item.pill && (
+          <span
+            className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${
+              item.pill.tone === 'on'
+                ? 'bg-emerald-100 text-emerald-700'
+                : item.pill.tone === 'paused'
+                  ? 'bg-amber-100 text-amber-700'
+                  : 'bg-gray-100 text-gray-500'
+            }`}
+          >
+            {item.pill.tone === 'on' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
+            {item.pill.label}
+          </span>
+        )}
+        {!!item.badge && (
+          <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 text-[10px] font-bold bg-blue-600 text-white rounded-full">
+            {item.badge > 99 ? '99+' : item.badge}
+          </span>
+        )}
+      </NavLink>
+    );
+  };
+
   return (
     <aside className="w-60 bg-white border-r border-gray-200 flex flex-col justify-between h-screen fixed left-0 top-0 z-30 select-none">
-      <div>
+      <div className="overflow-y-auto">
         {/* Logo */}
         <div className="h-16 flex items-center px-6 border-b border-gray-100">
           <Link to="/dashboard" className="flex items-center space-x-2">
@@ -64,51 +148,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ onUpgradeClick }) => {
 
         {/* Navigation */}
         <nav className="p-3 space-y-1">
-          {mainNav.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) =>
-                  `flex items-center space-x-3 px-3 py-2.5 rounded-md text-sm transition-colors ${
-                    isActive
-                      ? 'border-l-4 border-blue-600 bg-blue-50 text-blue-600 font-semibold'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium'
-                  }`
-                }
-              >
-                <Icon className="w-4 h-4" />
-                <span>{item.name}</span>
-              </NavLink>
-            );
-          })}
-
-          <div className="pt-4 pb-1 px-3">
-            <span className="text-xs font-bold text-gray-400 tracking-wider uppercase">Settings</span>
-          </div>
-          <NavLink
-            to="/settings"
-            className={({ isActive }) =>
-              `flex items-center space-x-3 px-3 py-2 text-sm rounded-md transition-colors ${
-                isActive ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium'
-              }`
-            }
-          >
-            <Settings className="w-4 h-4" />
-            <span>Account Settings</span>
-          </NavLink>
-          <NavLink
-            to="/integrations"
-            className={({ isActive }) =>
-              `flex items-center space-x-3 px-3 py-2 text-sm rounded-md transition-colors ${
-                isActive ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium'
-              }`
-            }
-          >
-            <Plug className="w-4 h-4" />
-            <span>Integrations</span>
-          </NavLink>
+          {groups.map((group, groupIndex) => (
+            <React.Fragment key={group.label ?? `group-${groupIndex}`}>
+              {group.label && (
+                <div className="pt-4 pb-1 px-3">
+                  <span className="text-xs font-bold text-gray-400 tracking-wider uppercase">
+                    {group.label}
+                  </span>
+                </div>
+              )}
+              {group.items.map(renderItem)}
+            </React.Fragment>
+          ))}
 
           <div className="pt-4 pb-1 px-3">
             <span className="text-xs font-bold text-gray-400 tracking-wider uppercase">Support</span>

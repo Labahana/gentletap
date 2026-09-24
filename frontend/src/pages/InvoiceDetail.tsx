@@ -11,17 +11,31 @@ import {
   RefreshCw,
   Zap,
 } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, apiErrorMessage } from '@/lib/api';
 import { StatusBadge } from '@/components/StatusBadge';
 import { SendPreviewModal } from '@/components/SendPreviewModal';
 import { ReminderTimeline } from '@/components/ReminderTimeline';
+import type { ReminderRow } from '@/components/ReminderTimeline';
 import { ClientProfileCard } from '@/components/ClientProfileCard';
+import { TONE_LABELS, TONE_OPTIONS, describeDayOffset } from '@/lib/autopilot';
+import { AUTOPILOT_STATUS_KEY } from '@/hooks/useAutopilotStatus';
+
+function toLocalInput(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
 
 export const InvoiceDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [editingStep, setEditingStep] = useState<ReminderRow | null>(null);
+  const [stepTone, setStepTone] = useState('warm');
+  const [stepWhen, setStepWhen] = useState('');
+  const [stepTemplate, setStepTemplate] = useState('');
 
   const { data: invoice, isLoading } = useQuery({
     queryKey: ['invoiceDetail', id],
@@ -50,6 +64,7 @@ export const InvoiceDetail: React.FC = () => {
     queryClient.invalidateQueries({ queryKey: ['invoiceDetail', id] });
     queryClient.invalidateQueries({ queryKey: ['invoiceSchedule', id] });
     queryClient.invalidateQueries({ queryKey: ['invoices'] });
+    queryClient.invalidateQueries({ queryKey: AUTOPILOT_STATUS_KEY });
   };
 
   const markPaidMutation = useMutation({
@@ -81,6 +96,37 @@ export const InvoiceDetail: React.FC = () => {
     mutationFn: async () => api.post(`/invoices/${id}/mark-disputed`),
     onSuccess: invalidate,
   });
+
+  const updateStepMutation = useMutation({
+    mutationFn: async ({ scheduleId, body }: { scheduleId: string; body: Record<string, unknown> }) =>
+      api.patch(`/invoices/${id}/schedule/${scheduleId}`, body),
+    onSuccess: () => {
+      setEditingStep(null);
+      invalidate();
+    },
+  });
+
+  const openStepEditor = (item: ReminderRow) => {
+    setEditingStep(item);
+    setStepTone(item.tone);
+    setStepWhen(toLocalInput(item.scheduled_at));
+    setStepTemplate('');
+  };
+
+  const submitStepEdit = () => {
+    if (!editingStep) return;
+    const body: Record<string, unknown> = {};
+    if (stepTone && stepTone !== editingStep.tone) body.tone = stepTone;
+    if (stepWhen && new Date(stepWhen).getTime() !== new Date(editingStep.scheduled_at).getTime()) {
+      body.scheduled_at = new Date(stepWhen).toISOString();
+    }
+    if (stepTemplate) body.template_id = stepTemplate;
+    if (Object.keys(body).length === 0) {
+      setEditingStep(null);
+      return;
+    }
+    updateStepMutation.mutate({ scheduleId: editingStep.id, body });
+  };
 
   if (isLoading) {
     return <div className="p-8 text-center text-gray-500 text-sm">Loading invoice details...</div>;
@@ -198,10 +244,101 @@ export const InvoiceDetail: React.FC = () => {
           totalInvoices={profile?.total_invoices ?? 0}
         />
         <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-xs">
-          <h3 className="text-sm font-bold text-gray-900 mb-4">Reminder Timeline</h3>
-          <ReminderTimeline items={schedule?.items || []} />
+          <h3 className="text-sm font-bold text-gray-900 mb-1">Reminder Timeline</h3>
+          <p className="text-xs text-gray-500 mb-4">
+            What Autopilot has sent and what it will send next. Editing a step only affects reminders that have not gone out.
+          </p>
+          <ReminderTimeline items={schedule?.items || []} onEdit={openStepEditor} />
         </div>
       </div>
+
+      {editingStep && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100">
+            <h3 className="text-lg font-bold text-gray-900">Edit step {editingStep.step_index + 1}</h3>
+            <p className="text-xs text-gray-500 mt-1">
+              This changes when and how Autopilot sends this one reminder. Later steps keep their own schedule.
+            </p>
+            <div className="space-y-4 mt-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Tone</label>
+                <select
+                  value={stepTone}
+                  onChange={(event) => setStepTone(event.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                >
+                  {TONE_OPTIONS.map((tone) => (
+                    <option key={tone} value={tone}>
+                      {TONE_LABELS[tone]}
+                    </option>
+                  ))}
+                </select>
+                {stepTone !== editingStep.tone && (
+                  <p className="text-[11px] text-amber-600 mt-1">The prepared draft will be rewritten in this tone.</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Send at</label>
+                <input
+                  type="datetime-local"
+                  value={stepWhen}
+                  onChange={(event) => setStepWhen(event.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+                {invoice.due_date && stepWhen && (
+                  <p className="text-[11px] text-gray-500 mt-1">
+                    {describeDayOffset(
+                      Math.round(
+                        (new Date(stepWhen).getTime() - new Date(`${invoice.due_date}T00:00:00`).getTime()) / 86_400_000,
+                      ),
+                    )}{' '}
+                    (due {invoice.due_date})
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Template (optional)</label>
+                <select
+                  value={stepTemplate}
+                  onChange={(event) => setStepTemplate(event.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                >
+                  <option value="">Keep the current tone template</option>
+                  {templates.map((template: any) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {updateStepMutation.error && (
+                <p className="text-xs text-rose-700">
+                  {apiErrorMessage(updateStepMutation.error, 'Could not update this step.')}
+                </p>
+              )}
+
+              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
+                <button
+                  onClick={() => setEditingStep(null)}
+                  className="px-4 py-2 text-xs font-medium text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitStepEdit}
+                  disabled={updateStepMutation.isPending}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-xs shadow-xs disabled:opacity-50"
+                >
+                  {updateStepMutation.isPending ? 'Saving…' : 'Save step'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {sendModalOpen && (
         <SendPreviewModal

@@ -14,6 +14,7 @@ import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { EscalationRow, Escalation } from '@/components/EscalationRow';
 import { DashboardPlanCard } from '@/components/DashboardPlanCard';
+import { AutopilotBar } from '@/components/AutopilotBar';
 
 export const Dashboard: React.FC = () => {
   const queryClient = useQueryClient();
@@ -65,6 +66,8 @@ export const Dashboard: React.FC = () => {
           Failed to load dashboard data. Please refresh the page.
         </div>
       )}
+
+      <AutopilotBar />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {[

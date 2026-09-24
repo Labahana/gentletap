@@ -13,6 +13,7 @@ import { TermsPage } from '@/pages/legal/Terms';
 import { CookiesPage } from '@/pages/legal/Cookies';
 import { RefundPage } from '@/pages/legal/Refund';
 import { Dashboard } from '@/pages/Dashboard';
+import { Autopilot } from '@/pages/Autopilot';
 import { Analytics } from '@/pages/Analytics';
 import { Invoices } from '@/pages/Invoices';
 import { InvoiceDetail } from '@/pages/InvoiceDetail';
@@ -139,6 +140,7 @@ export const App: React.FC = () => {
               }
             >
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/autopilot" element={<Autopilot />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/escalations" element={<Escalations />} />
               <Route path="/approvals" element={<Approvals />} />

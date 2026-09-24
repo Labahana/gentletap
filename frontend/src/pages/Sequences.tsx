@@ -1,10 +1,20 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Plus, GitMerge, Mail, Clock, Eye, Trash2, CheckCircle2 } from 'lucide-react';
+import { Plus, Mail, Clock, Eye, Trash2, Star, Bot } from 'lucide-react';
 import { api } from '@/lib/api';
 import { StatusBadge } from '@/components/StatusBadge';
 import { EmptyState } from '@/components/EmptyState';
+import { AUTOPILOT_STATUS_KEY } from '@/hooks/useAutopilotStatus';
+import { TONE_LABELS, describeDayOffset } from '@/lib/autopilot';
+
+const DEFAULT_STEPS = [
+  { day_offset: 0, tone: 'warm', enabled: true },
+  { day_offset: 3, tone: 'friendly', enabled: true },
+  { day_offset: 7, tone: 'professional', enabled: true },
+  { day_offset: 14, tone: 'firm', enabled: true },
+  { day_offset: 21, tone: 'urgent', enabled: true },
+];
 
 export const Sequences: React.FC = () => {
   const [activeTab, setActiveTab] = useState('active');
@@ -23,22 +33,21 @@ export const Sequences: React.FC = () => {
     },
   });
 
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['sequences'] });
+    queryClient.invalidateQueries({ queryKey: AUTOPILOT_STATUS_KEY });
+  };
+
   const createSequenceMutation = useMutation({
     mutationFn: async () => {
-      const defaultSteps = [
-        { day_offset: 3, tone: 'warm', enabled: true },
-        { day_offset: 7, tone: 'friendly', enabled: true },
-        { day_offset: 14, tone: 'firm', enabled: true },
-        { day_offset: 21, tone: 'urgent', enabled: true },
-      ];
       await api.post('/sequences', {
         name,
-        steps: defaultSteps,
+        steps: DEFAULT_STEPS,
         stop_after_days: stopAfterDays,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sequences'] });
+      invalidate();
       setCreateModalOpen(false);
       setName('');
     },
@@ -48,9 +57,17 @@ export const Sequences: React.FC = () => {
     mutationFn: async (id: string) => {
       await api.delete(`/sequences/${id}`);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sequences'] });
-    },
+    onSuccess: invalidate,
+  });
+
+  const setDefaultMutation = useMutation({
+    mutationFn: async (id: string) => api.post(`/sequences/${id}/set-default`),
+    onSuccess: invalidate,
+  });
+
+  const autoAssignMutation = useMutation({
+    mutationFn: async (id: string) => api.post(`/sequences/${id}/auto-assign`),
+    onSuccess: invalidate,
   });
 
   return (
@@ -59,7 +76,9 @@ export const Sequences: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Sequences</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage automated follow-up email sequences for your invoices</p>
+          <p className="text-sm text-gray-500 mt-1">
+            The cadence Autopilot follows. The default + auto-assign sequence is used for new invoices.
+          </p>
         </div>
         <button
           onClick={() => setCreateModalOpen(true)}
@@ -106,9 +125,16 @@ export const Sequences: React.FC = () => {
               className="bg-white border border-gray-200 rounded-xl p-6 shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
             >
               <div>
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-3 gap-2">
                   <h3 className="text-base font-bold text-gray-900">{seq.name}</h3>
-                  <StatusBadge status={seq.status} />
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {seq.is_default && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-700">
+                        <Star className="w-3 h-3" /> Default
+                      </span>
+                    )}
+                    <StatusBadge status={seq.status} />
+                  </div>
                 </div>
 
                 <div className="bg-slate-50 border border-gray-100 rounded-lg p-3 mb-4 flex items-center justify-between text-xs text-gray-600">
@@ -122,25 +148,54 @@ export const Sequences: React.FC = () => {
                   {seq.steps?.map((step: any, idx: number) => (
                     <span
                       key={idx}
-                      className="bg-blue-50 text-blue-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-blue-100 shrink-0"
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-full border shrink-0 ${
+                        step.enabled === false
+                          ? 'bg-gray-50 text-gray-400 border-gray-200 line-through'
+                          : 'bg-blue-50 text-blue-700 border-blue-100'
+                      }`}
+                      title={describeDayOffset(step.day_offset)}
                     >
-                      Day {step.day_offset}: {step.tone}
+                      {step.day_offset === 0 ? 'Due date' : `Day ${step.day_offset}`}: {TONE_LABELS[step.tone] || step.tone}
                     </span>
                   ))}
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-4 border-t border-gray-100 mt-4 text-xs">
-                <button
-                  onClick={() => navigate(`/sequences/${seq.id}`)}
-                  className="text-blue-600 hover:text-blue-700 font-semibold flex items-center space-x-1"
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>View Timeline</span>
-                </button>
+              <div className="flex items-center justify-between pt-4 border-t border-gray-100 mt-4 text-xs gap-3">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => navigate(`/sequences/${seq.id}`)}
+                    className="text-blue-600 hover:text-blue-700 font-semibold flex items-center space-x-1"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>View Timeline</span>
+                  </button>
+                  <button
+                    onClick={() => autoAssignMutation.mutate(seq.id)}
+                    disabled={autoAssignMutation.isPending}
+                    title="Automatically assign this sequence to new invoices"
+                    className={`inline-flex items-center gap-1 font-semibold disabled:opacity-50 ${
+                      seq.auto_assign ? 'text-emerald-600 hover:text-emerald-700' : 'text-gray-400 hover:text-gray-600'
+                    }`}
+                  >
+                    <Bot className="w-3.5 h-3.5" />
+                    <span>{seq.auto_assign ? 'Auto-assign on' : 'Auto-assign off'}</span>
+                  </button>
+                  {!seq.is_default && (
+                    <button
+                      onClick={() => setDefaultMutation.mutate(seq.id)}
+                      disabled={setDefaultMutation.isPending}
+                      title="Use this sequence as the default for Autopilot"
+                      className="inline-flex items-center gap-1 font-semibold text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                    >
+                      <Star className="w-3.5 h-3.5" />
+                      <span>Make default</span>
+                    </button>
+                  )}
+                </div>
                 <button
                   onClick={() => deleteSequenceMutation.mutate(seq.id)}
-                  className="p-1 text-red-400 hover:text-red-600 rounded"
+                  className="p-1 text-red-400 hover:text-red-600 rounded shrink-0"
                   title="Delete Sequence"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -179,7 +234,8 @@ export const Sequences: React.FC = () => {
               </div>
 
               <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg text-xs text-blue-800 leading-relaxed">
-                Will auto-generate 4 calibrated steps (Day 3 Warm, Day 7 Friendly, Day 14 Firm, Day 21 Urgent).
+                Will generate the 5-step Autopilot cadence: due date Warm, Day 3 Friendly, Day 7 Professional, Day 14
+                Firm, Day 21 Final notice. You can tune every step in the Autopilot control center.
               </div>
 
               <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">

@@ -30,6 +30,7 @@ from app.api import (
     reminders,
     approvals,
     client_profiles,
+    autopilot,
     billing,
     team,
     public,
@@ -112,6 +113,7 @@ app.include_router(organizations.router, prefix=api_prefix)
 app.include_router(connections.router, prefix=api_prefix)
 app.include_router(reminders.router, prefix=api_prefix)
 app.include_router(approvals.router, prefix=api_prefix)
+app.include_router(autopilot.router, prefix=api_prefix)
 app.include_router(invoices.router, prefix=api_prefix)
 app.include_router(client_profiles.router, prefix=api_prefix)
 app.include_router(clients.router, prefix=api_prefix)

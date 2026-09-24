@@ -41,10 +41,16 @@ client = TestClient(app)
 
 @pytest.fixture(autouse=True)
 def setup_database():
+    # Install this file's DB override only around THIS file's tests: assigning
+    # it at module import time clobbers the override of every other test file
+    # (the assignment is global on the app), which is what makes unrelated
+    # files see "no such table" in full-suite runs.
+    app.dependency_overrides[get_db] = override_get_db
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
+    app.dependency_overrides.pop(get_db, None)
 
 
 def _auth_headers():

@@ -38,10 +38,16 @@ client = TestClient(app)
 
 @pytest.fixture(autouse=True)
 def setup_database():
+    # Install this file's DB override only around THIS file's tests: assigning
+    # it at module import time clobbers the override of every other test file
+    # (the assignment is global on the app), which is what makes unrelated
+    # files see "no such table" in full-suite runs.
+    app.dependency_overrides[get_db] = override_get_db
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
+    app.dependency_overrides.pop(get_db, None)
 
 
 def _auth(email=None):
@@ -131,10 +137,16 @@ def test_checkout_fails_loudly_without_paddle_transaction():
 
 def test_team_seat_limit():
     headers, data = _auth()
-    client.post("/api/v1/billing/checkout", json={"plan": "team", "annual": False}, headers=headers)
+    # Checkout requires real Paddle credentials, so upgrade the org directly here.
+    db = TestingSessionLocal()
+    org = db.query(Organization).filter(Organization.id == data["org_id"]).first()
+    org.plan = "team"
+    apply_plan_quotas(org)
+    db.commit()
+    db.close()
     # owner already counts as 1 — invite 2 more
     r1 = client.post("/api/v1/team/invite", json={"email": "a1@ex.com", "role": "member"}, headers=headers)
-    assert r1.status_code == 200
+    assert r1.status_code == 200, r1.json()
     r2 = client.post("/api/v1/team/invite", json={"email": "a2@ex.com", "role": "member"}, headers=headers)
     assert r2.status_code == 200
     r3 = client.post("/api/v1/team/invite", json={"email": "a3@ex.com", "role": "member"}, headers=headers)
