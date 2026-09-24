@@ -16,14 +16,15 @@ BEAT_SCHEDULE = {
         "task": "app.tasks.token_refresh.refresh_google_tokens",
         "schedule": crontab(hour=3, minute=30),
     },
-    "sync-invoices-hourly": {
+    "sync-invoices-30m": {
         "task": "app.tasks.sync_invoices.sync_all_connections",
-        "schedule": crontab(minute=0),  # every hour
+        "schedule": crontab(minute="*/30"),
+        "options": {"expires": 25 * 60},
     },
-    "process-reminders-every-15m": {
+    "process-reminders-5m": {
         "task": "app.tasks.process_reminders.process_reminders_task",
-        "schedule": 900.0,  # 15 minutes
-        "options": {"expires": 14 * 60},
+        "schedule": 300.0,  # 5 minutes
+        "options": {"expires": 4 * 60},
     },
     "payment-detect-every-15m": {
         "task": "app.tasks.payment_detect.payment_detect_task",
