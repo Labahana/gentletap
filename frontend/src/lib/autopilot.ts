@@ -74,6 +74,13 @@ export interface AutopilotSequence {
   auto_assign?: boolean;
   steps: SequenceStep[];
   stop_after_days?: number | null;
+  repeat_final_step_every_days?: number;
+}
+
+export function describeTail(repeatDays?: number | null, stopAfterDays?: number | null): string {
+  if (!repeatDays || repeatDays <= 0) return 'Stops after the final step';
+  const cap = stopAfterDays ? ` until ${stopAfterDays} days overdue` : '';
+  return `Repeats the last step every ${repeatDays} day${repeatDays === 1 ? '' : 's'}${cap}`;
 }
 
 export interface AutopilotLastAction {

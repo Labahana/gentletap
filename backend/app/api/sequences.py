@@ -62,6 +62,7 @@ def create_sequence(
         status="active",
         steps=steps_data,
         stop_after_days=req.stop_after_days,
+        repeat_final_step_every_days=max(0, int(req.repeat_final_step_every_days or 0)),
         is_default=False,
         auto_assign=False,
     )
@@ -91,6 +92,8 @@ def update_sequence(
         sequence.steps = [step.model_dump() for step in req.steps]
     if req.stop_after_days is not None:
         sequence.stop_after_days = req.stop_after_days
+    if req.repeat_final_step_every_days is not None:
+        sequence.repeat_final_step_every_days = max(0, int(req.repeat_final_step_every_days))
 
     db.commit()
     db.refresh(sequence)

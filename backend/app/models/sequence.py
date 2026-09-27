@@ -17,6 +17,7 @@ class Sequence(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)  # active|paused|completed
     steps: Mapped[dict] = mapped_column(JSON, nullable=False, default=list)  # list of {day_offset, tone, template_id, enabled}
     stop_after_days: Mapped[Optional[int]] = mapped_column(Integer, default=30, nullable=True)
+    repeat_final_step_every_days: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # 0 = don't repeat
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     auto_assign: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 

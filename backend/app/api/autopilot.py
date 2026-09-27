@@ -196,6 +196,7 @@ def autopilot_status(
                 "status": default_sequence.status,
                 "auto_assign": default_sequence.auto_assign,
                 "stop_after_days": default_sequence.stop_after_days,
+                "repeat_final_step_every_days": default_sequence.repeat_final_step_every_days,
                 "steps": default_sequence.steps or [],
             }
             if default_sequence
@@ -210,6 +211,7 @@ def autopilot_status(
                 "auto_assign": s.auto_assign,
                 "steps": s.steps or [],
                 "stop_after_days": s.stop_after_days,
+                "repeat_final_step_every_days": s.repeat_final_step_every_days,
             }
             for s in sequences
         ],

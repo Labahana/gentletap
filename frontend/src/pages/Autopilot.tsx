@@ -288,14 +288,16 @@ const CadenceSection: React.FC = () => {
   const sequence = data?.default_sequence;
   const [steps, setSteps] = useState<SequenceStep[]>([]);
   const [stopAfterDays, setStopAfterDays] = useState(30);
+  const [repeatEvery, setRepeatEvery] = useState(0);
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     if (!sequence) return;
     setSteps((sequence.steps || []).map((s) => ({ ...s, enabled: s.enabled !== false })));
     setStopAfterDays(sequence.stop_after_days ?? 30);
+    setRepeatEvery(sequence.repeat_final_step_every_days ?? 0);
     setDirty(false);
-  }, [sequence?.id, sequence?.steps, sequence?.stop_after_days]);
+  }, [sequence?.id, sequence?.steps, sequence?.stop_after_days, sequence?.repeat_final_step_every_days]);
 
   const save = useMutation({
     mutationFn: async () =>
@@ -303,6 +305,7 @@ const CadenceSection: React.FC = () => {
         await api.patch(`/sequences/${sequence!.id}`, {
           steps,
           stop_after_days: stopAfterDays,
+          repeat_final_step_every_days: repeatEvery,
         })
       ).data,
     onSuccess: () => {
@@ -418,7 +421,23 @@ const CadenceSection: React.FC = () => {
         >
           <Plus className="w-3.5 h-3.5" /> Add step
         </button>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="text-xs font-medium text-gray-700 flex items-center gap-2">
+            After the last step
+            <select
+              value={repeatEvery}
+              onChange={(e) => {
+                setRepeatEvery(Number(e.target.value));
+                setDirty(true);
+              }}
+              className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs"
+            >
+              <option value={0}>Stop and hand off to me</option>
+              <option value={7}>Keep chasing every 7 days</option>
+              <option value={14}>Keep chasing every 14 days</option>
+              <option value={30}>Keep chasing every 30 days</option>
+            </select>
+          </label>
           <label className="text-xs font-medium text-gray-700 flex items-center gap-2">
             Stop chasing after
             <select

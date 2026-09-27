@@ -220,7 +220,11 @@ def materialize_step(
 def advance_after_send(
     db: Session, invoice: Invoice, sequence: Sequence, sent_step_index: int
 ) -> Optional[ReminderJob]:
-    """Queue the next sequence step using natural-gap spacing (floored)."""
+    """Queue the next sequence step using natural-gap spacing (floored).
+
+    After the final step, apply the sequence's tail behavior: repeat the final
+    step every N days (capped by stop_after_days) or hand off to the human.
+    """
     client = db.query(Client).filter(Client.id == invoice.client_id).first()
     steps = effective_steps(sequence, client)
     if not steps:
@@ -228,8 +232,10 @@ def advance_after_send(
     position = next(
         (i for i, (idx, _) in enumerate(steps) if idx == sent_step_index), None
     )
-    if position is None or position + 1 >= len(steps):
+    if position is None:
         return None
+    if position + 1 >= len(steps):
+        return _schedule_after_final(db, invoice, sequence, sent_step_index)
     cur_offset = steps[position][1]
     next_step_index, next_offset = steps[position + 1]
     gap_days = max(MIN_STEP_GAP_DAYS, next_offset - cur_offset)
@@ -260,6 +266,94 @@ def advance_after_send(
         row.scheduled_at = scheduled
 
     return sync_reminder_job(db, invoice, sequence.id, next_step_index, scheduled)
+
+
+def _schedule_after_final(
+    db: Session, invoice: Invoice, sequence: Sequence, final_step_index: int
+) -> Optional[ReminderJob]:
+    """Decide what happens after the last step sends: repeat it, or hand off."""
+    repeat_days = int(sequence.repeat_final_step_every_days or 0)
+    base_date = invoice.due_date or date.today()
+    days_overdue = (date.today() - base_date).days
+    cap = sequence.stop_after_days
+    if repeat_days <= 0 or (cap is not None and days_overdue >= cap):
+        _record_needs_call(db, invoice, sequence)
+        return None
+
+    org_settings = get_or_create_org_settings(db, invoice.org_id)
+    best_hour = _best_send_hour(db, invoice)
+    scheduled = datetime.now(timezone.utc) + timedelta(days=repeat_days)
+    scheduled = next_valid_send_time(
+        scheduled,
+        tz_name=org_settings.timezone,
+        best_send_hour=best_hour,
+        enabled=org_settings.contact_window_enabled,
+    )
+    window_next = _next_allowed_window(scheduled, org_settings, best_hour)
+    if window_next is not None and window_next > scheduled + timedelta(minutes=15):
+        scheduled = window_next
+
+    row = (
+        db.query(ReminderSchedule)
+        .filter(
+            ReminderSchedule.invoice_id == invoice.id,
+            ReminderSchedule.step_index == final_step_index,
+            ReminderSchedule.status == "pending",
+        )
+        .first()
+    )
+    if row is not None:
+        row.scheduled_at = scheduled
+
+    return sync_reminder_job(db, invoice, sequence.id, final_step_index, scheduled)
+
+
+def _record_needs_call(db: Session, invoice: Invoice, sequence: Sequence) -> None:
+    """Final step exhausted: audit once + notify the owner to step in."""
+    from app.models.audit_log import AuditLog
+    from app.models.notification import UserNotification
+    from app.models.organization import Organization
+
+    already = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.org_id == invoice.org_id,
+            AuditLog.action == "sequence_exhausted",
+            AuditLog.entity_id == invoice.id,
+        )
+        .first()
+    )
+    if already is not None:
+        return
+    db.add(
+        AuditLog(
+            org_id=invoice.org_id,
+            actor_type="system",
+            action="sequence_exhausted",
+            entity_type="invoice",
+            entity_id=invoice.id,
+            details={"sequence_id": sequence.id, "steps": len(sequence.steps or [])},
+        )
+    )
+    owner = (
+        db.query(Organization).filter(Organization.id == invoice.org_id).first()
+    )
+    if owner is not None and owner.owner_user_id:
+        db.add(
+            UserNotification(
+                org_id=owner.id,
+                user_id=owner.owner_user_id,
+                type="escalation",
+                title=f"Sequence complete — needs your call on invoice #{invoice.number}",
+                body=(
+                    "All reminders sent and the invoice is still unpaid. GentleTap "
+                    "stopped chasing — review your options (call, payment plan, or "
+                    "send another reminder)."
+                ),
+                link=f"/invoices/{invoice.id}",
+            )
+        )
+    db.flush()
 
 
 def _backoff_or_fail_job(job: ReminderJob, exc: Optional[Exception]) -> bool:

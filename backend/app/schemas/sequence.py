@@ -14,6 +14,7 @@ class SequenceCreate(BaseModel):
     name: str
     steps: List[SequenceStep]
     stop_after_days: Optional[int] = 30
+    repeat_final_step_every_days: int = 0
 
 
 class SequenceUpdate(BaseModel):
@@ -21,6 +22,7 @@ class SequenceUpdate(BaseModel):
     status: Optional[str] = None
     steps: Optional[List[SequenceStep]] = None
     stop_after_days: Optional[int] = None
+    repeat_final_step_every_days: Optional[int] = None
 
 
 class SequenceOut(BaseModel):
@@ -30,6 +32,7 @@ class SequenceOut(BaseModel):
     status: str
     steps: List[SequenceStep]
     stop_after_days: Optional[int] = None
+    repeat_final_step_every_days: int = 0
     is_default: bool = False
     auto_assign: bool = False
     created_at: datetime

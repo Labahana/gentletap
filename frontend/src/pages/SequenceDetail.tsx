@@ -5,6 +5,7 @@ import { ArrowLeft, Clock, Mail, CheckCircle2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { StatusBadge } from '@/components/StatusBadge';
 import { SequenceTimeline } from '@/components/SequenceTimeline';
+import { describeTail } from '@/lib/autopilot';
 
 export const SequenceDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -44,7 +45,8 @@ export const SequenceDetail: React.FC = () => {
             <StatusBadge status={sequence.status} />
           </div>
           <p className="text-xs text-gray-500">
-            Automatically sends reminders and stops after {sequence.stop_after_days || 30} days or upon payment mark.
+            Automatically sends reminders and stops after {sequence.stop_after_days || 30} days or upon payment mark.{' '}
+            {describeTail(sequence.repeat_final_step_every_days, sequence.stop_after_days)}.
           </p>
         </div>
       </div>
