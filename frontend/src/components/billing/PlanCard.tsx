@@ -1,10 +1,12 @@
 import React from 'react';
+import type { PlanFeature } from '@/data/pricing';
 
 interface Props {
   name: string;
   price: number;
   period: 'monthly' | 'annual';
-  features: string[];
+  features: PlanFeature[];
+  intro?: string;
   current?: boolean;
   highlighted?: boolean;
   onSelect?: () => void;
@@ -17,6 +19,7 @@ export const PlanCard: React.FC<Props> = ({
   price,
   period,
   features,
+  intro,
   current,
   highlighted,
   onSelect,
@@ -41,8 +44,11 @@ export const PlanCard: React.FC<Props> = ({
       <span className="text-xs text-gray-500">/{period === 'annual' ? 'mo billed yearly' : 'mo'}</span>
     </div>
     <ul className="space-y-1.5 text-xs text-gray-600 flex-1 mb-4">
+      {intro && <li className="font-semibold text-gray-900 pt-1">{intro}</li>}
       {features.map((f) => (
-        <li key={f}>• {f}</li>
+        <li key={f.label} className={f.isNew ? 'font-semibold text-gray-900' : undefined}>
+          • {f.label}
+        </li>
       ))}
     </ul>
     <button

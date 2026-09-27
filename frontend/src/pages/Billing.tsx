@@ -6,13 +6,7 @@ import { PlanCard } from '@/components/billing/PlanCard';
 import { PricingToggle } from '@/components/billing/PricingToggle';
 import { UsageBar } from '@/components/billing/UsageBar';
 import { CreditPackModal } from '@/components/billing/CreditPackModal';
-
-const FEATURES: Record<string, string[]> = {
-  starter: ['5 collections / month', 'CSV import', 'Template mode', '1 seat'],
-  pro: ['Unlimited collections', 'Autopilot', 'AI drafting', '1 seat'],
-  pro_plus: ['Everything in Pro', '450 WhatsApp / mo', 'Escalations', 'Credit packs'],
-  team: ['Everything in Pro+', '850 WhatsApp / mo', '3 seats', 'Shared dashboard'],
-};
+import { PLAN_FEATURES, PLAN_INTROS } from '@/data/pricing';
 
 export const Billing: React.FC = () => {
   const [annual, setAnnual] = useState(false);
@@ -170,7 +164,8 @@ export const Billing: React.FC = () => {
             name={p.name}
             price={annual ? p.annual : p.monthly}
             period={annual ? 'annual' : 'monthly'}
-            features={FEATURES[p.id] || []}
+            features={PLAN_FEATURES[p.id] || []}
+            intro={PLAN_INTROS[p.id]}
             current={current === p.id}
             highlighted={p.id === 'pro_plus'}
             loading={checkout.isPending}

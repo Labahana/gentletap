@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import { MarketingShell } from '@/components/marketing/MarketingShell';
 import { Seo } from '@/components/marketing/Seo';
 import { faqJsonLd, websiteJsonLd, webPageJsonLd, organizationJsonLd, softwareApplicationJsonLd, productPricingJsonLd, SEO_KEYWORDS } from '@/data/seo';
+import { PLAN_FEATURES, PLAN_INTROS } from '@/data/pricing';
 
 const PAGE_DESCRIPTION =
   'GentleTap chases your overdue invoices on autopilot — AI drafts reminders in your voice, sends from your Gmail, syncs QuickBooks and FreshBooks, and stops the moment you’re paid.';
@@ -122,37 +123,6 @@ const LANDING_FAQ = [
   },
 ] as const;
 
-const PLAN_FEATURES: Record<string, string[]> = {
-  starter: [
-    '5 collections / month',
-    '1 seat',
-    'Email reminders from your Gmail',
-    'QuickBooks + FreshBooks sync',
-    'AI drafts in your voice',
-    'Pause & quiet hours',
-  ],
-  pro: [
-    'Unlimited collections',
-    '1 seat',
-    'Everything in Starter',
-    'Client payment profiles',
-    'Escalation rules & alerts',
-    'Priority AI drafting',
-  ],
-  pro_plus: [
-    'Everything in Pro',
-    '450 WhatsApp reminders / mo',
-    'WhatsApp quiet hours & timing',
-    'Advanced analytics',
-  ],
-  team: [
-    'Everything in Pro+',
-    '850 WhatsApp reminders / mo',
-    '3 seats included',
-    'Roles & audit log',
-  ],
-};
-
 const SEQUENCE_PREVIEW = [
   { day: 0, tone: 'Warm nudge', note: 'Sent from your Gmail, in your voice' },
   { day: 3, tone: 'Friendly check-in', note: 'Mentions the balance gently' },
@@ -254,7 +224,6 @@ const PricingSection: React.FC = () => {
           )}
           {plans.map((plan) => {
             const price = annual ? plan.annual : plan.monthly;
-            const features = PLAN_FEATURES[plan.id] || [];
             return (
               <div
                 key={plan.id}
@@ -277,10 +246,13 @@ const PricingSection: React.FC = () => {
                   <span className="text-sm text-slate-600">/{annual ? 'mo billed yearly' : 'mo'}</span>
                 </div>
                 <ul className="space-y-2 text-sm text-slate-600 flex-1">
-                  {features.map((f) => (
-                    <li key={f} className="flex items-start gap-2">
+                  {PLAN_INTROS[plan.id] && (
+                    <li className="font-semibold text-slate-900">{PLAN_INTROS[plan.id]}</li>
+                  )}
+                  {(PLAN_FEATURES[plan.id] || []).map((f) => (
+                    <li key={f.label} className="flex items-start gap-2">
                       <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-brand-300" />
-                      {f}
+                      <span className={f.isNew ? 'font-semibold text-slate-900' : undefined}>{f.label}</span>
                     </li>
                   ))}
                 </ul>
