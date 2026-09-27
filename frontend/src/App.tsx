@@ -52,6 +52,7 @@ import { HowToFollowUp } from '@/pages/marketing/HowToFollowUp';
 import { AffiliateLanding } from '@/pages/affiliates/AffiliateLanding';
 import { AffiliateLogin } from '@/pages/affiliates/AffiliateLogin';
 import { AffiliateDashboard } from '@/pages/affiliates/AffiliateDashboard';
+import { AffiliateResources } from '@/pages/affiliates/AffiliateResources';
 import { AffiliateTerms } from '@/pages/affiliates/AffiliateTerms';
 import { AdminDashboard } from '@/pages/admin/AdminDashboard';
 import { CookieConsent } from '@/components/CookieConsent';
@@ -114,6 +115,7 @@ export const App: React.FC = () => {
             <Route path="/affiliates" element={<AffiliateLanding />} />
             <Route path="/affiliates/login" element={<AffiliateLogin />} />
             <Route path="/affiliates/dashboard" element={<AffiliateDashboard />} />
+            <Route path="/affiliates/resources" element={<AffiliateResources />} />
             <Route path="/affiliates/terms" element={<AffiliateTerms />} />
             <Route
               path="/admin"

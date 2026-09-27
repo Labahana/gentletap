@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Copy, DollarSign, ExternalLink, MousePointerClick, Users } from 'lucide-react';
+import { Copy, DollarSign, ExternalLink, MousePointerClick, Sparkles, Users } from 'lucide-react';
 import { Seo } from '../../components/marketing/Seo';
 import { MarketingShell } from '../../components/marketing/MarketingShell';
 import { api, apiErrorMessage } from '../../lib/api';
@@ -16,6 +16,14 @@ type Dashboard = {
     month_referred_revenue: number;
     next_tier_threshold: number | null;
     payout_minimum: number;
+    founder?: {
+      is_founder: boolean;
+      active: boolean;
+      rate: number;
+      months: number;
+      months_remaining: number;
+      ends_at: string | null;
+    };
   };
   links: { home: string | null; signup: string | null; pricing: string | null };
   promotion: { audience_offer: string | null };
@@ -131,6 +139,14 @@ export const AffiliateDashboard: React.FC = () => {
       <Seo title="Affiliate Dashboard" description="Your GentleTap affiliate stats." path="/affiliates/dashboard" noindex />
       <div className="max-w-5xl mx-auto px-6 py-12 w-full">
         <h1 className="text-3xl font-extrabold text-gray-900 mb-1">Welcome back, {data.affiliate.name}</h1>
+        {data.commission.founder?.active && (
+          <p className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 px-3 py-1 mb-2 text-xs font-bold text-blue-700">
+            <Sparkles size={13} /> Founding partner — {(data.commission.founder.rate * 100).toFixed(0)}% recurring
+            {data.commission.founder.months_remaining > 0
+              ? ` for ~${data.commission.founder.months_remaining} more month${data.commission.founder.months_remaining === 1 ? '' : 's'}`
+              : ' expiring soon'}
+          </p>
+        )}
         <p className="text-gray-600 mb-8">
           Effective rate: {(data.commission.effective_rate * 100).toFixed(0)}%
           {data.commission.next_tier_threshold != null && (

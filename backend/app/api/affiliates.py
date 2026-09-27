@@ -61,12 +61,17 @@ def current_affiliate(
 
 
 @router.get("/program")
-def affiliate_program_info() -> dict:
+def affiliate_program_info(db: Session = Depends(get_db)) -> dict:
     months = settings.affiliate_commission_months
     discount_pct = int(settings.affiliate_referral_discount_percent * 100)
     discount_months = settings.affiliate_referral_discount_months
     first_month_pct = int(settings.affiliate_first_month_rate * 100)
     base_pct = int(settings.affiliate_default_commission_rate * 100)
+    approved_count = (
+        db.query(Affiliate.id).filter(Affiliate.approved_at.isnot(None)).count()
+    )
+    founder_pct = int(settings.affiliate_founder_rate * 100)
+    slots_remaining = max(0, settings.affiliate_founder_limit - approved_count)
     return {
         "commission_rate": settings.affiliate_default_commission_rate,
         "first_month_rate": settings.affiliate_first_month_rate,
@@ -75,6 +80,12 @@ def affiliate_program_info() -> dict:
         "cookie_days": settings.affiliate_cookie_days,
         "payout_methods": list(affiliate_service.PAYOUT_METHODS),
         "payout_minimum": settings.affiliate_payout_minimum,
+        "founder_tier": {
+            "rate": settings.affiliate_founder_rate,
+            "months": settings.affiliate_founder_months,
+            "limit": settings.affiliate_founder_limit,
+            "slots_remaining": slots_remaining,
+        },
         "performance_tiers": [
             {"monthly_referred_revenue": 0, "rate": settings.affiliate_default_commission_rate},
             {
@@ -96,6 +107,12 @@ def affiliate_program_info() -> dict:
         "description": (
             f"Earn {first_month_pct}% of each referral's first month plus {base_pct}% of every "
             f"subscription payment for {months} months per referred customer."
+            + (
+                f" Founding partners (first {settings.affiliate_founder_limit} approved) earn "
+                f"{founder_pct}% for their first {settings.affiliate_founder_months} months."
+                if slots_remaining > 0
+                else ""
+            )
         ),
         "audience_offer": (
             f"{discount_pct}% off first {discount_months} months for customers who use an affiliate link"

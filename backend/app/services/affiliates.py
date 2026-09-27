@@ -249,13 +249,66 @@ def tier_rate_for_revenue(revenue: Decimal) -> Decimal:
     return Decimal(str(settings.affiliate_default_commission_rate))
 
 
+def founder_slot_rank(db: Session, affiliate: Affiliate) -> Optional[int]:
+    """0-based position among approved partners, ordered by approval time."""
+    if not affiliate.approved_at:
+        return None
+    earlier = (
+        db.query(func.count(Affiliate.id))
+        .filter(
+            Affiliate.approved_at.isnot(None),
+            Affiliate.approved_at < affiliate.approved_at,
+        )
+        .scalar()
+        or 0
+    )
+    return int(earlier)
+
+
+def founder_tier_info(db: Session, affiliate: Affiliate, *, at: Optional[datetime] = None) -> dict:
+    """Founding-partner tier: the first N approved partners earn the founder rate for M months."""
+    settings = get_settings()
+    now = at or datetime.now(timezone.utc)
+    limit = settings.affiliate_founder_limit
+    months = settings.affiliate_founder_months
+    rate = float(settings.affiliate_founder_rate)
+    info = {
+        "is_founder": False,
+        "active": False,
+        "rate": rate,
+        "limit": limit,
+        "months": months,
+        "ends_at": None,
+        "months_remaining": 0,
+    }
+    if limit <= 0 or months <= 0:
+        return info
+    rank = founder_slot_rank(db, affiliate)
+    if rank is None or rank >= limit:
+        return info
+    approved_at = affiliate.approved_at
+    if approved_at.tzinfo is None:
+        approved_at = approved_at.replace(tzinfo=timezone.utc)
+    ends_at = _add_months(approved_at, months)
+    info["is_founder"] = True
+    info["ends_at"] = ends_at.isoformat()
+    if now <= ends_at:
+        info["active"] = True
+        info["months_remaining"] = max(0, -(-(ends_at - now).days // 30))
+    return info
+
+
 def effective_commission_rate(db: Session, affiliate: Affiliate) -> Decimal:
-    """Higher of the manual per-affiliate rate (e.g. founder tier) and the performance tier."""
+    """Higher of the manual per-affiliate rate, the performance tier and the founder rate."""
     manual = Decimal(
         str(affiliate.commission_rate or get_settings().affiliate_default_commission_rate)
     )
     tier = tier_rate_for_revenue(referred_revenue_this_month(db, affiliate.id))
-    return max(manual, tier)
+    rate = max(manual, tier)
+    founder = founder_tier_info(db, affiliate)
+    if founder["active"]:
+        rate = max(rate, Decimal(str(founder["rate"])))
+    return rate
 
 
 def rate_for_event(db: Session, affiliate: Affiliate, event_type: str) -> Decimal:
@@ -499,6 +552,7 @@ def affiliate_dashboard(db: Session, affiliate: Affiliate) -> dict:
     month_revenue = referred_revenue_this_month(db, affiliate.id)
     tier_rate = tier_rate_for_revenue(month_revenue)
     manual_rate = Decimal(str(affiliate.commission_rate))
+    founder = founder_tier_info(db, affiliate)
     tier2_threshold = Decimal(str(settings.affiliate_tier2_threshold))
     tier3_threshold = Decimal(str(settings.affiliate_tier3_threshold))
     next_tier_threshold = None
@@ -583,7 +637,8 @@ def affiliate_dashboard(db: Session, affiliate: Affiliate) -> dict:
             "base_rate": float(settings.affiliate_default_commission_rate),
             "manual_rate": float(manual_rate),
             "tier_rate": float(tier_rate),
-            "effective_rate": float(max(manual_rate, tier_rate)),
+            "effective_rate": float(effective_commission_rate(db, affiliate)),
+            "founder": founder,
             "month_referred_revenue": float(month_revenue),
             "next_tier_threshold": next_tier_threshold,
             "tier2_threshold": float(tier2_threshold),

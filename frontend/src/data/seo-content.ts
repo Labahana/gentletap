@@ -423,6 +423,10 @@ export const AFFILIATE_FAQ = [
     a: "Affiliates earn 50% of each referral's first paid month plus 30% of every subscription payment for 24 months. On the $19/mo Pro plan that's $9.50 up front and $5.70 per month — up to $140.60 per referral over the full commission window.",
   },
   {
+    q: "What is the founding partner offer?",
+    a: "The first 25 approved affiliates earn a founding-partner renewal rate of 40% (instead of 30%) for their first 6 months in the program — applied automatically when your account is approved. The 50% first-month bounty and performance tiers still stack on top, so you always get your highest applicable rate.",
+  },
+  {
     q: "Are there higher commission rates for top performers?",
     a: "Yes. Performance tiers apply automatically: once your referred revenue passes $500 in a calendar month your renewal rate rises to 35%, and at $2,000 per month it rises to 40%. Your dashboard shows your current tier and progress to the next one.",
   },
@@ -440,11 +444,11 @@ export const AFFILIATE_FAQ = [
   },
   {
     q: "How does affiliate tracking work?",
-    a: "You share your unique link (gentletap.co/?ref=yourcode). Clicks and signups are tracked for 60 days via cookie. When someone subscribes, commissions attach to your dashboard automatically through Paddle checkout.",
+    a: "You share your unique link (gentletap.co/?ref=yourcode). Clicks and signups are tracked for 30 days via cookie. When someone subscribes, commissions attach to your dashboard automatically through Paddle checkout.",
   },
   {
     q: "What is the affiliate cookie duration?",
-    a: "60 days from the first click on your referral link. If someone returns within that window and creates an account, the referral is attributed to you (last valid affiliate link before signup wins).",
+    a: "30 days from the first click on your referral link. If someone returns within that window and creates an account, the referral is attributed to you (first attribution wins — the affiliate link active at signup is locked in).",
   },
   {
     q: "When and how do affiliates get paid?",

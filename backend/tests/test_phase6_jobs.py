@@ -217,6 +217,10 @@ class TestAdvanceAfterSend:
         _, org, _, invoice = _seed_invoice(db)
         seq = _seed_sequence(db, org.id, STEPS)
         reminder_engine.assign_sequence_and_schedule(db, invoice, seq)
+        # Contact-window bumping is time-of-day dependent; test raw gap spacing.
+        os_row = reminder_engine.get_or_create_org_settings(db, org.id)
+        os_row.contact_window_enabled = False
+        db.flush()
         before = datetime.now(timezone.utc)
         job = advance_after_send(db, invoice, seq, 0)
         after = datetime.now(timezone.utc)

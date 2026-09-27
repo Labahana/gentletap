@@ -66,6 +66,7 @@ const FOOTER_COLUMNS: Array<{ title: string; links: Array<{ name: string; to: st
     title: 'Partners',
     links: [
       { name: 'Affiliate program', to: '/affiliates' },
+      { name: 'Promo kit', to: '/affiliates/resources' },
       { name: 'Partner login', to: '/affiliates/login' },
       { name: 'Affiliate terms', to: '/affiliates/terms' },
     ],

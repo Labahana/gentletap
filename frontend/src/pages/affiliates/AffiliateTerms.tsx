@@ -45,6 +45,7 @@ export const AffiliateTerms: React.FC = () => (
             <li><strong>First-month bounty:</strong> 50% of the net subscription amount received from a referred customer's first paid plan payment.</li>
             <li><strong>Recurring rate:</strong> 30% of net subscription amounts after the first payment, within the commission window.</li>
             <li><strong>Performance tiers:</strong> renewal rate rises to 35% at $500 month-to-date referred revenue and 40% at $2,000, applied automatically and visible in your dashboard.</li>
+            <li><strong>Founding partners:</strong> the first 25 approved affiliates earn a 40% renewal rate for their first 6 months after approval; the higher of founding, manual, or tier rate always applies.</li>
             <li><strong>Duration:</strong> commission applies for 24 months from the referred customer's first paid subscription; no further commission is owed on that customer afterward.</li>
             <li><strong>Eligible plans:</strong> paid subscription plans offered at the time of payment. One-time add-ons are excluded unless explicitly included in writing.</li>
             <li><strong>Changes:</strong> rates may change for new referrals with 30 days' notice; existing active referrals keep their agreed rates.</li>
@@ -64,7 +65,7 @@ export const AffiliateTerms: React.FC = () => (
         <section>
           <h2 className="text-2xl font-bold text-gray-900 mb-3">Tracking &amp; attribution</h2>
           <p>
-            Clicks and signups are tracked via your referral link and a cookie lasting up to 60 days. The
+            Clicks and signups are tracked via your referral link and a cookie lasting up to 30 days. The
             last valid affiliate link before signup determines attribution. Self-referrals and referrals
             from accounts you control are ineligible.
           </p>
