@@ -1,15 +1,31 @@
 import React from 'react';
-import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { CheckCircle, ArrowRight } from 'lucide-react';
+import { Seo } from '@/components/marketing/Seo';
+import { breadcrumbJsonLd, productPricingJsonLd, webPageJsonLd, SEO_KEYWORD_CLUSTERS } from '@/data/seo';
+
+const TITLE = 'Automated QuickBooks Invoice Reminders | GentleTap';
+const DESCRIPTION =
+  'Automate QuickBooks invoice chasing in 5 minutes. GentleTap connects to QBO to send warm payment reminders from your Gmail and stops when paid.';
 
 export const QuickbooksIntegration: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Helmet>
-        <title>Automated QuickBooks Invoice Reminders | GentleTap</title>
-        <meta name="description" content="Automate QuickBooks invoice chasing in 5 minutes. GentleTap connects to QBO to send warm payment reminders from your Gmail and stops when paid." />
-      </Helmet>
+      <Seo
+        title={TITLE}
+        description={DESCRIPTION}
+        path="/quickbooks-payment-reminders"
+        keywords={[...SEO_KEYWORD_CLUSTERS.quickbooks]}
+        ogType="website"
+        jsonLd={[
+          webPageJsonLd(TITLE, DESCRIPTION, '/quickbooks-payment-reminders'),
+          breadcrumbJsonLd([
+            { name: 'Home', path: '/' },
+            { name: 'QuickBooks Invoice Reminders', path: '/quickbooks-payment-reminders' },
+          ]),
+          productPricingJsonLd(),
+        ]}
+      />
 
       {/* Navbar (Simplified) */}
       <header className="h-20 bg-white border-b border-gray-100 px-8 flex items-center justify-between">

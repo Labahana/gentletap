@@ -3,7 +3,12 @@ import { LegalLayout } from '@/components/LegalLayout';
 import { LegalEntityBlock, LEGAL, operatorIntro } from '@/lib/legal';
 
 export const PrivacyPage: React.FC = () => (
-  <LegalLayout title="Privacy Policy" updated="August 1, 2026">
+  <LegalLayout
+    title="Privacy Policy"
+    updated="August 1, 2026"
+    path="/privacy"
+    description="How GentleTap collects, uses, and protects your data — including QuickBooks, FreshBooks, and Gmail access scopes."
+  >
     <p>
       {operatorIntro()} This Privacy Policy explains what we collect, why we collect it, who we share
       it with, and the choices you have.

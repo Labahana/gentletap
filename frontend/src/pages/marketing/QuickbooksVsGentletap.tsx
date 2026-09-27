@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Seo } from '../../components/marketing/Seo';
 import { MarketingShell, Breadcrumbs } from '../../components/marketing/MarketingShell';
 import { COMPETITOR_COMPARISON } from '../../data/seo-content';
-import { DEFAULT_DESCRIPTION, faqJsonLd, webPageJsonLd } from '../../data/seo';
+import { breadcrumbJsonLd, DEFAULT_DESCRIPTION, faqJsonLd, webPageJsonLd } from '../../data/seo';
 
 const COMPARISON = [
   { feature: 'Personalized AI drafts per client', qbo: 'Generic templates only', gentletap: 'Yes — per invoice & client history' },
@@ -49,6 +49,10 @@ export const QuickbooksVsGentletap: React.FC = () => (
       ]}
       jsonLd={[
         webPageJsonLd('QuickBooks reminders vs GentleTap', DEFAULT_DESCRIPTION, '/quickbooks-reminders-vs-gentletap'),
+        breadcrumbJsonLd([
+          { name: 'Home', path: '/' },
+          { name: 'QuickBooks vs GentleTap', path: '/quickbooks-reminders-vs-gentletap' },
+        ]),
         faqJsonLd(VS_FAQ),
       ]}
     />

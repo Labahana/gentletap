@@ -1,42 +1,45 @@
-# AI answer engines are welcome to index public content
+# GentleTap robots.txt — public marketing content is open to all crawlers,
+# including AI answer engines (GEO). Private application routes are disallowed
+# below and also carry noindex meta tags.
+
 User-agent: GPTBot
-Allow: /
-
 User-agent: OAI-SearchBot
-Allow: /
-
 User-agent: ChatGPT-User
-Allow: /
-
 User-agent: ClaudeBot
-Allow: /
-
 User-agent: Claude-SearchBot
-Allow: /
-
 User-agent: PerplexityBot
-Allow: /
-
 User-agent: Google-Extended
-Allow: /
-
 User-agent: Applebot-Extended
-Allow: /
-
 User-agent: CCBot
-Allow: /
-
 User-agent: *
 Allow: /
 
-# Disallow private application routes
+# Private / authenticated application routes
 Disallow: /dashboard
 Disallow: /settings
 Disallow: /onboarding
 Disallow: /admin
 Disallow: /auth/
 Disallow: /login
-Disallow: /signup
+Disallow: /forgot-password
+Disallow: /reset-password
 Disallow: /unsubscribe
+Disallow: /affiliates/dashboard
+
+# In-app pages reachable by signed-in users
+Disallow: /autopilot
+Disallow: /analytics
+Disallow: /approvals
+Disallow: /escalations
+Disallow: /invoices
+Disallow: /clients
+Disallow: /sequences
+Disallow: /history
+Disallow: /payouts
+Disallow: /templates
+Disallow: /billing
+Disallow: /team
+Disallow: /integrations
 
 Sitemap: https://gentletap.co/sitemap.xml
+Host: https://gentletap.co

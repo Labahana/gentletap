@@ -2,7 +2,12 @@ import React from 'react';
 import { LegalLayout } from '@/components/LegalLayout';
 
 export const CookiesPage: React.FC = () => (
-  <LegalLayout title="Cookie Policy" updated="June 18, 2026">
+  <LegalLayout
+    title="Cookie Policy"
+    updated="June 18, 2026"
+    path="/cookies"
+    description="How GentleTap uses cookies, local storage, and affiliate tracking cookies on gentletap.co."
+  >
     <p>
       This Cookie Policy explains how GentleTap uses cookies and similar technologies when you visit{' '}
       <a href="https://gentletap.co" target="_blank" rel="noopener noreferrer">

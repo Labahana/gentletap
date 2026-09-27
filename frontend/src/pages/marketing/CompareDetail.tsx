@@ -3,12 +3,13 @@ import { Link, useParams } from 'react-router-dom';
 import { Check, X } from 'lucide-react';
 import { Seo } from '../../components/marketing/Seo';
 import { MarketingShell, Breadcrumbs } from '../../components/marketing/MarketingShell';
-import { breadcrumbJsonLd, faqJsonLd } from '../../data/seo';
+import { breadcrumbJsonLd, faqJsonLd, SITEMAP_COMPARE_SLUGS } from '../../data/seo';
 import { getAllComparisons, getCompetitorComparison } from '../../data/competitor-comparisons';
 
 export const CompareDetail: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const c = slug ? getCompetitorComparison(slug) : undefined;
+  const indexed = !!slug && (SITEMAP_COMPARE_SLUGS as readonly string[]).includes(slug);
 
   if (!c) {
     return (
@@ -32,6 +33,7 @@ export const CompareDetail: React.FC = () => {
         description={c.metaDescription}
         path={`/compare/${c.slug}`}
         keywords={c.keywords}
+        noindex={!indexed}
         jsonLd={[
           faqJsonLd(c.faq),
           breadcrumbJsonLd([

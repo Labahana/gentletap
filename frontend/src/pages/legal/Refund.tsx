@@ -3,7 +3,12 @@ import { LegalLayout } from '@/components/LegalLayout';
 import { LegalEntityBlock, LEGAL } from '@/lib/legal';
 
 export const RefundPage: React.FC = () => (
-  <LegalLayout title="Refund Policy" updated="June 18, 2026">
+  <LegalLayout
+    title="Refund Policy"
+    updated="June 18, 2026"
+    path="/refund"
+    description="GentleTap's money-back guarantee and refund process for paid subscriptions, processed by Paddle."
+  >
     <p>
       This Refund Policy applies to paid subscriptions and one-time purchases for {LEGAL.productName},
       processed by {LEGAL.paddleMoR} ("Paddle") as Merchant of Record.

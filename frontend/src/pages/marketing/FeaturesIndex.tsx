@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { Seo } from '../../components/marketing/Seo';
 import { MarketingShell, Breadcrumbs } from '../../components/marketing/MarketingShell';
-import { websiteJsonLd } from '../../data/seo';
+import { breadcrumbJsonLd, collectionPageJsonLd } from '../../data/seo';
 import { FEATURE_SLUGS, FEATURES } from '../../data/features';
 
 export const FeaturesIndex: React.FC = () => (
@@ -12,7 +12,15 @@ export const FeaturesIndex: React.FC = () => (
       title="GentleTap Features — AI Invoice Follow-ups That Sound Like You"
       description="AI reminder drafts, client payment profiling, Gmail sending, WhatsApp follow-ups, auto-stop on payment. Every GentleTap feature, explained."
       path="/features"
-      jsonLd={[websiteJsonLd()]}
+      jsonLd={[
+        collectionPageJsonLd(
+          'GentleTap Features',
+          'AI reminder drafts, client payment profiling, Gmail sending, WhatsApp follow-ups, auto-stop on payment.',
+          '/features',
+          FEATURE_SLUGS.map((slug) => ({ name: FEATURES[slug].name, path: `/features/${slug}` })),
+        ),
+        breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Features', path: '/features' }]),
+      ]}
     />
     <div className="max-w-4xl mx-auto px-6 py-14">
       <Breadcrumbs items={[{ name: 'Home', path: '/' }, { name: 'Features' }]} />

@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Lock, CheckCircle2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { AuthShell } from '@/components/marketing/AuthShell';
+import { Seo } from '@/components/marketing/Seo';
 
 export const ResetPassword: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -40,6 +41,12 @@ export const ResetPassword: React.FC = () => {
 
   return (
     <AuthShell mode="recover">
+      <Seo
+        title="Choose a new password"
+        description="Set a new password for your GentleTap account."
+        path="/reset-password"
+        noindex
+      />
       <div className="mb-6 text-center">
         <h2 className="text-2xl font-bold text-slate-900">Choose a new password</h2>
         <p className="mt-1 text-sm text-slate-600">Make it strong — at least 8 characters</p>

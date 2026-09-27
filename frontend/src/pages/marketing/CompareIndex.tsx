@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { Seo } from '../../components/marketing/Seo';
 import { MarketingShell, Breadcrumbs } from '../../components/marketing/MarketingShell';
-import { websiteJsonLd } from '../../data/seo';
+import { breadcrumbJsonLd, collectionPageJsonLd } from '../../data/seo';
 import { getAllComparisons } from '../../data/competitor-comparisons';
 
 export const CompareIndex: React.FC = () => {
@@ -15,7 +15,15 @@ export const CompareIndex: React.FC = () => {
         title="GentleTap vs Competitors — Honest Invoice Reminder Comparisons"
         description="Side-by-side, honest comparisons of GentleTap and every major invoice chasing tool: pricing, features, and who each option is really for."
         path="/compare"
-        jsonLd={[websiteJsonLd()]}
+        jsonLd={[
+          collectionPageJsonLd(
+            'GentleTap vs Competitors',
+            'Side-by-side, honest comparisons of GentleTap and every major invoice chasing tool.',
+            '/compare',
+            comparisons.map((c) => ({ name: `GentleTap vs ${c.name}`, path: `/compare/${c.slug}` })),
+          ),
+          breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Compare', path: '/compare' }]),
+        ]}
       />
       <div className="max-w-4xl mx-auto px-6 py-14">
         <Breadcrumbs items={[{ name: 'Home', path: '/' }, { name: 'Compare' }]} />

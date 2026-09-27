@@ -1,5 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { Seo } from './marketing/Seo';
+import { breadcrumbJsonLd, webPageJsonLd } from '../data/seo';
 
 const LEGAL_NAV = [
   { href: '/terms', label: 'Terms' },
@@ -11,10 +13,24 @@ const LEGAL_NAV = [
 export const LegalLayout: React.FC<{
   title: string;
   updated: string;
+  path: string;
+  description: string;
   children: React.ReactNode;
-}> = ({ title, updated, children }) => {
+}> = ({ title, updated, path, description, children }) => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
+      <Seo
+        title={`${title} — GentleTap`}
+        description={description}
+        path={path}
+        jsonLd={[
+          webPageJsonLd(title, description, path),
+          breadcrumbJsonLd([
+            { name: 'Home', path: '/' },
+            { name: title, path },
+          ]),
+        ]}
+      />
       <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3 px-6 py-4">
           <Link to="/" className="flex items-center gap-2">

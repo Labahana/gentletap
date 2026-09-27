@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { MarketingShell } from '@/components/marketing/MarketingShell';
 import { Seo } from '@/components/marketing/Seo';
-import { faqJsonLd, websiteJsonLd, SEO_KEYWORDS } from '@/data/seo';
+import { faqJsonLd, websiteJsonLd, webPageJsonLd, organizationJsonLd, softwareApplicationJsonLd, productPricingJsonLd, SEO_KEYWORDS } from '@/data/seo';
 
 const PAGE_DESCRIPTION =
   'GentleTap chases your overdue invoices on autopilot — AI drafts reminders in your voice, sends from your Gmail, syncs QuickBooks and FreshBooks, and stops the moment you’re paid.';
@@ -320,7 +320,14 @@ export const Landing: React.FC = () => {
         description={PAGE_DESCRIPTION}
         path="/"
         keywords={SEO_KEYWORDS}
-        jsonLd={[websiteJsonLd(), faqJsonLd(LANDING_FAQ)]}
+        jsonLd={[
+          websiteJsonLd(),
+          webPageJsonLd('GentleTap — Automated Invoice Reminders on Autopilot', PAGE_DESCRIPTION, '/'),
+          organizationJsonLd(),
+          softwareApplicationJsonLd(),
+          productPricingJsonLd(),
+          faqJsonLd(LANDING_FAQ),
+        ]}
       />
 
       {/* Hero */}

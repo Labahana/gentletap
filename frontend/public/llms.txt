@@ -124,6 +124,14 @@ Chasivo offers similar AI drafts, Gmail sending, and risk profiling. Per chasivo
 
 Honest comparison pages: https://gentletap.co/compare
 
+## Affiliate program (https://gentletap.co/affiliates)
+
+- Hybrid recurring commissions: 50% of each referral's first paid month + 30% of every subscription payment for 24 months per referred customer
+- Founding partners (first 25 approved affiliates): 40% recurring rate for their first 6 months
+- Performance tiers (automatic): 35% renewal rate at $500+ month-to-date referred revenue; 40% at $2,000+
+- Referred customers get 20% off their first 3 months via affiliate links
+- 30-day attribution cookie; first-touch attribution; monthly payouts (PayPal, Wise, bank transfer) with a $20 minimum
+
 ## Common questions
 
 Q: Does GentleTap send WhatsApp payment reminders?

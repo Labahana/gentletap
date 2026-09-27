@@ -4,7 +4,7 @@ import { ArrowRight, Clock } from 'lucide-react';
 import { Seo } from '../../components/marketing/Seo';
 import { MarketingShell } from '../../components/marketing/MarketingShell';
 import { Breadcrumbs } from '../../components/marketing/MarketingShell';
-import { websiteJsonLd } from '../../data/seo';
+import { breadcrumbJsonLd, collectionPageJsonLd } from '../../data/seo';
 import { BLOG_POST_SLUGS, BLOG_POSTS } from '../../data/blog-posts';
 
 export const BlogIndex: React.FC = () => {
@@ -17,7 +17,15 @@ export const BlogIndex: React.FC = () => {
         title="GentleTap Blog — Getting Paid as a Freelancer"
         description="Practical guides on invoice chasing, late payments, cash flow, and payment terms for freelancers and small businesses."
         path="/blog"
-        jsonLd={[websiteJsonLd()]}
+        jsonLd={[
+          collectionPageJsonLd(
+            'GentleTap Blog',
+            'Practical guides on invoice chasing, late payments, cash flow, and payment terms for freelancers and small businesses.',
+            '/blog',
+            posts.map((p) => ({ name: p.title, path: `/blog/${p.slug}` })),
+          ),
+          breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Blog', path: '/blog' }]),
+        ]}
       />
       <div className="max-w-4xl mx-auto px-6 py-14">
         <Breadcrumbs items={[{ name: 'Home', path: '/' }, { name: 'Blog' }]} />

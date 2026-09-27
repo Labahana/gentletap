@@ -2,12 +2,13 @@ import React from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Seo } from '../../components/marketing/Seo';
 import { MarketingShell, Breadcrumbs } from '../../components/marketing/MarketingShell';
-import { breadcrumbJsonLd, faqJsonLd } from '../../data/seo';
+import { breadcrumbJsonLd, faqJsonLd, INDEXED_FEATURE_SLUGS } from '../../data/seo';
 import { getFeature } from '../../data/features';
 
 export const FeatureDetail: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const f = slug ? getFeature(slug) : undefined;
+  const indexed = !!slug && (INDEXED_FEATURE_SLUGS as readonly string[]).includes(slug);
 
   if (!f) {
     return (
@@ -29,6 +30,7 @@ export const FeatureDetail: React.FC = () => {
         description={f.metaDescription}
         path={`/features/${slug}`}
         keywords={f.keywords}
+        noindex={!indexed}
         jsonLd={[
           faqJsonLd(f.faq),
           breadcrumbJsonLd([

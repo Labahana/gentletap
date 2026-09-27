@@ -5,6 +5,8 @@ import { Lock, Mail, User, Building, CheckCircle2 } from 'lucide-react';
 import { api, apiErrorMessage } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { AuthShell, GoogleButton, Divider } from '@/components/marketing/AuthShell';
+import { Seo } from '@/components/marketing/Seo';
+import { webPageJsonLd } from '@/data/seo';
 
 export const Signup: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -79,6 +81,12 @@ export const Signup: React.FC = () => {
 
   return (
     <AuthShell mode="signup">
+      <Seo
+        title="Start Free — Automated Invoice Reminders | GentleTap"
+        description="Create your free GentleTap account. Sync QuickBooks or FreshBooks, let AI draft warm payment reminders in your voice, and send from Gmail. 5 collections/month free, no card required."
+        path="/signup"
+        jsonLd={[webPageJsonLd('Sign up for GentleTap', 'Free plan — 5 invoice collections per month, no credit card.', '/signup')]}
+      />
       <div className="mb-6 text-center">
         <h2 className="text-2xl font-bold text-slate-900">Create your account</h2>
         <p className="mt-1 text-sm text-slate-600">Start automating your invoice follow-ups</p>

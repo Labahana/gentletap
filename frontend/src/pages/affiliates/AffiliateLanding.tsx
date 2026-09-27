@@ -5,7 +5,7 @@ import { Seo } from '../../components/marketing/Seo';
 import { MarketingShell } from '../../components/marketing/MarketingShell';
 import { api, apiErrorMessage } from '../../lib/api';
 import { AFFILIATE_FAQ } from '../../data/seo-content';
-import { faqJsonLd } from '../../data/seo';
+import { affiliateProgramJsonLd, breadcrumbJsonLd, faqJsonLd } from '../../data/seo';
 
 type FounderTier = {
   rate: number;
@@ -154,10 +154,24 @@ export const AffiliateLanding: React.FC = () => {
   return (
     <MarketingShell>
       <Seo
-        title="GentleTap Affiliate Program — 50% First Month + 30% Recurring for 24 Months"
+        title={`GentleTap Affiliate Program — ${firstMonthPct}% First Month + ${basePct}% Recurring for ${months} Months`}
         description={`Earn ${firstMonthPct}% of each referral's first month plus ${basePct}% recurring for ${months} months promoting GentleTap. Founding partners get ${founderPct}% for ${founder.months} months. Free to join, monthly payouts.`}
         path="/affiliates"
-        jsonLd={[faqJsonLd(AFFILIATE_FAQ)]}
+        jsonLd={[
+          affiliateProgramJsonLd({
+            firstMonthRate: firstMonthPct / 100,
+            baseRate: basePct / 100,
+            commissionMonths: months,
+            founderRate: founder.rate,
+            founderMonths: founder.months,
+            founderLimit: founder.limit,
+          }),
+          breadcrumbJsonLd([
+            { name: 'Home', path: '/' },
+            { name: 'Affiliates', path: '/affiliates' },
+          ]),
+          faqJsonLd(AFFILIATE_FAQ),
+        ]}
       />
       {/* Hero */}
       <section className="max-w-6xl mx-auto px-6 pt-16 pb-10 grid lg:grid-cols-2 gap-10 items-start">

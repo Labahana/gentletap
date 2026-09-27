@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { Clock } from 'lucide-react';
 import { Seo } from '../../components/marketing/Seo';
 import { MarketingShell, Breadcrumbs } from '../../components/marketing/MarketingShell';
-import { articleJsonLd, faqJsonLd } from '../../data/seo';
+import { articleJsonLd, breadcrumbJsonLd, faqJsonLd } from '../../data/seo';
 import { BLOG_POSTS } from '../../data/blog-posts';
 
 export const BlogPostPage: React.FC = () => {
@@ -33,6 +33,8 @@ export const BlogPostPage: React.FC = () => {
         path={`/blog/${post.slug}`}
         keywords={post.keywords}
         ogType="article"
+        publishedTime={post.datePublished}
+        modifiedTime={post.dateModified ?? post.datePublished}
         jsonLd={[
           articleJsonLd({
             title: post.title,
@@ -41,6 +43,11 @@ export const BlogPostPage: React.FC = () => {
             datePublished: post.datePublished,
             dateModified: post.dateModified,
           }),
+          breadcrumbJsonLd([
+            { name: 'Home', path: '/' },
+            { name: 'Blog', path: '/blog' },
+            { name: post.title, path: `/blog/${post.slug}` },
+          ]),
           ...(post.faq.length > 0 ? [faqJsonLd(post.faq)] : []),
         ]}
       />

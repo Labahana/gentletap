@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
-import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { AlertCircle, CheckCircle } from 'lucide-react';
+import { Seo } from '@/components/marketing/Seo';
+import { breadcrumbJsonLd, webPageJsonLd } from '@/data/seo';
+
+const TITLE = 'Xero Invoice Reminders — GentleTap Support Coming Soon | GentleTap';
+const DESCRIPTION =
+  "GentleTap doesn't support Xero yet. Join the waitlist for AI-powered Xero invoice chasing, or learn about Xero's built-in options.";
 
 export const XeroWaitlist: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -17,10 +22,19 @@ export const XeroWaitlist: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Helmet>
-        <title>Xero Invoice Reminders | GentleTap</title>
-        <meta name="description" content="GentleTap doesn't support Xero yet. Join the waitlist for AI-powered Xero invoice chasing, or learn about Xero's built-in options." />
-      </Helmet>
+      <Seo
+        title={TITLE}
+        description={DESCRIPTION}
+        path="/xero-invoice-reminders"
+        keywords={['Xero invoice reminders', 'Xero payment reminders', 'Xero invoice chasing']}
+        jsonLd={[
+          webPageJsonLd(TITLE, DESCRIPTION, '/xero-invoice-reminders'),
+          breadcrumbJsonLd([
+            { name: 'Home', path: '/' },
+            { name: 'Xero Invoice Reminders', path: '/xero-invoice-reminders' },
+          ]),
+        ]}
+      />
 
       {/* Navbar */}
       <header className="h-20 bg-white border-b border-gray-100 px-8 flex items-center justify-between">

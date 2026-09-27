@@ -1,7 +1,5 @@
 /** SEO constants + schema.org JSON-LD builders (ported from old Next.js seo.ts). */
 
-import { FEATURE_SLUGS as FEATURE_SITEMAP_SLUGS } from "./features";
-
 export const SITE_URL = "https://gentletap.co";
 export const PRODUCT_NAME = "GentleTap";
 
@@ -79,6 +77,14 @@ export const SITEMAP_COMPARE_SLUGS = [
 /** Industries kept indexable + in sitemap. Others stay live but noindex. */
 export const INDEXED_INDUSTRY_SLUGS = ["freelancers", "consultants", "agencies"] as const;
 
+/** Feature pages kept indexable + in sitemap; the rest stay live but noindex (thin/overlapping). */
+export const INDEXED_FEATURE_SLUGS = [
+  "ai-reminder-drafts",
+  "send-from-gmail",
+  "auto-stop-on-payment",
+  "whatsapp-reminders",
+] as const;
+
 /** Blog posts kept in the public sitemap. */
 export const SITEMAP_BLOG_SLUGS = [
   "best-invoice-chasing-software-2026",
@@ -95,8 +101,9 @@ export function organizationJsonLd() {
     name: PRODUCT_NAME,
     legalName: PRODUCT_NAME,
     url: SITE_URL,
-    logo: `${SITE_URL}/brand/icon-512.png`,
+    logo: `${SITE_URL}/logo512.png`,
     description: DEFAULT_DESCRIPTION,
+    email: "support@gentletap.co",
     sameAs: [] as string[],
   };
 }
@@ -191,6 +198,7 @@ export function articleJsonLd(input: {
     url: `${SITE_URL}${input.path}`,
     datePublished: input.datePublished,
     dateModified: input.dateModified ?? input.datePublished,
+    image: [`${SITE_URL}/og-image.jpg`],
     author: {
       "@type": "Organization",
       name: PRODUCT_NAME,
@@ -202,10 +210,159 @@ export function articleJsonLd(input: {
       url: SITE_URL,
       logo: {
         "@type": "ImageObject",
-        url: `${SITE_URL}/brand/icon-512.png`,
+        url: `${SITE_URL}/logo512.png`,
       },
     },
     mainEntityOfPage: { "@type": "WebPage", "@id": `${SITE_URL}${input.path}` },
+  };
+}
+
+/** Live plan pricing (mirrors backend PLAN_PRICES). */
+export const PRICING_PLANS = [
+  { name: "Starter", monthly: 0 },
+  { name: "Pro", monthly: 19 },
+  { name: "Pro+", monthly: 39 },
+  { name: "Team", monthly: 59 },
+] as const;
+
+export function pricingOffersJsonLd(plans: ReadonlyArray<{ name: string; monthly: number }> = PRICING_PLANS) {
+  const prices = plans.map((p) => p.monthly);
+  return {
+    "@type": "AggregateOffer",
+    priceCurrency: "USD",
+    lowPrice: Math.min(...prices),
+    highPrice: Math.max(...prices),
+    offerCount: plans.length,
+    availability: "https://schema.org/InStock",
+    offers: plans.map((p) => ({
+      "@type": "Offer",
+      name: `GentleTap ${p.name}`,
+      price: p.monthly.toFixed(2),
+      priceCurrency: "USD",
+      url: `${SITE_URL}/signup`,
+    })),
+  };
+}
+
+export function softwareApplicationJsonLd() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: PRODUCT_NAME,
+    applicationCategory: "BusinessApplication",
+    operatingSystem: "Web",
+    url: SITE_URL,
+    description: DEFAULT_DESCRIPTION,
+    featureList: [
+      "Automated invoice reminder sequences",
+      "AI-drafted follow-up emails in your voice",
+      "Send reminders from your own Gmail",
+      "QuickBooks Online sync",
+      "FreshBooks sync",
+      "WhatsApp invoice reminders",
+      "Automatic stop the moment an invoice is paid",
+      "Escalation rules and smart rescheduling",
+      "Client payment behavior profiles",
+      "Autopilot control center",
+      "CSV invoice import",
+    ],
+    audience: {
+      "@type": "Audience",
+      audienceType: "Freelancers, consultants, and small agencies",
+    },
+    offers: pricingOffersJsonLd(),
+  };
+}
+
+export function productPricingJsonLd() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: `${PRODUCT_NAME} — Payment reminder software`,
+    description: DEFAULT_DESCRIPTION,
+    brand: { "@type": "Brand", name: PRODUCT_NAME },
+    image: `${SITE_URL}/og-image.jpg`,
+    offers: pricingOffersJsonLd(),
+  };
+}
+
+export function collectionPageJsonLd(
+  name: string,
+  description: string,
+  path: string,
+  items: ReadonlyArray<{ name: string; path: string }>,
+) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name,
+    description,
+    url: `${SITE_URL}${path}`,
+    isPartOf: { "@type": "WebSite", name: PRODUCT_NAME, url: SITE_URL },
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: items.length,
+      itemListElement: items.map((item, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: item.name,
+        url: `${SITE_URL}${item.path}`,
+      })),
+    },
+  };
+}
+
+export function affiliateProgramJsonLd(input?: {
+  firstMonthRate?: number;
+  baseRate?: number;
+  commissionMonths?: number;
+  founderRate?: number;
+  founderMonths?: number;
+  founderLimit?: number;
+}) {
+  const firstMonthPct = Math.round((input?.firstMonthRate ?? 0.5) * 100);
+  const basePct = Math.round((input?.baseRate ?? 0.3) * 100);
+  const months = input?.commissionMonths ?? 24;
+  const founderPct = Math.round((input?.founderRate ?? 0.4) * 100);
+  const founderMonths = input?.founderMonths ?? 6;
+  const founderLimit = input?.founderLimit ?? 25;
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: "GentleTap Affiliate Program",
+    description: `Earn ${firstMonthPct}% of each referral's first month plus ${basePct}% recurring for ${months} months. Founding partners (first ${founderLimit}) earn ${founderPct}% for ${founderMonths} months.`,
+    url: `${SITE_URL}/affiliates`,
+    isPartOf: { "@type": "WebSite", name: PRODUCT_NAME, url: SITE_URL },
+    about: organizationJsonLd(),
+    mainEntity: {
+      "@type": "Service",
+      name: "GentleTap Affiliate Program",
+      serviceType: "Affiliate marketing program",
+      provider: { "@type": "Organization", name: PRODUCT_NAME, url: SITE_URL },
+      areaServed: "Worldwide",
+      audience: {
+        "@type": "BusinessAudience",
+        name: "YouTube creators, newsletter writers, accountants and bookkeepers",
+      },
+      offer: [
+        {
+          "@type": "Offer",
+          name: `${firstMonthPct}% first-month commission + ${basePct}% recurring for ${months} months`,
+          price: "0",
+          priceCurrency: "USD",
+          url: `${SITE_URL}/affiliates`,
+          description: `Free to join. ${firstMonthPct}% of each referral's first paid month, then ${basePct}% of every subscription payment for ${months} months. Automatic performance tiers up to 40%.`,
+        },
+        {
+          "@type": "Offer",
+          name: `Founding partner rate: ${founderPct}% recurring for ${founderMonths} months`,
+          price: "0",
+          priceCurrency: "USD",
+          url: `${SITE_URL}/affiliates`,
+          description: `The first ${founderLimit} approved partners earn a ${founderPct}% renewal rate for their first ${founderMonths} months in the program.`,
+        },
+      ],
+    },
   };
 }
 
@@ -231,7 +388,7 @@ export const SITEMAP_PATHS: Array<{
     priority: 0.94,
   },
   { path: "/features", changeFrequency: "monthly", priority: 0.85 },
-  ...FEATURE_SITEMAP_SLUGS.map((slug) => ({
+  ...INDEXED_FEATURE_SLUGS.map((slug) => ({
     path: `/features/${slug}` as const,
     changeFrequency: "monthly" as const,
     priority: 0.84,
@@ -263,5 +420,4 @@ export const SITEMAP_PATHS: Array<{
   { path: "/privacy", changeFrequency: "monthly", priority: 0.3 },
   { path: "/refund", changeFrequency: "monthly", priority: 0.3 },
   { path: "/cookies", changeFrequency: "monthly", priority: 0.2 },
-  { path: "/llms.txt", changeFrequency: "monthly", priority: 0.5 },
 ];

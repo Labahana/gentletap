@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Mail, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { AuthShell } from '@/components/marketing/AuthShell';
+import { Seo } from '@/components/marketing/Seo';
 
 export const ForgotPassword: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -26,6 +27,12 @@ export const ForgotPassword: React.FC = () => {
 
   return (
     <AuthShell mode="recover">
+      <Seo
+        title="Reset your password"
+        description="Enter your email and GentleTap will send you a link to reset your password."
+        path="/forgot-password"
+        noindex
+      />
       <div className="mb-6 text-center">
         <h2 className="text-2xl font-bold text-slate-900">Reset your password</h2>
         <p className="mt-1 text-sm text-slate-600">

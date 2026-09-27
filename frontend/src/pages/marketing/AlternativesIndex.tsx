@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { Seo } from '../../components/marketing/Seo';
 import { MarketingShell, Breadcrumbs } from '../../components/marketing/MarketingShell';
-import { websiteJsonLd } from '../../data/seo';
+import { breadcrumbJsonLd, collectionPageJsonLd } from '../../data/seo';
 import { getAllComparisons } from '../../data/competitor-comparisons';
 
 export const AlternativesIndex: React.FC = () => {
@@ -14,7 +14,15 @@ export const AlternativesIndex: React.FC = () => {
         title="Invoice Chasing Software Alternatives — Compared Honestly"
         description="Looking for an alternative to your current invoice chasing or dunning tool? Honest, side-by-side comparisons of GentleTap and every major payment reminder option."
         path="/alternatives"
-        jsonLd={[websiteJsonLd()]}
+        jsonLd={[
+          collectionPageJsonLd(
+            'Invoice Chasing Software Alternatives',
+            'Honest, side-by-side comparisons of GentleTap and every major payment reminder option.',
+            '/alternatives',
+            comparisons.map((c) => ({ name: `${c.name} alternatives`, path: `/compare/${c.slug}` })),
+          ),
+          breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Alternatives', path: '/alternatives' }]),
+        ]}
       />
       <div className="max-w-4xl mx-auto px-6 py-14">
         <Breadcrumbs items={[{ name: 'Home', path: '/' }, { name: 'Alternatives' }]} />

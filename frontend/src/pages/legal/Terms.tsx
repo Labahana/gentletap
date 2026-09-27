@@ -3,7 +3,12 @@ import { LegalLayout } from '@/components/LegalLayout';
 import { LegalEntityBlock, LEGAL, operatorIntro } from '@/lib/legal';
 
 export const TermsPage: React.FC = () => (
-  <LegalLayout title="Terms of Service" updated="August 1, 2026">
+  <LegalLayout
+    title="Terms of Service"
+    updated="August 1, 2026"
+    path="/terms"
+    description="The terms that govern use of GentleTap — subscription, billing, acceptable use, and legal entity details."
+  >
     <p>
       These Terms of Service ("Terms") govern your use of {LEGAL.productName} at{' '}
       <a href={LEGAL.websiteUrl} target="_blank" rel="noopener noreferrer">

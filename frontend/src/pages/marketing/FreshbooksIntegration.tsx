@@ -1,15 +1,30 @@
 import React from 'react';
-import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { CheckCircle, ArrowRight } from 'lucide-react';
+import { Seo } from '@/components/marketing/Seo';
+import { breadcrumbJsonLd, productPricingJsonLd, webPageJsonLd } from '@/data/seo';
+
+const TITLE = 'FreshBooks Invoice Reminders for Freelancers | GentleTap';
+const DESCRIPTION =
+  'Stop chasing clients. GentleTap integrates with FreshBooks to automatically follow up on unpaid invoices using polite, human-sounding emails.';
 
 export const FreshbooksIntegration: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Helmet>
-        <title>FreshBooks Invoice Reminders for Freelancers | GentleTap</title>
-        <meta name="description" content="Stop chasing clients. GentleTap integrates with FreshBooks to automatically follow up on unpaid invoices using polite, human-sounding emails." />
-      </Helmet>
+      <Seo
+        title={TITLE}
+        description={DESCRIPTION}
+        path="/freshbooks-invoice-reminders"
+        keywords={['FreshBooks invoice reminders', 'FreshBooks payment reminders', 'automate FreshBooks invoice follow up']}
+        jsonLd={[
+          webPageJsonLd(TITLE, DESCRIPTION, '/freshbooks-invoice-reminders'),
+          breadcrumbJsonLd([
+            { name: 'Home', path: '/' },
+            { name: 'FreshBooks Invoice Reminders', path: '/freshbooks-invoice-reminders' },
+          ]),
+          productPricingJsonLd(),
+        ]}
+      />
 
       {/* Navbar (Simplified) */}
       <header className="h-20 bg-white border-b border-gray-100 px-8 flex items-center justify-between">

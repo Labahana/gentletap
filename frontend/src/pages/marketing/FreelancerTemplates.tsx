@@ -1,15 +1,29 @@
 import React from 'react';
-import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { Copy, ArrowRight } from 'lucide-react';
+import { Seo } from '@/components/marketing/Seo';
+import { breadcrumbJsonLd, webPageJsonLd, SEO_KEYWORD_CLUSTERS } from '@/data/seo';
+
+const TITLE = 'Invoice Follow-Up Email Templates for Freelancers | GentleTap';
+const DESCRIPTION =
+  'Copy and paste these professional, warm email templates to ask for payment on overdue invoices without ruining your client relationships.';
 
 export const FreelancerTemplates: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Helmet>
-        <title>Invoice Follow-Up Email Templates for Freelancers | GentleTap</title>
-        <meta name="description" content="Copy and paste these professional, warm email templates to ask for payment on overdue invoices without ruining your client relationships." />
-      </Helmet>
+      <Seo
+        title={TITLE}
+        description={DESCRIPTION}
+        path="/invoice-follow-up-email-templates-for-freelancers"
+        keywords={[...SEO_KEYWORD_CLUSTERS.templates]}
+        jsonLd={[
+          webPageJsonLd(TITLE, DESCRIPTION, '/invoice-follow-up-email-templates-for-freelancers'),
+          breadcrumbJsonLd([
+            { name: 'Home', path: '/' },
+            { name: 'Invoice Follow-Up Email Templates', path: '/invoice-follow-up-email-templates-for-freelancers' },
+          ]),
+        ]}
+      />
 
       {/* Navbar (Simplified) */}
       <header className="h-20 bg-white border-b border-gray-100 px-8 flex items-center justify-between">

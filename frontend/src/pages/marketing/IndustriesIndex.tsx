@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { Seo } from '../../components/marketing/Seo';
 import { MarketingShell, Breadcrumbs } from '../../components/marketing/MarketingShell';
-import { INDEXED_INDUSTRY_SLUGS, websiteJsonLd } from '../../data/seo';
+import { breadcrumbJsonLd, collectionPageJsonLd, INDEXED_INDUSTRY_SLUGS } from '../../data/seo';
 import { INDUSTRY_SLUGS, INDUSTRIES } from '../../data/industries';
 
 export const IndustriesIndex: React.FC = () => (
@@ -12,7 +12,15 @@ export const IndustriesIndex: React.FC = () => (
       title="Invoice Reminders for Your Industry"
       description="How freelancers, agencies, consultants, developers, designers and more use GentleTap to follow up on unpaid invoices without the awkwardness."
       path="/industries"
-      jsonLd={[websiteJsonLd()]}
+      jsonLd={[
+        collectionPageJsonLd(
+          'Invoice Reminders for Your Industry',
+          'How freelancers, agencies, consultants, developers, designers and more use GentleTap to follow up on unpaid invoices.',
+          '/industries',
+          INDUSTRY_SLUGS.map((slug) => ({ name: `Invoice reminders for ${INDUSTRIES[slug].audience}`, path: `/industries/${slug}` })),
+        ),
+        breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Industries', path: '/industries' }]),
+      ]}
     />
     <div className="max-w-4xl mx-auto px-6 py-14">
       <Breadcrumbs items={[{ name: 'Home', path: '/' }, { name: 'Industries' }]} />

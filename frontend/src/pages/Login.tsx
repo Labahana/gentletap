@@ -5,6 +5,7 @@ import { Lock, Mail } from 'lucide-react';
 import { api, apiErrorMessage } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { AuthShell, GoogleButton, Divider } from '@/components/marketing/AuthShell';
+import { Seo } from '@/components/marketing/Seo';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -59,6 +60,12 @@ export const Login: React.FC = () => {
 
   return (
     <AuthShell mode="login">
+      <Seo
+        title="Log in to GentleTap"
+        description="Log in to your GentleTap dashboard to review AI-drafted invoice reminders and autopilot status."
+        path="/login"
+        noindex
+      />
       <div className="mb-6 text-center">
         <h2 className="text-2xl font-bold text-slate-900">Welcome back</h2>
         <p className="mt-1 text-sm text-slate-600">Sign in to your GentleTap account</p>
