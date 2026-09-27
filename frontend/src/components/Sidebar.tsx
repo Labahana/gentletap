@@ -18,9 +18,12 @@ import {
   UsersRound,
   BarChart3,
   Bot,
+  Rocket,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useAutopilotStatus } from '@/hooks/useAutopilotStatus';
+import { useSetupProgress } from '@/hooks/useSetupProgress';
+import { useResumeSetup } from '@/hooks/useOnboardingStatus';
 
 interface SidebarProps {
   onUpgradeClick: () => void;
@@ -38,6 +41,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ onUpgradeClick }) => {
   const { logout, plan } = useAuthStore();
   const navigate = useNavigate();
   const { data: autopilot } = useAutopilotStatus();
+  const { doneCount, total, shouldShow } = useSetupProgress();
+  const resume = useResumeSetup();
 
   const autopilotPill: NavItem['pill'] = autopilot
     ? autopilot.active
@@ -148,6 +153,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ onUpgradeClick }) => {
 
         {/* Navigation */}
         <nav className="p-3 space-y-1">
+          {shouldShow && (
+            <button
+              onClick={() => resume.mutate()}
+              disabled={resume.isPending}
+              className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-100"
+            >
+              <Rocket className="w-4 h-4 shrink-0" />
+              <span className="flex-1 text-left truncate">Finish setup</span>
+              <span className="text-[10px] font-bold bg-blue-600 text-white px-1.5 py-0.5 rounded-full">
+                {doneCount}/{total}
+              </span>
+            </button>
+          )}
           {groups.map((group, groupIndex) => (
             <React.Fragment key={group.label ?? `group-${groupIndex}`}>
               {group.label && (

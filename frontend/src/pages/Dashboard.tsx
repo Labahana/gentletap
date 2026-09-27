@@ -15,6 +15,7 @@ import { api } from '@/lib/api';
 import { EscalationRow, Escalation } from '@/components/EscalationRow';
 import { DashboardPlanCard } from '@/components/DashboardPlanCard';
 import { AutopilotBar } from '@/components/AutopilotBar';
+import { SetupBanner } from '@/components/SetupBanner';
 
 export const Dashboard: React.FC = () => {
   const queryClient = useQueryClient();
@@ -66,6 +67,8 @@ export const Dashboard: React.FC = () => {
           Failed to load dashboard data. Please refresh the page.
         </div>
       )}
+
+      <SetupBanner />
 
       <AutopilotBar />
 

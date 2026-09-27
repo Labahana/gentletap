@@ -70,6 +70,19 @@ def skip_onboarding(user_and_org=Depends(get_current_user_and_org), db: Session 
     return {"step": state.step, "skipped": True}
 
 
+@router.post("/resume")
+def resume_onboarding(user_and_org=Depends(get_current_user_and_org), db: Session = Depends(get_db)):
+    """Clear the skip flag so the wizard will open and continue from the saved step."""
+    _, org = user_and_org
+    state = get_or_create_onboarding(db, org.id)
+    data = dict(state.data or {})
+    data["dismissed"] = False
+    state.data = data
+    db.commit()
+    db.refresh(state)
+    return {"step": state.step, "resumed": True}
+
+
 @router.post("/back")
 def back_onboarding(user_and_org=Depends(get_current_user_and_org), db: Session = Depends(get_db)):
     _, org = user_and_org
