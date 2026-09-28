@@ -19,9 +19,11 @@ import {
   BarChart3,
   Bot,
   Rocket,
+  UserCog,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useAutopilotStatus } from '@/hooks/useAutopilotStatus';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useSetupProgress } from '@/hooks/useSetupProgress';
 import { useResumeSetup } from '@/hooks/useOnboardingStatus';
 
@@ -41,6 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onUpgradeClick }) => {
   const { logout, plan } = useAuthStore();
   const navigate = useNavigate();
   const { data: autopilot } = useAutopilotStatus();
+  const isAdmin = useIsAdmin();
   const { doneCount, total, shouldShow } = useSetupProgress();
   const resume = useResumeSetup();
 
@@ -90,6 +93,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onUpgradeClick }) => {
         { name: 'Team', path: '/team', icon: UsersRound },
         { name: 'Settings', path: '/settings', icon: Settings },
         { name: 'Integrations', path: '/integrations', icon: Plug },
+        ...(isAdmin ? [{ name: 'Platform Admin', path: '/admin', icon: UserCog }] : []),
       ],
     },
   ];
