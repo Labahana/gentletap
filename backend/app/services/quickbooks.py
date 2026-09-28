@@ -16,7 +16,7 @@ settings = get_settings()
 QBO_SANDBOX_BASE = "https://sandbox-quickbooks.api.intuit.com"
 QBO_PRODUCTION_BASE = "https://quickbooks.api.intuit.com"
 QBO_AUTH_URL = "https://appcenter.intuit.com/connect/oauth2"
-QBO_TOKEN_URL = "https://oauth.platform.intuit.com/op/v1/token"
+QBO_TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
 
 
 def get_qbo_auth_url(state: str) -> str:
@@ -154,15 +154,24 @@ def sync_qbo_data(db: Session, org_id: str, connection: Connection) -> Tuple[int
                 for inv in inv_data:
                     ext_id = str(inv.get("Id"))
                     doc_num = inv.get("DocNumber") or f"INV-{ext_id}"
-                    cust_ref = str(inv.get("CustomerRef", {}).get("value"))
+                    cust_ref = inv.get("CustomerRef") or {}
+                    cust_ref_id = str(cust_ref.get("value") or "")
+                    cust_ref_name = cust_ref.get("name") or "Unknown QBO Client"
                     total_amt = float(inv.get("TotalAmt", 0))
                     balance = float(inv.get("Balance", 0))
 
-                    db_client = db.query(Client).filter(Client.org_id == org_id, Client.external_client_id == cust_ref).first()
+                    db_client = db.query(Client).filter(Client.org_id == org_id, Client.external_client_id == cust_ref_id).first()
                     if not db_client:
-                        db_client = db.query(Client).filter(Client.org_id == org_id).first()
+                        db_client = Client(
+                            org_id=org_id,
+                            external_client_id=cust_ref_id,
+                            name=cust_ref_name,
+                        )
+                        db.add(db_client)
+                        db.flush()
+                        clients_synced += 1
 
-                    if db_client:
+                    if cust_ref_id:
                         db_inv = db.query(Invoice).filter(Invoice.org_id == org_id, Invoice.external_id == ext_id).first()
                         if not db_inv:
                             db_inv = Invoice(

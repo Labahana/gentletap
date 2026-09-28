@@ -90,7 +90,16 @@ def _upsert_connection(db: Session, org_id: str, provider: str, token_data: dict
 
 
 def _mock_connect(db: Session, org_id: str, provider: str) -> dict:
-    """Dev fallback: no real provider credentials configured — connect with mock tokens."""
+    """Dev fallback: no real provider credentials configured — connect with mock tokens.
+
+    Refused in production so a missing credential can never silently create a
+    fake "connected" source that appears to sync but has no real data.
+    """
+    if (settings.environment or "").lower() == "production":
+        raise HTTPException(
+            status_code=503,
+            detail=f"{provider} is not configured yet. Set its OAuth credentials before connecting.",
+        )
     if provider == "quickbooks":
         token_data = exchange_qbo_code("mock_code", "mock_realm_id")
     elif provider == "freshbooks":

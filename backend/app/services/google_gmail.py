@@ -1,5 +1,6 @@
 import base64
 import logging
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Dict, Any, Tuple, Optional
 import httpx
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.models.connection import Connection
+from app.services.html_email import text_to_html
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -98,9 +100,16 @@ def send_email_via_gmail(
     subject: str,
     body: str,
     sender_email: Optional[str] = None,
+    thread: Optional[Dict[str, Any]] = None,
+    reply_to: Optional[str] = None,
+    unsubscribe_url: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Send email via Gmail REST API using connected user's OAuth tokens.
+
+    `thread` optionally carries RFC822 threading headers so consecutive
+    reminders for the same invoice land in one conversation:
+      {"message_id": "<...>", "in_reply_to": "<...>", "references": "<a> <b>"}
     """
     if access_token == "mock_google_access_token" or not settings.google_client_id:
         logger.info(f"[MOCK GMAIL SENT] To: {to_email} | Subject: {subject} | Sender: {sender_email}")
@@ -118,12 +127,26 @@ def send_email_via_gmail(
         except Exception as err:
             logger.warning(f"Google token refresh failed: {err}, falling back to current token")
 
-    # Build MIME message
-    mime_msg = MIMEText(body, "plain", "utf-8")
+    # Build a multipart/alternative message (plain + HTML)
+    mime_msg = MIMEMultipart("alternative")
     mime_msg["to"] = to_email
     mime_msg["subject"] = subject
     if sender_email:
         mime_msg["from"] = sender_email
+    if reply_to:
+        mime_msg["Reply-To"] = reply_to
+    if unsubscribe_url:
+        mime_msg["List-Unsubscribe"] = f"<{unsubscribe_url}>"
+    thread = thread or {}
+    if thread.get("message_id"):
+        mime_msg["Message-ID"] = thread["message_id"]
+    if thread.get("in_reply_to"):
+        mime_msg["In-Reply-To"] = thread["in_reply_to"]
+    if thread.get("references"):
+        mime_msg["References"] = thread["references"]
+
+    mime_msg.attach(MIMEText(body, "plain", "utf-8"))
+    mime_msg.attach(MIMEText(text_to_html(body), "html", "utf-8"))
 
     raw_string = base64.urlsafe_b64encode(mime_msg.as_bytes()).decode("utf-8")
 

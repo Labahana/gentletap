@@ -459,8 +459,14 @@ def send_whatsapp_followup_task(invoice_id: str, step_index: int, email_message_
     try:
         from app.models.organization import Organization
         from app.models.audit_log import AuditLog
-        from app.services.plan_gating import consume_whatsapp_quota, can_send_whatsapp
-        from app.services.whatsapp import render_whatsapp_body, send_whatsapp
+        from app.services.plan_gating import consume_whatsapp_quota, can_send_whatsapp, refund_whatsapp_quota
+        from app.services.whatsapp import (
+            render_whatsapp_body,
+            send_whatsapp,
+            select_template_key,
+            content_sid_for,
+            build_variables,
+        )
         from app.services.payment_detect import detect_and_stop_if_paid
 
         invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
@@ -510,7 +516,8 @@ def send_whatsapp_followup_task(invoice_id: str, step_index: int, email_message_
             db.commit()
             return {"status": "skipped", "reason": "quota"}
 
-        if not consume_whatsapp_quota(db, org):
+        source = consume_whatsapp_quota(db, org)
+        if not source:
             return {"status": "skipped", "reason": "quota"}
 
         body = render_whatsapp_body(
@@ -518,9 +525,25 @@ def send_whatsapp_followup_task(invoice_id: str, step_index: int, email_message_
             name=(client.name or "there").split()[0],
             number=invoice.number,
             amount=f"{float(invoice.amount):,.2f} {invoice.currency}",
-            link="your payment link",
+            link=getattr(invoice, "payment_link", None),
         )
-        result = send_whatsapp(client.phone, body)
+
+        from datetime import date as _date
+
+        days_overdue = max(0, (_date.today() - invoice.due_date).days) if invoice.due_date else 0
+        sid = content_sid_for(select_template_key(step_index))
+        variables = build_variables(
+            name=(client.name or "there").split()[0],
+            sender_name=(org.name or "our team"),
+            number=invoice.number,
+            amount=f"{float(invoice.amount):,.2f} {invoice.currency}",
+            days_overdue=days_overdue,
+        )
+        result = send_whatsapp(client.phone, body, content_sid=sid or None, variables=variables)
+        failed = result.get("status") == "failed"
+        if failed:
+            # Give the credit back — the message never reached the client.
+            refund_whatsapp_quota(db, org, source)
         wa_msg = Message(
             org_id=org.id,
             invoice_id=invoice.id,
@@ -528,9 +551,9 @@ def send_whatsapp_followup_task(invoice_id: str, step_index: int, email_message_
             channel="whatsapp",
             subject=f"WhatsApp reminder #{invoice.number}",
             body=body,
-            status="sent" if result.get("status") != "failed" else "failed",
+            status="failed" if failed else "sent",
             provider_message_id=result.get("sid"),
-            sent_at=datetime.now(timezone.utc),
+            sent_at=None if failed else datetime.now(timezone.utc),
             ai_provider_used="template",
         )
         db.add(wa_msg)
@@ -538,13 +561,15 @@ def send_whatsapp_followup_task(invoice_id: str, step_index: int, email_message_
             AuditLog(
                 org_id=org.id,
                 actor_type="system",
-                action="whatsapp_send",
+                action="whatsapp_send_failed" if failed else "whatsapp_send",
                 entity_type="message",
                 entity_id=None,
-                details={"invoice_id": invoice.id, "sid": result.get("sid")},
+                details={"invoice_id": invoice.id, "sid": result.get("sid"), "error": result.get("error")},
             )
         )
         db.commit()
+        if failed:
+            return {"status": "failed", "reason": result.get("error")}
         return {"status": "sent", "sid": result.get("sid")}
     except Exception:
         db.rollback()

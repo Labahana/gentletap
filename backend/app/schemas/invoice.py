@@ -11,6 +11,7 @@ class InvoiceCreate(BaseModel):
     currency: str = "USD"
     due_date: Optional[date] = None
     issue_date: Optional[date] = None
+    payment_link: Optional[str] = None
 
 
 class InvoiceUpdate(BaseModel):
@@ -22,6 +23,7 @@ class InvoiceUpdate(BaseModel):
     issue_date: Optional[date] = None
     status: Optional[str] = None
     expected_payment_date: Optional[date] = None
+    payment_link: Optional[str] = None
 
 
 class InvoiceOut(BaseModel):
@@ -41,6 +43,8 @@ class InvoiceOut(BaseModel):
     first_overdue_at: Optional[datetime] = None
     stop_reminders: bool
     imported_from: str
+    expected_payment_date: Optional[date] = None
+    payment_link: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     client: Optional[ClientOut] = None

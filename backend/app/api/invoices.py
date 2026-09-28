@@ -25,6 +25,17 @@ router = APIRouter(prefix="/invoices", tags=["Invoices"])
 
 from app.services.plan_gating import normalize_plan
 
+
+def _clean_payment_link(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    link = value.strip()
+    if not link:
+        return None
+    if not link.lower().startswith(("http://", "https://")):
+        raise HTTPException(status_code=422, detail="payment_link must be a valid http(s) URL")
+    return link[:2048]
+
 SAMPLE_IMPORT_CSV = (
     "client_name,client_email,invoice_number,amount,currency,due_date,invoice_date\n"
     "Acme Corp,billing@acmecorp.com,INV-1001,2450.00,USD,2026-08-04,2026-07-04\n"
@@ -122,6 +133,7 @@ def create_invoice(
         issue_date=req.issue_date,
         status="unpaid",
         imported_from="manual",
+        payment_link=_clean_payment_link(req.payment_link),
     )
     db.add(invoice)
 
@@ -183,6 +195,7 @@ def update_invoice(
     if req.issue_date is not None: invoice.issue_date = req.issue_date
     if req.status is not None: invoice.status = req.status
     if req.expected_payment_date is not None: invoice.expected_payment_date = req.expected_payment_date
+    if req.payment_link is not None: invoice.payment_link = _clean_payment_link(req.payment_link)
 
     db.commit()
     db.refresh(invoice)

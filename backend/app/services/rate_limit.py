@@ -23,6 +23,24 @@ from app.services.redis_lock import get_redis
 logger = logging.getLogger(__name__)
 
 
+def allow(bucket_key: str, max_requests: int, window_seconds: int) -> bool:
+    """Fixed-window counter for non-HTTP callers (e.g. outbound send throttles).
+
+    Returns True when the call is within budget. Fails OPEN (True) when Redis
+    is unavailable so a cache blip never blocks legitimate sends.
+    """
+    key = f"rl:out:{bucket_key}:{window_seconds}"
+    try:
+        r = get_redis()
+        current = r.incr(key)
+        if current == 1:
+            r.expire(key, window_seconds)
+        return current <= max_requests
+    except Exception as exc:  # noqa: BLE001 - fail open
+        logger.warning("Outbound rate limiter unavailable (%s); allowing send", exc)
+        return True
+
+
 def client_ip(request: Request) -> str:
     # Behind nginx, X-Forwarded-For carries the real client.
     fwd = request.headers.get("x-forwarded-for")

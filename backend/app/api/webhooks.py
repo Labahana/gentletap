@@ -120,10 +120,10 @@ async def quickbooks_webhook(request: Request, db: Session = Depends(get_db)):
         inv = db.query(Invoice).filter(Invoice.id == iid).first()
         if not inv:
             continue
-        # If webhook says paid / balance 0
-        if payload.get("balance") is not None:
-            inv.balance = float(payload["balance"])
-        if payload.get("status") == "paid" or float(inv.balance or 0) <= 0:
+        # Never trust a numeric `balance` from the payload — a forged "balance: 0"
+        # would fake a payment. Treat the (signature-verified) webhook as a trigger
+        # to re-check authoritative state via the provider sync / detect path.
+        if payload.get("status") == "paid":
             results.append(auto_stop_on_payment(db, inv, method="quickbooks_webhook"))
         else:
             try:
@@ -158,9 +158,10 @@ async def freshbooks_webhook(request: Request, db: Session = Depends(get_db)):
         inv = db.query(Invoice).filter(Invoice.id == iid).first()
         if not inv:
             continue
-        if payload.get("balance") is not None:
-            inv.balance = float(payload["balance"])
-        if payload.get("status") in ("paid", "received") or float(inv.balance or 0) <= 0:
+        # Don't apply a raw numeric `balance` from the payload — HMAC proves origin
+        # but the number is still client-influenced. Only an explicit paid status is
+        # trusted; otherwise re-check authoritative state via the detect path.
+        if payload.get("status") in ("paid", "received"):
             results.append(auto_stop_on_payment(db, inv, method="freshbooks_webhook"))
         else:
             try:

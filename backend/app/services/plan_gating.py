@@ -69,13 +69,17 @@ def available_whatsapp_credits(db: Session, org_id: str) -> int:
     return sum(max(0, r.credits_added - r.credits_used) for r in rows)
 
 
-def consume_whatsapp_quota(db: Session, org: Organization) -> bool:
-    """Deduct one WhatsApp send from monthly quota or credit packs. Returns False if blocked."""
+def consume_whatsapp_quota(db: Session, org: Organization) -> Optional[str]:
+    """Deduct one WhatsApp send from monthly quota or credit packs.
+
+    Returns the charged source ("monthly" or a credit row id) so a failed send
+    can be refunded, or None if blocked. Callers relying on truthiness still work.
+    """
     if normalize_plan(org.plan) not in ("pro_plus", "team"):
-        return False
+        return None
     if org.whatsapp_used_this_period < org.whatsapp_quota:
         org.whatsapp_used_this_period += 1
-        return True
+        return "monthly"
     rows = (
         db.query(WhatsAppCredit)
         .filter(WhatsAppCredit.org_id == org.id, WhatsAppCredit.status == "active")
@@ -85,8 +89,20 @@ def consume_whatsapp_quota(db: Session, org: Organization) -> bool:
     for row in rows:
         if row.credits_used < row.credits_added:
             row.credits_used += 1
-            return True
-    return False
+            return row.id
+    return None
+
+
+def refund_whatsapp_quota(db: Session, org: Organization, source: Optional[str]) -> None:
+    """Give back a credit consumed by a send that ultimately failed."""
+    if not source:
+        return
+    if source == "monthly":
+        org.whatsapp_used_this_period = max(0, (org.whatsapp_used_this_period or 0) - 1)
+        return
+    row = db.get(WhatsAppCredit, source)
+    if row:
+        row.credits_used = max(0, (row.credits_used or 0) - 1)
 
 
 def can_add_team_member(org: Organization, db: Session) -> bool:

@@ -107,61 +107,103 @@ def sync_freshbooks_data(db: Session, org_id: str, connection: Connection) -> Tu
     clients_synced = 0
     invoices_synced = 0
 
+    def _paged(url: str, result_key: str):
+        """Yield items from a FreshBooks list endpoint, following pagination."""
+        page = 1
+        per_page = 100
+        while True:
+            res = client.get(url, headers=headers, params={"per_page": per_page, "page": page})
+            if res.status_code != 200:
+                return
+            result = res.json().get("response", {}).get("result", {})
+            items = result.get(result_key, [])
+            for item in items:
+                yield item
+            total = int(result.get("total_items") or result.get("total") or 0)
+            if not items or page * per_page >= total:
+                return
+            page += 1
+
     try:
         with httpx.Client() as client:
             # Sync Clients
             clients_url = f"{FRESHBOOKS_API_BASE}/{account_id}/users/clients"
-            res = client.get(clients_url, headers=headers)
-            if res.status_code == 200:
-                clients_list = res.json().get("response", {}).get("result", {}).get("clients", [])
-                for fb_c in clients_list:
-                    ext_id = str(fb_c.get("userid") or fb_c.get("id"))
-                    name = f"{fb_c.get('fname', '')} {fb_c.get('lname', '')}".strip() or fb_c.get("organization") or "FreshBooks Client"
-                    email = fb_c.get("email")
+            for fb_c in _paged(clients_url, "clients"):
+                ext_id = str(fb_c.get("client_id") or fb_c.get("userid") or fb_c.get("id") or "")
+                if not ext_id:
+                    continue
+                name = fb_c.get("organization") or f"{fb_c.get('first_name', fb_c.get('fname', ''))} {fb_c.get('last_name', fb_c.get('lname', ''))}".strip() or "FreshBooks Client"
+                email = fb_c.get("email")
 
-                    db_c = db.query(Client).filter(Client.org_id == org_id, Client.external_client_id == ext_id).first()
-                    if not db_c:
-                        db_c = Client(
-                            org_id=org_id,
-                            external_client_id=ext_id,
-                            name=name,
-                            email=email,
-                        )
-                        db.add(db_c)
-                        clients_synced += 1
-                db.commit()
+                db_c = db.query(Client).filter(Client.org_id == org_id, Client.external_client_id == ext_id).first()
+                if not db_c:
+                    db_c = Client(
+                        org_id=org_id,
+                        external_client_id=ext_id,
+                        name=name,
+                        email=email,
+                    )
+                    db.add(db_c)
+                    clients_synced += 1
+                else:
+                    db_c.name = name
+                    if email:
+                        db_c.email = email
+            db.commit()
 
             # Sync Invoices
             inv_url = f"{FRESHBOOKS_API_BASE}/{account_id}/invoices/invoices"
-            res = client.get(inv_url, headers=headers)
-            if res.status_code == 200:
-                inv_list = res.json().get("response", {}).get("result", {}).get("invoices", [])
-                for fb_i in inv_list:
-                    ext_id = str(fb_i.get("invoiceid") or fb_i.get("id"))
-                    num = fb_i.get("invoice_number") or f"FB-{ext_id}"
-                    amt = float(fb_i.get("amount", {}).get("amount", 0))
-                    balance = float(fb_i.get("outstanding", {}).get("amount", amt))
+            for fb_i in _paged(inv_url, "invoices"):
+                ext_id = str(fb_i.get("invoiceid") or fb_i.get("id") or "")
+                if not ext_id:
+                    continue
+                num = fb_i.get("invoice_number") or f"FB-{ext_id}"
+                amt = float(fb_i.get("amount", {}).get("amount", 0))
+                balance = float(fb_i.get("outstanding", {}).get("amount", amt))
+                fb_status = (fb_i.get("status") or "").lower()
 
-                    if balance > 0:
-                        db_inv = db.query(Invoice).filter(Invoice.org_id == org_id, Invoice.external_id == ext_id).first()
-                        if not db_inv:
-                            db_c = db.query(Client).filter(Client.org_id == org_id).first()
-                            if db_c:
-                                db_inv = Invoice(
-                                    org_id=org_id,
-                                    connection_id=connection.id,
-                                    external_id=ext_id,
-                                    number=num,
-                                    client_id=db_c.id,
-                                    amount=amt,
-                                    balance=balance,
-                                    currency="USD",
-                                    status="unpaid",
-                                    imported_from="freshbooks",
-                                )
-                                db.add(db_inv)
-                                invoices_synced += 1
-                db.commit()
+                db_inv = db.query(Invoice).filter(Invoice.org_id == org_id, Invoice.external_id == ext_id).first()
+                if db_inv:
+                    db_inv.balance = balance
+                    db_inv.amount = amt
+                    if fb_status in ("paid",):
+                        db_inv.status = "paid"
+                    elif balance <= 0:
+                        db_inv.status = "paid"
+                    else:
+                        db_inv.status = "unpaid"
+                    continue
+
+                if balance <= 0:
+                    continue
+
+                fb_client_id = str(fb_i.get("client_id") or "")
+                db_c = db.query(Client).filter(Client.org_id == org_id, Client.external_client_id == fb_client_id).first()
+                if not db_c:
+                    db_c = Client(
+                        org_id=org_id,
+                        external_client_id=fb_client_id or f"FB_UNKNOWN_{ext_id}",
+                        name="FreshBooks Client",
+                    )
+                    db.add(db_c)
+                    db.flush()
+                    clients_synced += 1
+
+                db_inv = Invoice(
+                    org_id=org_id,
+                    connection_id=connection.id,
+                    external_id=ext_id,
+                    number=num,
+                    client_id=db_c.id,
+                    amount=amt,
+                    balance=balance,
+                    currency="USD",
+                    status="unpaid",
+                    imported_from="freshbooks",
+                )
+                db.add(db_inv)
+                invoices_synced += 1
+            db.commit()
 
         connection.last_sync_at = datetime.now(timezone.utc)
         connection.status = "active"

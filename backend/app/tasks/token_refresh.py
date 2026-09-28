@@ -77,15 +77,16 @@ def _refresh_connection_token(db: Session, conn: Connection) -> None:
     db.commit()
 
 
-def _refresh_all(provider: str, lookahead: timedelta) -> Dict[str, int]:
+def _refresh_all(provider: str, lookahead: timedelta, providers: list[str] | None = None) -> Dict[str, int]:
     db = SessionLocal()
     refreshed = failed = 0
     try:
+        provider_names = providers or [provider]
         cutoff = datetime.now(timezone.utc) + lookahead
         connections = (
             db.query(Connection)
             .filter(
-                Connection.provider == provider,
+                Connection.provider.in_(provider_names),
                 Connection.status == "active",
                 Connection.token_expires_at.isnot(None),
                 Connection.token_expires_at <= cutoff,
@@ -122,4 +123,5 @@ def refresh_fb_tokens() -> Dict[str, int]:
 
 @celery_app.task(name="app.tasks.token_refresh.refresh_google_tokens")
 def refresh_google_tokens() -> Dict[str, int]:
-    return _refresh_all("google", timedelta(days=1))
+    # Gmail connections are stored with provider "gmail"; older rows may use "google".
+    return _refresh_all("google", timedelta(days=1), providers=["google", "gmail"])

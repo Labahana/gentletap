@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -36,6 +36,7 @@ export const InvoiceDetail: React.FC = () => {
   const [stepTone, setStepTone] = useState('warm');
   const [stepWhen, setStepWhen] = useState('');
   const [stepTemplate, setStepTemplate] = useState('');
+  const [payLink, setPayLink] = useState('');
 
   const { data: invoice, isLoading } = useQuery({
     queryKey: ['invoiceDetail', id],
@@ -59,6 +60,10 @@ export const InvoiceDetail: React.FC = () => {
     queryKey: ['templatesDropdown'],
     queryFn: async () => (await api.get('/templates')).data,
   });
+
+  useEffect(() => {
+    if (invoice) setPayLink(invoice.payment_link || '');
+  }, [invoice?.payment_link]);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['invoiceDetail', id] });
@@ -94,6 +99,11 @@ export const InvoiceDetail: React.FC = () => {
 
   const disputeMutation = useMutation({
     mutationFn: async () => api.post(`/invoices/${id}/mark-disputed`),
+    onSuccess: invalidate,
+  });
+
+  const updateInvoiceMutation = useMutation({
+    mutationFn: async (body: Record<string, unknown>) => api.patch(`/invoices/${id}`, body),
     onSuccess: invalidate,
   });
 
@@ -233,6 +243,46 @@ export const InvoiceDetail: React.FC = () => {
           <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Due Date</span>
           <div className="text-base font-semibold text-gray-900">{invoice.due_date || 'N/A'}</div>
         </div>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-xs">
+        <h3 className="text-sm font-bold text-gray-900 mb-1">Payment link</h3>
+        <p className="text-xs text-gray-500 mb-3">
+          Paste a pay-now URL (e.g. your QuickBooks or Stripe link). It is added to reminder emails and WhatsApp messages so clients can pay in one click.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="url"
+            value={payLink}
+            onChange={(event) => setPayLink(event.target.value)}
+            placeholder="https://pay.example.com/invoice-123"
+            className="flex-1 min-w-[240px] border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          />
+          <button
+            onClick={() => updateInvoiceMutation.mutate({ payment_link: payLink.trim() })}
+            disabled={updateInvoiceMutation.isPending}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-xs shadow-xs disabled:opacity-50"
+          >
+            {updateInvoiceMutation.isPending ? 'Saving…' : 'Save'}
+          </button>
+          {invoice.payment_link && (
+            <button
+              onClick={() => {
+                setPayLink('');
+                updateInvoiceMutation.mutate({ payment_link: '' });
+              }}
+              disabled={updateInvoiceMutation.isPending}
+              className="px-3 py-2 text-xs font-medium text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        {updateInvoiceMutation.error && (
+          <p className="text-xs text-rose-700 mt-2">
+            {apiErrorMessage(updateInvoiceMutation.error, 'Could not save the payment link. Use a full https:// URL.')}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

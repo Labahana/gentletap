@@ -72,7 +72,7 @@ def draft_reminder_content(db, schedule: ReminderSchedule) -> Dict[str, Any]:
         "currency": invoice.currency or "USD",
         "due_date": str(invoice.due_date) if invoice.due_date else "N/A",
         "days_overdue": days_overdue,
-        "payment_link": "the payment link on your invoice",
+        "payment_link": (invoice.payment_link if getattr(invoice, "payment_link", None) else "the payment link on your invoice"),
         "owner_name": owner_name,
     }
     if template and template.body:
@@ -97,6 +97,7 @@ def draft_reminder_content(db, schedule: ReminderSchedule) -> Dict[str, Any]:
         tone=schedule.tone,
         history=history,
         owner_name=owner_name,
+        payment_link=(invoice.payment_link or ""),
         anchor_body=anchor_body,
     )
     if draft.provider == "template":
