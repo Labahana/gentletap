@@ -9,7 +9,7 @@ export const LEGAL = {
     (import.meta.env.VITE_LEGAL_ENTITY_ADDRESS ?? 'United States').trim() || 'United States',
   websiteUrl: 'https://gentletap.co',
   websiteDisplay: 'gentletap.co',
-  supportEmail: 'support@gentletap.co',
+  supportEmail: 'gentletapai@gmail.com',
   legalEmail: 'legal@gentletap.co',
   privacyEmail: 'privacy@gentletap.co',
   paddleMoR: 'Paddle.com Market Ltd',

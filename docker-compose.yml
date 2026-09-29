@@ -102,7 +102,7 @@ services:
     volumes:
       - gentletap_celery_beat:/var/lib/celery
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env} ping | grep -q PONG"]
+      test: ["CMD-SHELL", "python -c \"import os,redis; assert redis.from_url(os.environ['CELERY_BROKER_URL']).ping()\""]
       interval: 30s
       timeout: 5s
       retries: 3

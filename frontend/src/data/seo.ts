@@ -103,7 +103,7 @@ export function organizationJsonLd() {
     url: SITE_URL,
     logo: `${SITE_URL}/logo512.png`,
     description: DEFAULT_DESCRIPTION,
-    email: "support@gentletap.co",
+    email: "gentletapai@gmail.com",
     sameAs: [] as string[],
   };
 }

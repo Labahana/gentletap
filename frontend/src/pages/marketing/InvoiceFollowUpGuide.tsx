@@ -111,7 +111,7 @@ export const InvoiceFollowUpGuide: React.FC = () => (
       <p className="text-sm font-semibold uppercase tracking-widest text-blue-600">The complete guide · Freelancers &amp; consultants</p>
       <h1 className="mt-3 text-4xl font-extrabold text-gray-900 leading-tight">{PAGE_TITLE}</h1>
       <p className="mt-3 text-sm text-gray-500">
-        Last updated <time dateTime={LAST_UPDATED}>{new Date(LAST_UPDATED).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</time>
+        Last updated <time dateTime={LAST_UPDATED}>{LAST_UPDATED_LABEL}</time>
       </p>
       <p className="mt-5 text-lg text-gray-600 leading-relaxed">
         Invoice follow-up is the difference between getting paid in a week and getting paid in a month — and
