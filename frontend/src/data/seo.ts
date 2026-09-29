@@ -387,6 +387,11 @@ export const SITEMAP_PATHS: Array<{
     changeFrequency: "weekly",
     priority: 0.94,
   },
+  {
+    path: "/invoice-follow-up-guide",
+    changeFrequency: "monthly",
+    priority: 0.95,
+  },
   { path: "/features", changeFrequency: "monthly", priority: 0.85 },
   ...INDEXED_FEATURE_SLUGS.map((slug) => ({
     path: `/features/${slug}` as const,

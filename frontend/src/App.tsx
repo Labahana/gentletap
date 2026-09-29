@@ -49,6 +49,7 @@ import { AlternativesIndex } from '@/pages/marketing/AlternativesIndex';
 import { QuickbooksInvoiceAutomation } from '@/pages/marketing/QuickbooksInvoiceAutomation';
 import { QuickbooksVsGentletap } from '@/pages/marketing/QuickbooksVsGentletap';
 import { HowToFollowUp } from '@/pages/marketing/HowToFollowUp';
+import { InvoiceFollowUpGuide } from '@/pages/marketing/InvoiceFollowUpGuide';
 import { AffiliateLanding } from '@/pages/affiliates/AffiliateLanding';
 import { AffiliateLogin } from '@/pages/affiliates/AffiliateLogin';
 import { AffiliateDashboard } from '@/pages/affiliates/AffiliateDashboard';
@@ -103,6 +104,7 @@ export const App: React.FC = () => {
             <Route path="/quickbooks-invoice-automation" element={<QuickbooksInvoiceAutomation />} />
             <Route path="/quickbooks-reminders-vs-gentletap" element={<QuickbooksVsGentletap />} />
             <Route path="/how-to-follow-up-on-overdue-invoices" element={<HowToFollowUp />} />
+            <Route path="/invoice-follow-up-guide" element={<InvoiceFollowUpGuide />} />
             <Route path="/blog" element={<BlogIndex />} />
             <Route path="/blog/:slug" element={<BlogPostPage />} />
             <Route path="/compare" element={<CompareIndex />} />

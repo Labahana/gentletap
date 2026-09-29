@@ -49,6 +49,7 @@ const FOOTER_COLUMNS: Array<{ title: string; links: Array<{ name: string; to: st
     title: 'Resources',
     links: [
       { name: 'Blog', to: '/blog' },
+      { name: 'Invoice follow-up guide', to: '/invoice-follow-up-guide' },
       { name: 'Email templates', to: '/invoice-follow-up-email-templates-for-freelancers' },
       { name: 'How-to guide', to: '/how-to-follow-up-on-overdue-invoices' },
       { name: 'Pricing', to: '/' },
