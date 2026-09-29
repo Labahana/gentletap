@@ -21,7 +21,7 @@ export type Stats = {
 
 export type Timeseries = { days: string[]; signals: { signups: number[]; messages: number[] } };
 
-export type Health = { api: string; db: string; redis: string; celery: string };
+export type Health = { api: string; db: string; redis: string; celery: string; workers?: string[] };
 
 export type Deliverability = {
   days: number;

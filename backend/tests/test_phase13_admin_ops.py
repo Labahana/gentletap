@@ -214,6 +214,24 @@ def test_deliverability_rates(db):
 
 
 # ---------------------------------------------------------------------------
+# Health (status must be plain strings, not dicts — regression for React #31)
+# ---------------------------------------------------------------------------
+
+def test_admin_health_flattens_status(monkeypatch):
+    from app.api import health as health_mod
+
+    monkeypatch.setattr(health_mod, "check_db", lambda: {"status": "ok"})
+    monkeypatch.setattr(health_mod, "check_redis", lambda: {"status": "error", "detail": "boom"})
+    monkeypatch.setattr(health_mod, "check_celery", lambda: {"status": "ok", "workers": ["w1", "w2"]})
+    out = admin_mod.admin_health(ADMIN)
+    assert out["db"] == "ok"
+    assert out["redis"] == "error"
+    assert out["celery"] == "ok"
+    assert out["workers"] == ["w1", "w2"]
+    assert all(isinstance(out[k], str) for k in ("api", "db", "redis", "celery"))
+
+
+# ---------------------------------------------------------------------------
 # Orgs list + detail
 # ---------------------------------------------------------------------------
 

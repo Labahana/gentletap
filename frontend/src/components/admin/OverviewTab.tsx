@@ -8,14 +8,15 @@ import type { Deliverability, Health, Stats, Timeseries } from '@/components/adm
 type Props = { onGoTab: (tab: string, params?: Record<string, string>) => void };
 
 const HealthRow: React.FC<{ name: string; value: string }> = ({ name, value }) => {
-  const ok = value === 'ok' || value === 'healthy';
+  const status = typeof value === 'string' ? value : (value as { status?: string })?.status ?? 'unknown';
+  const ok = status === 'ok' || status === 'healthy';
   return (
     <div className="flex items-center justify-between text-sm py-1.5 border-b border-gray-50 last:border-0">
       <span className="text-gray-600 inline-flex items-center gap-1.5">
         <Server size={13} className="text-gray-400" /> {name}
       </span>
       <span className={`inline-flex items-center gap-1 text-xs font-semibold ${ok ? 'text-green-700' : 'text-red-600'}`}>
-        {ok ? <CheckCircle2 size={13} /> : <XCircle size={13} />} {value}
+        {ok ? <CheckCircle2 size={13} /> : <XCircle size={13} />} {status}
       </span>
     </div>
   );

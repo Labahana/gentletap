@@ -170,11 +170,13 @@ def admin_access_check(token: Optional[str] = Depends(_admin_oauth2)):
 def admin_health(_: dict = Depends(require_admin_flexible)):
     from app.api import health as health_mod
 
+    celery_h = health_mod.check_celery()
     return {
         "api": "ok",
-        "db": health_mod.check_db(),
-        "redis": health_mod.check_redis(),
-        "celery": health_mod.check_celery(),
+        "db": health_mod.check_db().get("status", "error"),
+        "redis": health_mod.check_redis().get("status", "error"),
+        "celery": celery_h.get("status", "error"),
+        "workers": celery_h.get("workers", []),
     }
 
 
