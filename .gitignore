@@ -37,3 +37,12 @@ Thumbs.db
 
 # Docker
 *.log
+
+# Local artifacts that must never be committed
+*.db
+*.sqlite
+*.sqlite3
+backend/*.db
+.zcode/
+SESSION_HANDOVER.md
+gentletap-main*/

@@ -121,77 +121,87 @@ def sync_qbo_data(db: Session, org_id: str, connection: Connection) -> Tuple[int
             # Query Customers
             cust_url = f"{base_url}/v3/company/{realm_id}/query?query=select * from Customer maxresults 500"
             res = client.get(cust_url, headers=headers)
-            if res.status_code == 200:
-                cust_data = res.json().get("QueryResponse", {}).get("Customer", [])
-                for cust in cust_data:
-                    ext_id = str(cust.get("Id"))
-                    name = cust.get("DisplayName") or cust.get("CompanyName") or "Unknown QBO Client"
-                    email = cust.get("PrimaryEmailAddr", {}).get("Address")
-                    phone = cust.get("PrimaryPhone", {}).get("FreeFormNumber")
-
-                    db_client = db.query(Client).filter(Client.org_id == org_id, Client.external_client_id == ext_id).first()
-                    if not db_client:
-                        db_client = Client(
-                            org_id=org_id,
-                            external_client_id=ext_id,
-                            name=name,
-                            email=email,
-                            phone=phone,
-                        )
-                        db.add(db_client)
-                        clients_synced += 1
-                    else:
-                        db_client.name = name
-                        if email: db_client.email = email
-                        if phone: db_client.phone = phone
+            if res.status_code == 401:
+                connection.status = "expired"
                 db.commit()
+                raise RuntimeError("QuickBooks access token expired (401)")
+            if res.status_code != 200:
+                raise RuntimeError(f"QuickBooks customer query failed: HTTP {res.status_code}")
+            cust_data = res.json().get("QueryResponse", {}).get("Customer", [])
+            for cust in cust_data:
+                ext_id = str(cust.get("Id"))
+                name = cust.get("DisplayName") or cust.get("CompanyName") or "Unknown QBO Client"
+                email = cust.get("PrimaryEmailAddr", {}).get("Address")
+                phone = cust.get("PrimaryPhone", {}).get("FreeFormNumber")
+
+                db_client = db.query(Client).filter(Client.org_id == org_id, Client.external_client_id == ext_id).first()
+                if not db_client:
+                    db_client = Client(
+                        org_id=org_id,
+                        external_client_id=ext_id,
+                        name=name,
+                        email=email,
+                        phone=phone,
+                    )
+                    db.add(db_client)
+                    clients_synced += 1
+                else:
+                    db_client.name = name
+                    if email: db_client.email = email
+                    if phone: db_client.phone = phone
+            db.commit()
 
             # Query Unpaid Invoices
             inv_url = f"{base_url}/v3/company/{realm_id}/query?query=select * from Invoice where Balance > '0' maxresults 500"
             res = client.get(inv_url, headers=headers)
-            if res.status_code == 200:
-                inv_data = res.json().get("QueryResponse", {}).get("Invoice", [])
-                for inv in inv_data:
-                    ext_id = str(inv.get("Id"))
-                    doc_num = inv.get("DocNumber") or f"INV-{ext_id}"
-                    cust_ref = inv.get("CustomerRef") or {}
-                    cust_ref_id = str(cust_ref.get("value") or "")
-                    cust_ref_name = cust_ref.get("name") or "Unknown QBO Client"
-                    total_amt = float(inv.get("TotalAmt", 0))
-                    balance = float(inv.get("Balance", 0))
-
-                    db_client = db.query(Client).filter(Client.org_id == org_id, Client.external_client_id == cust_ref_id).first()
-                    if not db_client:
-                        db_client = Client(
-                            org_id=org_id,
-                            external_client_id=cust_ref_id,
-                            name=cust_ref_name,
-                        )
-                        db.add(db_client)
-                        db.flush()
-                        clients_synced += 1
-
-                    if cust_ref_id:
-                        db_inv = db.query(Invoice).filter(Invoice.org_id == org_id, Invoice.external_id == ext_id).first()
-                        if not db_inv:
-                            db_inv = Invoice(
-                                org_id=org_id,
-                                connection_id=connection.id,
-                                external_id=ext_id,
-                                number=doc_num,
-                                client_id=db_client.id,
-                                amount=total_amt,
-                                balance=balance,
-                                currency="USD",
-                                status="unpaid",
-                                imported_from="quickbooks",
-                            )
-                            db.add(db_inv)
-                            invoices_synced += 1
-                        else:
-                            db_inv.balance = balance
-                            db_inv.amount = total_amt
+            if res.status_code == 401:
+                connection.status = "expired"
                 db.commit()
+                raise RuntimeError("QuickBooks access token expired (401)")
+            if res.status_code != 200:
+                raise RuntimeError(f"QuickBooks invoice query failed: HTTP {res.status_code}")
+            inv_data = res.json().get("QueryResponse", {}).get("Invoice", [])
+            for inv in inv_data:
+                ext_id = str(inv.get("Id"))
+                doc_num = inv.get("DocNumber") or f"INV-{ext_id}"
+                cust_ref = inv.get("CustomerRef") or {}
+                cust_ref_id = str(cust_ref.get("value") or "")
+                cust_ref_name = cust_ref.get("name") or "Unknown QBO Client"
+                total_amt = float(inv.get("TotalAmt", 0))
+                balance = float(inv.get("Balance", 0))
+
+                db_client = db.query(Client).filter(Client.org_id == org_id, Client.external_client_id == cust_ref_id).first()
+                if not db_client:
+                    db_client = Client(
+                        org_id=org_id,
+                        external_client_id=cust_ref_id,
+                        name=cust_ref_name,
+                    )
+                    db.add(db_client)
+                    db.flush()
+                    clients_synced += 1
+
+                if cust_ref_id:
+                    db_inv = db.query(Invoice).filter(Invoice.org_id == org_id, Invoice.external_id == ext_id).first()
+                    if not db_inv:
+                        db_inv = Invoice(
+                            org_id=org_id,
+                            connection_id=connection.id,
+                            external_id=ext_id,
+                            number=doc_num,
+                            client_id=db_client.id,
+                            amount=total_amt,
+                            balance=balance,
+                            currency="USD",
+                            status="unpaid",
+                            imported_from="quickbooks",
+                        )
+                        db.add(db_inv)
+                        invoices_synced += 1
+                    else:
+                        db_inv.balance = balance
+                        db_inv.amount = total_amt
+            db.commit()
 
         connection.last_sync_at = datetime.now(timezone.utc)
         connection.status = "active"

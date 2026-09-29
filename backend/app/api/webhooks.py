@@ -280,6 +280,21 @@ async def paddle_webhook(request: Request, db: Session = Depends(get_db)):
 
     if event_type in ("subscription.created", "subscription.activated", "subscription.updated"):
         if org:
+            # Honour the ACTUAL subscription state from the verified payload —
+            # Paddle sends subscription.updated when a user cancels at period
+            # end or a sub goes past due. Blindly forcing "active" here would
+            # silently re-grant entitlement to a cancelled/past-due account.
+            raw_status = (data.get("status") or "active").lower()
+            status_map = {
+                "active": "active",
+                "trialing": "active",
+                "past_due": "past_due",
+                "paused": "past_due",
+                "canceled": "cancelled",
+                "cancelled": "cancelled",
+            }
+            new_status = status_map.get(raw_status, "active")
+            cancel_at_end = bool(data.get("cancel_at_period_end"))
             apply_subscription_to_org(
                 org,
                 plan,
@@ -294,10 +309,11 @@ async def paddle_webhook(request: Request, db: Session = Depends(get_db)):
             sub.paddle_subscription_id = data.get("id") or sub.paddle_subscription_id
             sub.paddle_customer_id = data.get("customer_id") or org.paddle_customer_id
             sub.plan = org.plan
-            sub.status = "active"
-            sub.cancel_at_period_end = False
-            sub.past_due_since = None
-            sub.current_period_start = datetime.now(timezone.utc)
+            sub.status = new_status
+            sub.cancel_at_period_end = cancel_at_end
+            if new_status == "active" and not cancel_at_end:
+                sub.past_due_since = None
+                sub.current_period_start = datetime.now(timezone.utc)
 
     elif event_type == "subscription.canceled" or event_type == "subscription.cancelled":
         if org:
@@ -332,16 +348,32 @@ async def paddle_webhook(request: Request, db: Session = Depends(get_db)):
 
     elif event_type in ("transaction.completed", "transaction.paid"):
         if custom.get("type") == "whatsapp_credits" and org:
-            db.add(
-                WhatsAppCredit(
-                    org_id=org.id,
-                    paddle_transaction_id=data.get("id"),
-                    amount_paid=15.0,
-                    credits_added=int(custom.get("credits") or 500),
-                    credits_used=0,
-                    status="active",
-                )
+            txn_id = data.get("id")
+            # Idempotency: Paddle retries at-least-once, so a duplicate
+            # transaction.completed must not double-grant credits.
+            existing = (
+                db.query(WhatsAppCredit)
+                .filter(WhatsAppCredit.paddle_transaction_id == txn_id)
+                .first()
+                if txn_id
+                else None
             )
+            if not existing:
+                # Record the ACTUAL paid amount rather than a hardcoded figure.
+                try:
+                    paid = float(data.get("amount_paid") or 0.0)
+                except (TypeError, ValueError):
+                    paid = 0.0
+                db.add(
+                    WhatsAppCredit(
+                        org_id=org.id,
+                        paddle_transaction_id=txn_id,
+                        amount_paid=paid,
+                        credits_added=int(custom.get("credits") or 500),
+                        credits_used=0,
+                        status="active",
+                    )
+                )
         elif org:
             # Affiliate commission recording (subscription payments only).
             from app.services import affiliates as affiliate_service
@@ -452,8 +484,25 @@ async def twilio_webhook(request: Request, db: Session = Depends(get_db)):
             from app.tasks.handle_opt_out import handle_opt_out_task
             from app.models.client import Client
 
-            clients = db.query(Client).filter(Client.phone.contains(from_number[-10:])).all() if from_number else []
+            # Require a full 10-digit number before matching, and bound the
+            # query. Note: a shared inbound Twilio number means a phone could
+            # legitimately exist for several orgs; each real opt-out should stop
+            # its own tenant's reminders. Per-org sender numbers would isolate
+            # this fully — tracked as a known design gap.
+            clients = []
+            if from_number and len(from_number) >= 10:
+                clients = (
+                    db.query(Client)
+                    .filter(Client.phone.contains(from_number[-10:]))
+                    .limit(200)
+                    .all()
+                )
+            seen = set()
             for c in clients:
+                key = (c.id, c.org_id)
+                if key in seen:
+                    continue
+                seen.add(key)
                 try:
                     handle_opt_out_task.delay("whatsapp", from_number, c.org_id, "whatsapp_stop")
                 except Exception:

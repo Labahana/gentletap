@@ -1,8 +1,11 @@
 """Health check endpoints."""
 
+import logging
+
 from fastapi import APIRouter
 
 router = APIRouter(tags=["Health"])
+logger = logging.getLogger(__name__)
 
 
 def check_db() -> dict:
@@ -13,8 +16,10 @@ def check_db() -> dict:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         return {"status": "ok"}
-    except Exception as exc:
-        return {"status": "error", "detail": str(exc)[:200]}
+    except Exception as exc:  # noqa: BLE001
+        # Detail can embed the DSN (user:password@host) — log it, never return it.
+        logger.error("health/db check failed: %s", exc)
+        return {"status": "error"}
 
 
 def check_redis() -> dict:
@@ -24,8 +29,9 @@ def check_redis() -> dict:
         r = get_redis()
         r.ping()
         return {"status": "ok"}
-    except Exception as exc:
-        return {"status": "error", "detail": str(exc)[:200]}
+    except Exception as exc:  # noqa: BLE001
+        logger.error("health/redis check failed: %s", exc)
+        return {"status": "error"}
 
 
 def check_celery() -> dict:
@@ -36,21 +42,23 @@ def check_celery() -> dict:
         pings = insp.ping() if insp else None
         if pings:
             return {"status": "ok", "workers": list(pings.keys())}
-        return {"status": "degraded", "detail": "no workers responded"}
-    except Exception as exc:
-        return {"status": "error", "detail": str(exc)[:200]}
+        return {"status": "degraded"}
+    except Exception as exc:  # noqa: BLE001
+        logger.error("health/celery check failed: %s", exc)
+        return {"status": "error"}
 
 
 @router.get("/health/db")
 def health_db():
-    return check_db()
+    return {"status": check_db()["status"]}
 
 
 @router.get("/health/redis")
 def health_redis():
-    return check_redis()
+    return {"status": check_redis()["status"]}
 
 
 @router.get("/health/celery")
 def health_celery():
-    return check_celery()
+    c = check_celery()
+    return {"status": c["status"], "workers": c.get("workers", [])}

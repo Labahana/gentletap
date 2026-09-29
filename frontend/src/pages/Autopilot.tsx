@@ -293,11 +293,14 @@ const CadenceSection: React.FC = () => {
 
   useEffect(() => {
     if (!sequence) return;
+    // Re-seed only when a different sequence loads, and never while the user has
+    // unsaved edits — sequence.steps is a fresh array identity on every 60s poll,
+    // so depending on it silently wiped in-progress cadence edits.
+    if (dirty) return;
     setSteps((sequence.steps || []).map((s) => ({ ...s, enabled: s.enabled !== false })));
     setStopAfterDays(sequence.stop_after_days ?? 30);
     setRepeatEvery(sequence.repeat_final_step_every_days ?? 0);
-    setDirty(false);
-  }, [sequence?.id, sequence?.steps, sequence?.stop_after_days, sequence?.repeat_final_step_every_days]);
+  }, [sequence?.id, dirty]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = useMutation({
     mutationFn: async () =>
@@ -319,6 +322,8 @@ const CadenceSection: React.FC = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: AUTOPILOT_STATUS_KEY }),
   });
 
+  const sorted = useMemo(() => [...steps].sort((a, b) => a.day_offset - b.day_offset), [steps]);
+
   if (!sequence) {
     return (
       <section className={cardCls}>
@@ -334,8 +339,6 @@ const CadenceSection: React.FC = () => {
     setSteps((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)));
     setDirty(true);
   };
-
-  const sorted = useMemo(() => [...steps].sort((a, b) => a.day_offset - b.day_offset), [steps]);
 
   return (
     <section className={cardCls}>

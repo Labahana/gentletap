@@ -154,12 +154,21 @@ def create_invoice(
     return invoice
 
 
+MAX_CSV_BYTES = 5 * 1024 * 1024  # 5 MB upload cap
+MAX_IMPORT_ROWS = 5000
+
+
 @router.post("/import", response_model=CSVImportPreviewResponse)
 async def upload_csv_import(
     file: UploadFile = File(...),
     user_and_org=Depends(get_current_user_and_org),
 ):
+    filename = (file.filename or "").lower()
+    if not filename.endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only .csv files are accepted")
     contents = await file.read()
+    if len(contents) > MAX_CSV_BYTES:
+        raise HTTPException(status_code=413, detail="CSV too large (max 5 MB)")
     preview = parse_and_preview_csv(contents)
     return preview
 
@@ -171,6 +180,8 @@ def confirm_csv_import(
     db: Session = Depends(get_db),
 ):
     _, org = user_and_org
+    if len(req.rows) > MAX_IMPORT_ROWS:
+        raise HTTPException(status_code=400, detail=f"Too many rows (max {MAX_IMPORT_ROWS})")
     count = execute_csv_import(db, org.id, req.rows)
     return {"message": f"Successfully imported {count} invoices", "imported_count": count}
 

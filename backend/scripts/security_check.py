@@ -8,8 +8,10 @@ Exit code 0 = pass, 1 = critical findings.
 """
 
 import base64
+import hashlib
 import os
 import sys
+import urllib.parse
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -26,13 +28,22 @@ KNOWN_DEFAULTS = {
 }
 
 # Values that were once committed to git history — must never be live again.
-BANNED_VALUES = {
-    "B40skGXOXgvJnueLRRw_gB5aXFuL5Srdqms66Jz0yhQ=",
-    "6304fd22-8256-4448-9070-eda70d91fb57",
-    "whsec_1O602+LxpH1d/e9P/IovelwCkCb0fXr0",
-    "pdl_ntfset_01kvz5wrmhv0rdhdpfem5je9p1_W99kVrMPxS4M8LBVJezwxKtRe7ssYCUH",
-    "gentletap_admin_key_prod",
+# Stored as SHA-256 fingerprints so this file does not re-publish the (already
+# leaked) credential literals while still detecting if any of them is live.
+BANNED_VALUE_HASHES = {
+    "4ef9f113950012aea454f3b925ec87cb5c5a23707af88f88187accdfe33532c4",
+    "8475d5aa03e8b6556e1ebcce40ecc22e27daf4a7d1926a3297852a464bd06aa2",
+    "ba4b39e64856f2e7dd1a4514899d93bac85c1db132d474a8e5e8426ddbf0d76e",
+    "ee0f48d1caa01062845aefeea69c1e2c4c7db389d57faa701cc2ff4323f930b8",
+    "f18dc08167c5d00f1641c9f78905b10d5697b270ecda1956c437f333179712d2",  # old admin key default
 }
+
+# Weak example password from .env.example, compared by fingerprint (never inlined).
+_PG_EXAMPLE_PASSWORD_HASH = "00666976ce4a8d66227ac9f328631c9eb2c715a17e2503629d49aa324f863a56"
+
+
+def _sha(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 def main() -> int:
@@ -50,7 +61,7 @@ def main() -> int:
         label = attr.upper()
         if value.strip() in bad and attr != "token_encryption_key":
             critical.append(f"{label} is empty or a known default")
-        if value in BANNED_VALUES:
+        if value and _sha(value) in BANNED_VALUE_HASHES:
             critical.append(f"{label} uses a value that exists in git history — ROTATE IT")
         if attr == "token_encryption_key" and not value:
             warnings.append(
@@ -66,9 +77,14 @@ def main() -> int:
     if settings.secret_key and len(settings.secret_key) < 32:
         warnings.append("SECRET_KEY shorter than 32 chars")
 
-    # Postgres/Redis default passwords from .env.example
+    # Postgres/Redis default passwords from .env.example (compared by
+    # fingerprint so the weak literal is not embedded in this file).
     db_url = settings.database_url or ""
-    if "gentletap_postgres_password" in db_url:
+    try:
+        db_password = urllib.parse.urlparse(db_url).password or ""
+    except ValueError:
+        db_password = ""
+    if db_password and _sha(db_password) == _PG_EXAMPLE_PASSWORD_HASH:
         critical.append("DATABASE_URL uses the documented example password")
     if "choose-a-strong-redis-password" in (settings.redis_url or ""):
         critical.append("REDIS_URL uses the documented example password")

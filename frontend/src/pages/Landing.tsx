@@ -288,13 +288,13 @@ export const Landing: React.FC = () => {
   return (
     <MarketingShell>
       <Seo
-        title="GentleTap — Automated Invoice Reminders on Autopilot"
+        title="Automated QuickBooks & FreshBooks Invoice Reminders | GentleTap"
         description={PAGE_DESCRIPTION}
         path="/"
         keywords={SEO_KEYWORDS}
         jsonLd={[
           websiteJsonLd(),
-          webPageJsonLd('GentleTap — Automated Invoice Reminders on Autopilot', PAGE_DESCRIPTION, '/'),
+          webPageJsonLd('Automated QuickBooks & FreshBooks Invoice Reminders | GentleTap', PAGE_DESCRIPTION, '/'),
           organizationJsonLd(),
           softwareApplicationJsonLd(),
           productPricingJsonLd(),

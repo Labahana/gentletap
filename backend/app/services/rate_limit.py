@@ -42,13 +42,18 @@ def allow(bucket_key: str, max_requests: int, window_seconds: int) -> bool:
 
 
 def client_ip(request: Request) -> str:
-    # Behind nginx, X-Forwarded-For carries the real client.
-    fwd = request.headers.get("x-forwarded-for")
-    if fwd:
-        return fwd.split(",")[0].strip()
-    real = request.headers.get("x-real-ip")
-    if real:
-        return real.strip()
+    # Behind nginx/Caddy, X-Forwarded-For carries the real client. Only trust it
+    # when the deployment is actually behind a trusted proxy — otherwise an
+    # attacker can rotate a spoofed XFF to evade IP-keyed rate limits.
+    from app.config import get_settings
+
+    if get_settings().trust_proxy_headers:
+        fwd = request.headers.get("x-forwarded-for")
+        if fwd:
+            return fwd.split(",")[0].strip()
+        real = request.headers.get("x-real-ip")
+        if real:
+            return real.strip()
     return request.client.host if request.client else "unknown"
 
 

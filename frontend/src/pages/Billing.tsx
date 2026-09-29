@@ -77,6 +77,11 @@ export const Billing: React.FC = () => {
     },
   });
 
+  const downgrade = useMutation({
+    mutationFn: async () => api.post('/billing/change-plan', { plan: 'starter' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['billingSubscription'] }),
+  });
+
   const plans = plansData?.plans || [];
   const current = sub?.plan || 'starter';
 
@@ -86,6 +91,15 @@ export const Billing: React.FC = () => {
         <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Billing</h1>
         <p className="text-sm text-gray-500 mt-1">Manage your plan, usage, and WhatsApp credits</p>
       </div>
+
+      {(checkout.error || cancel.error || credits.error || portal.error || downgrade.error || subError) && (
+        <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-sm text-rose-700">
+          {apiErrorMessage(
+            checkout.error || cancel.error || credits.error || portal.error || downgrade.error || subError,
+            'A billing action failed. Please try again.'
+          )}
+        </div>
+      )}
 
       <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-xs grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
@@ -171,9 +185,7 @@ export const Billing: React.FC = () => {
             loading={checkout.isPending}
             onSelect={() => {
               if (p.id === 'starter') {
-                api.post('/billing/change-plan', { plan: 'starter' }).then(() =>
-                  qc.invalidateQueries({ queryKey: ['billingSubscription'] })
-                );
+                downgrade.mutate();
               } else {
                 checkout.mutate(p.id);
               }

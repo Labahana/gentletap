@@ -13,7 +13,7 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { TrendingUp, TrendingDown, Users, Mail, Clock, Target } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, apiErrorMessage } from '@/lib/api';
 
 const StatCard: React.FC<{
   label: string;
@@ -46,10 +46,20 @@ const StatCard: React.FC<{
 );
 
 export const Analytics: React.FC = () => {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['analytics'],
     queryFn: async () => (await api.get('/analytics')).data,
   });
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+          {apiErrorMessage(error, 'Unable to load analytics. Please try again.')}
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading || !data) {
     return (

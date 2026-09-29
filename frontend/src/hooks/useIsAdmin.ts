@@ -5,14 +5,16 @@ import { api } from '@/lib/api';
 export const ADMIN_ACCESS_KEY = ['adminAccessCheck'];
 
 export function useAdminAccess() {
-  const { data } = useQuery({
+  const { data, isError } = useQuery({
     queryKey: ADMIN_ACCESS_KEY,
     queryFn: async () => (await api.get('/admin/access-check')).data,
     staleTime: 60_000,
-    retry: false,
+    retry: 1,
   });
   return {
-    isAdmin: data ? !!data.is_admin : null,
+    // Fail-closed, but never stuck: a transient/failed check must not leave the
+    // console frozen on "Checking access…" forever — resolve to non-admin on error.
+    isAdmin: data ? !!data.is_admin : isError ? false : null,
     email: (data?.email as string) ?? null,
   };
 }

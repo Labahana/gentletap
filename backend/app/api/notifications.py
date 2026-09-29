@@ -112,7 +112,7 @@ def get_preferences(
     user_and_org=Depends(get_current_user_and_org),
     db: Session = Depends(get_db),
 ):
-    _, user = user_and_org
+    user, _ = user_and_org
     prefs = get_or_create_prefs(db, user.id)
     return {
         "email_on_payment": prefs.email_on_payment,
@@ -128,7 +128,7 @@ def update_preferences(
     user_and_org=Depends(get_current_user_and_org),
     db: Session = Depends(get_db),
 ):
-    _, user = user_and_org
+    user, _ = user_and_org
     prefs = get_or_create_prefs(db, user.id)
     for field, value in body.dict(exclude_none=True).items():
         setattr(prefs, field, value)

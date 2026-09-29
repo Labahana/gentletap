@@ -154,7 +154,13 @@ class Settings(BaseSettings):
     free_plan_monthly_collection_limit: int = Field(default=5, validation_alias=AliasChoices("FREE_PLAN_MONTHLY_COLLECTION_LIMIT", "free_plan_monthly_collection_limit"))
 
     # Admin
-    admin_emails: List[str] = Field(default=["tahiryahuzayusuf@gmail.com"], validation_alias=AliasChoices("ADMIN_EMAILS", "admin_emails"))
+    # Admin — intentionally empty by default (fail-closed). Set ADMIN_EMAILS in
+    # the environment to grant console access. A hardcoded default would let
+    # anyone who signs up with that address pass the email-based admin gate.
+    admin_emails: List[str] = Field(default=[], validation_alias=AliasChoices("ADMIN_EMAILS", "admin_emails"))
+    # Explicit opt-in for the no-auth demo fallback in local development. Never
+    # set this in a real deploy — it authenticates every unauthenticated request.
+    allow_dev_auth_fallback: bool = Field(default=False, validation_alias=AliasChoices("ALLOW_DEV_AUTH_FALLBACK", "allow_dev_auth_fallback"))
     admin_ip_allowlist: List[str] = Field(default=[], validation_alias=AliasChoices("ADMIN_IP_ALLOWLIST", "admin_ip_allowlist"))
     trust_proxy_headers: bool = Field(default=True, validation_alias=AliasChoices("TRUST_PROXY_HEADERS", "trust_proxy_headers"))
     sentry_dsn: str = Field(default="", validation_alias=AliasChoices("SENTRY_DSN", "sentry_dsn"))

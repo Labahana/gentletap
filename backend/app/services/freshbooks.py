@@ -108,13 +108,21 @@ def sync_freshbooks_data(db: Session, org_id: str, connection: Connection) -> Tu
     invoices_synced = 0
 
     def _paged(url: str, result_key: str):
-        """Yield items from a FreshBooks list endpoint, following pagination."""
+        """Yield items from a FreshBooks list endpoint, following pagination.
+
+        Fails LOUD: a non-200 means the sync did NOT happen, so we must not let
+        the caller mark the connection active/successful on an empty result.
+        """
         page = 1
         per_page = 100
         while True:
             res = client.get(url, headers=headers, params={"per_page": per_page, "page": page})
+            if res.status_code == 401:
+                connection.status = "expired"
+                db.commit()
+                raise RuntimeError("FreshBooks access token expired (401)")
             if res.status_code != 200:
-                return
+                raise RuntimeError(f"FreshBooks query failed: HTTP {res.status_code}")
             result = res.json().get("response", {}).get("result", {})
             items = result.get(result_key, [])
             for item in items:

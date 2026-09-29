@@ -60,8 +60,8 @@ def verify_svix(
 ) -> bool:
     """Verify Svix-style signatures as used by Resend webhooks."""
     if not secret:
-        logger.warning("RESEND_WEBHOOK_SECRET not set — accepting unverified event")
-        return True  # low-risk endpoint (message status updates); logged
+        logger.error("RESEND_WEBHOOK_SECRET not set — rejecting unverified event")
+        return False
     if not (msg_id and timestamp and signature):
         return False
     try:
@@ -90,8 +90,8 @@ def verify_twilio(url: str, params: dict, signature: str | None) -> bool:
     settings = get_settings()
     token = settings.twilio_auth_token
     if not token:
-        logger.warning("TWILIO_AUTH_TOKEN not set — skipping Twilio signature check")
-        return True
+        logger.error("TWILIO_AUTH_TOKEN not set — rejecting Twilio webhook")
+        return False
     if not signature:
         return False
     data = "".join(f"{k}{v}" for k, v in sorted(params.items()))

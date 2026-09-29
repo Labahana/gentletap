@@ -247,9 +247,24 @@ def resend_message(
     db: Session = Depends(get_db),
 ):
     user, org = user_and_org
+    from app.services.plan_gating import require_feature
+
+    # Manual resend must respect the same plan gating, dedup window and quota
+    # as the primary /send path — otherwise blocked/free plans could send
+    # unboundedly by repeatedly resending.
+    require_feature(org, "collection")
+
     original_msg = db.query(Message).filter(Message.id == id, Message.org_id == org.id).first()
     if not original_msg:
         raise HTTPException(status_code=404, detail="Message not found")
+
+    now = datetime.now(timezone.utc)
+    recent = db.query(Message).filter(
+        Message.invoice_id == original_msg.invoice_id,
+        Message.created_at >= now - timedelta(seconds=60),
+    ).first()
+    if recent:
+        raise HTTPException(status_code=429, detail="A reminder was sent less than a minute ago. Duplicate send blocked.")
 
     invoice = db.query(Invoice).filter(Invoice.id == original_msg.invoice_id).first()
     if not invoice or invoice.status in ("paid", "closed"):
@@ -268,7 +283,6 @@ def resend_message(
         db=db,
     )
 
-    now = datetime.now(timezone.utc)
     new_msg = Message(
         org_id=org.id,
         invoice_id=invoice.id,
@@ -282,6 +296,7 @@ def resend_message(
         sent_at=now,
     )
     db.add(new_msg)
+    org.collections_used_this_period = (org.collections_used_this_period or 0) + 1
 
     db.commit()
     db.refresh(new_msg)

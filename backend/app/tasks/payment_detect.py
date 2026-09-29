@@ -22,10 +22,26 @@ def payment_detect_task():
         db = SessionLocal()
         stopped = []
         try:
+            from app.services.redis_lock import get_redis
+
+            base = db.query(Invoice).filter(Invoice.status.in_(["unpaid", "chasing"]))
+            total = base.count()
+            page = 500
+            # Round-robin the 500-row window across runs so orgs with >500
+            # unpaid invoices aren't starved by an unordered LIMIT that keeps
+            # re-checking the same first page.
+            try:
+                r = get_redis()
+                offset = int(r.get("payment_detect:offset") or 0)
+            except Exception:  # noqa: BLE001 - fall back to head-of-set
+                r = None
+                offset = 0
+            if total <= page or offset >= total:
+                offset = 0
             invoices = (
-                db.query(Invoice)
-                .filter(Invoice.status.in_(["unpaid", "chasing"]))
-                .limit(500)
+                base.order_by(Invoice.created_at.asc(), Invoice.id.asc())
+                .offset(offset)
+                .limit(page)
                 .all()
             )
             for inv in invoices:
@@ -33,6 +49,11 @@ def payment_detect_task():
                 if result:
                     stopped.append(result["invoice_id"])
             db.commit()
+            if r is not None:
+                try:
+                    r.set("payment_detect:offset", offset + page, ex=3600)
+                except Exception:  # noqa: BLE001
+                    pass
             return {"status": "ok", "checked": len(invoices), "stopped": stopped}
         except Exception as exc:
             db.rollback()

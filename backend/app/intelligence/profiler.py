@@ -9,6 +9,7 @@ from datetime import date, datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.intelligence.risk_scorer import baseline_risk_from_history
+from app.services.client_profile import compute_reliability_score
 from app.models.client import Client
 from app.models.client_profile import ClientProfile
 from app.models.invoice import Invoice
@@ -31,8 +32,11 @@ def profile_client(db: Session, client: Client) -> ClientProfile | None:
     late = 0
     days_list: list[int] = []
     total_value = 0.0
+    dispute_count = 0
 
     for inv in invoices:
+        if inv.status == "disputed":
+            dispute_count += 1
         if inv.balance and float(inv.balance) > 0:
             continue  # unpaid — not part of payment history yet
         total_value += float(inv.amount or 0)
@@ -51,7 +55,10 @@ def profile_client(db: Session, client: Client) -> ClientProfile | None:
     total_paid = on_time + late
     late_rate = (late / total_paid) if total_paid else 0.0
     avg_days = round(sum(days_list) / len(days_list), 2) if days_list else 0.0
-    reliability = round((on_time / total_paid) * 100) if total_paid else 100
+    # Use the SAME scoring function as the on-send path (services/client_profile)
+    # so reliability doesn't flip scales depending on which job ran last.
+    late_count = sum(1 for d in days_list if d > 3)
+    reliability = compute_reliability_score(max(0.0, avg_days), late_count, dispute_count)
     risk = baseline_risk_from_history(late_rate).value
 
     tenure = 0

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Mail, Sparkles, Copy, Edit2, Trash2 } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, apiErrorMessage } from '@/lib/api';
 import { TemplateCard } from '@/components/TemplateCard';
 
 export const Templates: React.FC = () => {
@@ -202,6 +202,11 @@ export const Templates: React.FC = () => {
                 ></textarea>
               </div>
 
+              {saveTemplateMutation.error && (
+                <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 text-xs text-rose-700">
+                  {apiErrorMessage(saveTemplateMutation.error, 'Could not save this template.')}
+                </div>
+              )}
               <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
                 <button
                   type="button"

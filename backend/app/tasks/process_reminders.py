@@ -96,6 +96,7 @@ def _notify_escalation(db, invoice, ctx) -> None:
         from app.models.audit_log import AuditLog
         from app.models.notification import UserNotification
         from app.models.organization import Organization
+        from app.intelligence.risk_scorer import score_risk
 
         db.add(
             AuditLog(

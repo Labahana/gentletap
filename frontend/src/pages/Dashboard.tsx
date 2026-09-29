@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, BarChart, Bar } from 'recharts';
 import { Link } from 'react-router-dom';
-import { api } from '@/lib/api';
+import { api, apiErrorMessage } from '@/lib/api';
 import { EscalationRow, Escalation } from '@/components/EscalationRow';
 import { DashboardPlanCard } from '@/components/DashboardPlanCard';
 import { AutopilotBar } from '@/components/AutopilotBar';
@@ -61,6 +61,12 @@ export const Dashboard: React.FC = () => {
           View all escalations <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </div>
+
+      {(sendNow.error || pause.error) && (
+        <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-sm text-rose-700">
+          {apiErrorMessage(sendNow.error || pause.error, 'That action failed. Please try again.')}
+        </div>
+      )}
 
       {summaryError && (
         <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-sm text-rose-700">

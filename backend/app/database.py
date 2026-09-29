@@ -16,12 +16,19 @@ elif settings.database_url.startswith("postgresql"):
     _engine_kwargs["pool_size"] = settings.db_pool_size
     _engine_kwargs["max_overflow"] = settings.db_max_overflow
 
-# Prefer SQLite when postgres driver is unavailable (local unit tests)
+# Prefer SQLite when postgres driver is unavailable (local unit tests). In
+# production this must NOT silently fall back — data would be written to the
+# wrong store with no alarm — so refuse to boot instead.
 _url = settings.database_url
 if _url.startswith("postgresql"):
     try:
         import psycopg2  # noqa: F401
     except ImportError:
+        if (settings.environment or "").strip().lower() == "production":
+            raise RuntimeError(
+                "PostgreSQL configured but psycopg2 is not installed — refusing to start "
+                "in production (a silent SQLite fallback would corrupt storage)."
+            )
         _url = "sqlite:///./gentletap_fallback.db"
         _engine_kwargs = {"connect_args": {"check_same_thread": False}}
 

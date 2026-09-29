@@ -156,35 +156,49 @@ def google_auth_callback(
     Authenticate or Register user via Google OAuth 2.0.
     """
     redirect_uri = settings.google_auth_redirect_uri or settings.google_redirect_uri
-    email = "demo@gentletap.com"
-    full_name = "Google User"
 
-    if settings.google_client_id and not settings.google_client_id.startswith("MOCK"):
-        try:
-            with httpx.Client(timeout=15.0) as client:
-                token_res = client.post(
-                    GOOGLE_TOKEN_URL,
-                    data={
-                        "grant_type": "authorization_code",
-                        "code": code,
-                        "redirect_uri": redirect_uri,
-                        "client_id": settings.google_client_id,
-                        "client_secret": settings.google_client_secret,
-                    },
-                )
-                token_res.raise_for_status()
-                access_token_str = token_res.json().get("access_token")
+    # Google login is only available when a real OAuth client is configured.
+    # Fail CLOSED: previously an unset/MOCK client id fell through and issued
+    # full tokens for the hardcoded demo@gentletap.com tenant, letting anyone
+    # POST /auth/google/callback?code=x become that account.
+    if not settings.google_client_id or settings.google_client_id.startswith("MOCK"):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google sign-in is not configured",
+        )
 
-                userinfo_res = client.get(
-                    GOOGLE_USERINFO_URL,
-                    headers={"Authorization": f"Bearer {access_token_str}"},
-                )
-                userinfo_res.raise_for_status()
-                u_data = userinfo_res.json()
-                email = u_data.get("email", email)
-                full_name = u_data.get("name") or u_data.get("given_name") or email.split("@")[0].capitalize()
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Google authentication failed: {str(e)}")
+    email = ""
+    full_name = ""
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            token_res = client.post(
+                GOOGLE_TOKEN_URL,
+                data={
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "redirect_uri": redirect_uri,
+                    "client_id": settings.google_client_id,
+                    "client_secret": settings.google_client_secret,
+                },
+            )
+            token_res.raise_for_status()
+            access_token_str = token_res.json().get("access_token")
+
+            userinfo_res = client.get(
+                GOOGLE_USERINFO_URL,
+                headers={"Authorization": f"Bearer {access_token_str}"},
+            )
+            userinfo_res.raise_for_status()
+            u_data = userinfo_res.json()
+            email = (u_data.get("email") or "").strip()
+            full_name = u_data.get("name") or u_data.get("given_name") or (email.split("@")[0].capitalize() if email else "Google User")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=400, detail="Google authentication failed")
+
+    if not email:
+        raise HTTPException(status_code=400, detail="Google authentication failed")
 
     # Check if user already exists
     user = db.query(User).filter(User.email == email).first()

@@ -65,9 +65,10 @@ def get_current_user_and_org(
 ) -> Tuple[User, Organization]:
     if not token:
         # Dev-only convenience fallback: auto-create a demo user/org so the app
-        # works without auth in local development. NEVER active in production —
-        # it would silently authenticate every unauthenticated request.
-        if settings.environment == "production":
+        # works without auth in local development. FAIL-CLOSED: gated behind an
+        # explicit opt-in flag that no real deploy sets, so an unset/odd
+        # ENVIRONMENT can never silently authenticate every request.
+        if not settings.allow_dev_auth_fallback:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Not authenticated",
@@ -98,6 +99,12 @@ def get_current_user_and_org(
         return (user, org)
 
     payload = decode_token(token)
+    if payload.get("type") != "access":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     user_id = payload.get("sub")
     org_id = payload.get("org_id")
 

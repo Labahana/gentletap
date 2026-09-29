@@ -77,6 +77,9 @@ def consume_whatsapp_quota(db: Session, org: Organization) -> Optional[str]:
     """
     if normalize_plan(org.plan) not in ("pro_plus", "team"):
         return None
+    # Lock the org row for the read-modify-write so concurrent sends for the same
+    # org can't both pass the `used < quota` check and overspend (TOCTOU race).
+    db.query(Organization).filter(Organization.id == org.id).with_for_update().first()
     if org.whatsapp_used_this_period < org.whatsapp_quota:
         org.whatsapp_used_this_period += 1
         return "monthly"
@@ -84,6 +87,7 @@ def consume_whatsapp_quota(db: Session, org: Organization) -> Optional[str]:
         db.query(WhatsAppCredit)
         .filter(WhatsAppCredit.org_id == org.id, WhatsAppCredit.status == "active")
         .order_by(WhatsAppCredit.created_at.asc())
+        .with_for_update()
         .all()
     )
     for row in rows:

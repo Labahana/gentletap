@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.api.deps import get_current_user_and_org
+from app.services.rate_limit import rate_limit
 from app.models.template import Template
 from app.schemas.template import (
     TemplateCreate,
@@ -109,8 +110,11 @@ def delete_template(
     return {"message": "Template deleted successfully"}
 
 
-@router.post("/generate-ai", response_model=AIGenerateResponse)
-def generate_ai_draft(req: AIGenerateRequest):
+@router.post("/generate-ai", response_model=AIGenerateResponse, dependencies=[Depends(rate_limit("20/60"))])
+def generate_ai_draft(
+    req: AIGenerateRequest,
+    user_and_org=Depends(get_current_user_and_org),
+):
     draft = generate_template_with_kimi(
         tone=req.tone,
         context=req.context,
