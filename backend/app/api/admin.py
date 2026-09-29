@@ -133,13 +133,23 @@ def admin_stats(_: bool = Depends(require_admin_flexible), db: Session = Depends
     messages_today = db.query(Message).filter(Message.created_at >= today_start).count()
     active_connections = db.query(Connection).filter(Connection.status == "active").count()
 
+    # MRR must reflect real billing state, not the mutable org.plan column
+    # (which can read "team" for a free/test account that never paid).
+    now = datetime.now(timezone.utc)
     mrr = 0.0
-    for org in db.query(Organization).all():
-        plan = normalize_plan(org.plan)
+    for sub in db.query(Subscription).filter(Subscription.status == "active").all():
+        plan = normalize_plan(sub.plan)
         if plan == "starter":
             continue
+        period_end = sub.current_period_end
+        if period_end:
+            if period_end.tzinfo is None:
+                period_end = period_end.replace(tzinfo=timezone.utc)
+            if period_end < now:
+                continue
+        org = db.query(Organization).filter(Organization.id == sub.org_id).first()
         prices = PLAN_PRICES[plan]
-        mrr += prices["annual"] if org.billing_period == "annual" else prices["monthly"]
+        mrr += prices["annual"] if org and org.billing_period == "annual" else prices["monthly"]
 
     return {
         "total_orgs": total_orgs,
