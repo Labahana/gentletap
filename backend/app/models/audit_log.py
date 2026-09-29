@@ -12,7 +12,7 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    org_id: Mapped[str] = mapped_column(String(36), ForeignKey("organizations.id"), index=True, nullable=False)
+    org_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("organizations.id"), index=True, nullable=True)
     actor_type: Mapped[str] = mapped_column(String(50), default="user", nullable=False)  # 'user'|'system'
     actor_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
     action: Mapped[str] = mapped_column(String(100), nullable=False)

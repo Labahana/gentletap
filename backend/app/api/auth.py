@@ -105,6 +105,8 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email).first()
     if not user or not verify_password(req.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    if not getattr(user, "is_active", True):
+        raise HTTPException(status_code=403, detail="Account suspended")
 
     org = db.query(Organization).filter(Organization.owner_user_id == user.id).first()
     if not org:
@@ -245,6 +247,8 @@ def refresh(req: RefreshTokenRequest, db: Session = Depends(get_db)):
     org = db.query(Organization).filter(Organization.id == org_id).first()
     if not user or not org:
         raise HTTPException(status_code=401, detail="User or organization not found")
+    if not getattr(user, "is_active", True):
+        raise HTTPException(status_code=403, detail="Account suspended")
 
     access_token = create_access_token(user.id, org.id, user.email)
     new_refresh_token = create_refresh_token(user.id, org.id)

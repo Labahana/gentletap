@@ -104,6 +104,11 @@ def get_current_user_and_org(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    if not getattr(user, "is_active", True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account suspended",
+        )
 
     org = db.query(Organization).filter(Organization.id == org_id).first()
     if not org:
