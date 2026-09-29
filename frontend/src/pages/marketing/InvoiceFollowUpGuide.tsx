@@ -9,6 +9,7 @@ const PAGE_TITLE = 'Invoice Follow-Up: The Complete Guide to Getting Paid (2026)
 const PAGE_DESCRIPTION =
   'How to follow up on unpaid invoices without sounding pushy — the reminder ladder, email templates, QuickBooks automation, and WhatsApp, for freelancers.';
 const LAST_UPDATED = '2026-09-29';
+const LAST_UPDATED_LABEL = 'September 29, 2026';
 
 const TOC: Array<{ id: string; label: string }> = [
   { id: 'what-is-invoice-follow-up', label: 'What is invoice follow-up?' },
