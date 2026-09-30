@@ -15,6 +15,7 @@ celery_app = Celery(
     include=[
         "app.tasks.sync_invoices",
         "app.tasks.process_reminders",
+        "app.tasks.autopilot_reconcile",
         "app.tasks.draft_message",
         "app.tasks.send_email",
         "app.tasks.payment_detect",

@@ -26,6 +26,11 @@ BEAT_SCHEDULE = {
         "schedule": 300.0,  # 5 minutes
         "options": {"expires": 4 * 60},
     },
+    "autopilot-reconcile-5m": {
+        "task": "app.tasks.autopilot_reconcile.autopilot_reconcile_task",
+        "schedule": 300.0,  # 5 minutes; backstops the sync-coupled auto-assign
+        "options": {"expires": 4 * 60},
+    },
     "payment-detect-every-15m": {
         "task": "app.tasks.payment_detect.payment_detect_task",
         "schedule": 900.0,

@@ -272,6 +272,74 @@ def assign_sequence_and_schedule(
     return assignment
 
 
+def _autopilot_default_sequence(db: Session, org_id: str) -> Optional[Sequence]:
+    """The active default sequence that autopilot is allowed to auto-assign."""
+    return (
+        db.query(Sequence)
+        .filter(
+            Sequence.org_id == org_id,
+            Sequence.is_default.is_(True),
+            Sequence.auto_assign.is_(True),
+            Sequence.status == "active",
+        )
+        .first()
+    )
+
+
+def autopilot_assign_if_enabled(db: Session, invoice: Invoice) -> bool:
+    """Assign + schedule the org's default autopilot sequence to a single invoice
+    when eligible. Provider-agnostic: covers manual/CSV invoices and Gmail-only orgs
+    that never run the accounting sync. Returns True if a new assignment was made."""
+    if invoice.status not in ("unpaid", "chasing") or invoice.stop_reminders:
+        return False
+    org_settings = get_or_create_org_settings(db, invoice.org_id)
+    if org_settings.operation_mode != "autopilot":
+        return False
+    default_seq = _autopilot_default_sequence(db, invoice.org_id)
+    if not default_seq:
+        return False
+    existing = (
+        db.query(SequenceAssignment)
+        .filter(SequenceAssignment.invoice_id == invoice.id)
+        .first()
+    )
+    if existing:
+        return False
+    assign_sequence_and_schedule(db, invoice, default_seq)
+    return True
+
+
+def autopilot_reconcile_all(db: Session) -> dict:
+    """Backstop for the sync-coupled auto-assign: for every autopilot org, assign the
+    active default auto_assign sequence to any unpaid/chasing invoice that has no
+    assignment yet. Idempotent (skips invoices that already have an assignment)."""
+    org_ids = [
+        row[0]
+        for row in db.query(OrgSettings.org_id).filter(OrgSettings.operation_mode == "autopilot").all()
+    ]
+    assigned = 0
+    for org_id in org_ids:
+        default_seq = _autopilot_default_sequence(db, org_id)
+        if not default_seq:
+            continue
+        unassigned = (
+            db.query(Invoice)
+            .outerjoin(SequenceAssignment, SequenceAssignment.invoice_id == Invoice.id)
+            .filter(
+                Invoice.org_id == org_id,
+                Invoice.status.in_(["unpaid", "chasing"]),
+                Invoice.stop_reminders.is_(False),
+                SequenceAssignment.id.is_(None),
+            )
+            .all()
+        )
+        for inv in unassigned:
+            assign_sequence_and_schedule(db, inv, default_seq)
+            assigned += 1
+    db.commit()
+    return {"orgs": len(org_ids), "assigned": assigned}
+
+
 def cancel_pending_reminders(db: Session, invoice_id: str, reason: str = "cancelled") -> int:
     rows = (
         db.query(ReminderSchedule)

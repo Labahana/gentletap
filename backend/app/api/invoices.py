@@ -151,6 +151,14 @@ def create_invoice(
 
     db.commit()
     db.refresh(invoice)
+
+    # Autopilot chases manual invoices too — schedule immediately so the org sees
+    # activity without waiting for the 5-minute reconciler backstop.
+    from app.services.reminder_engine import autopilot_assign_if_enabled
+
+    if autopilot_assign_if_enabled(db, invoice):
+        db.commit()
+        db.refresh(invoice)
     return invoice
 
 
