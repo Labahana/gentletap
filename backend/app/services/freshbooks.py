@@ -9,6 +9,7 @@ from app.config import get_settings
 from app.models.connection import Connection
 from app.models.client import Client
 from app.models.invoice import Invoice
+from app.services.payment_detect import detect_and_stop_if_paid
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -174,11 +175,12 @@ def sync_freshbooks_data(db: Session, org_id: str, connection: Connection) -> Tu
                 if db_inv:
                     db_inv.balance = balance
                     db_inv.amount = amt
-                    if fb_status in ("paid",):
-                        db_inv.status = "paid"
-                    elif balance <= 0:
-                        db_inv.status = "paid"
-                    else:
+                    # Route the paid transition through the shared auto-stop so
+                    # pending reminders are cancelled, a Payout + audit land, and
+                    # the client profile is recomputed — not just a bare status flip.
+                    if balance <= 0 or fb_status == "paid":
+                        detect_and_stop_if_paid(db, db_inv, method="freshbooks_sync")
+                    elif db_inv.status == "paid":
                         db_inv.status = "unpaid"
                     continue
 

@@ -157,9 +157,16 @@ def unassign_sequence_from_invoice(
     from app.services.reminder_engine import cancel_pending_reminders
 
     _, org = user_and_org
-    assignment = db.query(SequenceAssignment).filter(
-        SequenceAssignment.sequence_id == id, SequenceAssignment.invoice_id == req.invoice_id
-    ).first()
+    assignment = (
+        db.query(SequenceAssignment)
+        .join(Invoice, Invoice.id == SequenceAssignment.invoice_id)
+        .filter(
+            SequenceAssignment.sequence_id == id,
+            SequenceAssignment.invoice_id == req.invoice_id,
+            Invoice.org_id == org.id,
+        )
+        .first()
+    )
 
     if assignment:
         cancel_pending_reminders(db, req.invoice_id, reason="unassigned")

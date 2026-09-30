@@ -46,3 +46,6 @@ backend/*.db
 .zcode/
 SESSION_HANDOVER.md
 gentletap-main*/
+
+# Scratch research (this session)
+.research/

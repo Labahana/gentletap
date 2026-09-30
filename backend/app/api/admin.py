@@ -10,6 +10,7 @@ actions 20/min, per admin+route.
 
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+import hmac
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.security import OAuth2PasswordBearer
@@ -67,7 +68,9 @@ def require_admin_flexible(
     _allow = {a.strip() for a in (settings.admin_ip_allowlist or []) if a.strip()}
     if _allow and ip not in _allow:
         raise HTTPException(status_code=404, detail="Not Found")
-    if settings.admin_api_key and x_admin_api_key == settings.admin_api_key:
+    if settings.admin_api_key and hmac.compare_digest(
+        x_admin_api_key or "", settings.admin_api_key
+    ):
         return {"mode": "api_key", "email": None, "ip": ip}
     if token:
         try:

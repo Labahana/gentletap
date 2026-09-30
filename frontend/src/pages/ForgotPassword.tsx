@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, ArrowLeft, CheckCircle2 } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, apiErrorMessage } from '@/lib/api';
 import { AuthShell } from '@/components/marketing/AuthShell';
 import { Seo } from '@/components/marketing/Seo';
 
@@ -19,7 +19,7 @@ export const ForgotPassword: React.FC = () => {
       await api.post('/auth/forgot-password', { email });
       setSent(true);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Something went wrong. Please try again.');
+      setError(apiErrorMessage(err, 'Something went wrong. Please try again.'));
     } finally {
       setLoading(false);
     }

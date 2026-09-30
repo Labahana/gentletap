@@ -79,7 +79,17 @@ def consume_whatsapp_quota(db: Session, org: Organization) -> Optional[str]:
         return None
     # Lock the org row for the read-modify-write so concurrent sends for the same
     # org can't both pass the `used < quota` check and overspend (TOCTOU race).
-    db.query(Organization).filter(Organization.id == org.id).with_for_update().first()
+    # populate_existing() re-reads the locked row into the already-loaded instance;
+    # without it the increment would use the pre-lock stale attribute value.
+    locked = (
+        db.query(Organization)
+        .filter(Organization.id == org.id)
+        .with_for_update()
+        .populate_existing()
+        .first()
+    )
+    if locked is not None:
+        org = locked
     if org.whatsapp_used_this_period < org.whatsapp_quota:
         org.whatsapp_used_this_period += 1
         return "monthly"

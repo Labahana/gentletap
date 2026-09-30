@@ -10,6 +10,7 @@ from app.config import get_settings
 from app.database import get_db
 from app.models.user import User
 from app.models.organization import Organization
+from app.models.organization_member import OrganizationMember
 
 settings = get_settings()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -125,5 +126,25 @@ def get_current_user_and_org(
             db.add(org)
             db.commit()
             db.refresh(org)
+
+    # Access control: the token names an org the caller must still belong to.
+    # Owners pass implicitly (orgs may predate a member row); team members need
+    # an active link. This blocks a removed member whose token/org_id claim still
+    # points at the org they were let go from.
+    if org.owner_user_id != user.id:
+        member = (
+            db.query(OrganizationMember)
+            .filter(
+                OrganizationMember.org_id == org.id,
+                OrganizationMember.user_id == user.id,
+                OrganizationMember.status == "active",
+            )
+            .first()
+        )
+        if member is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are no longer a member of this organization",
+            )
 
     return (user, org)

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertCircle, CheckCircle } from 'lucide-react';
+import { api, apiErrorMessage } from '@/lib/api';
 import { Seo } from '@/components/marketing/Seo';
 import { breadcrumbJsonLd, webPageJsonLd } from '@/data/seo';
 
@@ -11,12 +12,17 @@ const DESCRIPTION =
 export const XeroWaitlist: React.FC = () => {
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email) {
-      // In a real app, send this to an API or mailing list
+    if (!email) return;
+    setError(null);
+    try {
+      await api.post('/public/waitlist', { email, provider: 'xero' });
       setSubmitted(true);
+    } catch (err) {
+      setError(apiErrorMessage(err, "Couldn't join the waitlist. Please try again."));
     }
   };
 
@@ -78,6 +84,9 @@ export const XeroWaitlist: React.FC = () => {
                   Join Waitlist
                 </button>
               </form>
+              {error && (
+                <p className="mt-3 text-sm text-red-600">{error}</p>
+              )}
             </div>
           ) : (
             <div className="max-w-md mx-auto bg-green-50 p-6 rounded-xl border border-green-200 flex items-center justify-center space-x-2 text-green-700">

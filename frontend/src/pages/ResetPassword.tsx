@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Lock, CheckCircle2 } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, apiErrorMessage } from '@/lib/api';
 import { AuthShell } from '@/components/marketing/AuthShell';
 import { Seo } from '@/components/marketing/Seo';
 
@@ -33,7 +33,7 @@ export const ResetPassword: React.FC = () => {
       setDone(true);
       setTimeout(() => navigate('/login'), 2500);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'This reset link is invalid or has expired.');
+      setError(apiErrorMessage(err, 'This reset link is invalid or has expired.'));
     } finally {
       setLoading(false);
     }

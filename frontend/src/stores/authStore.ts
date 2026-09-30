@@ -6,6 +6,16 @@ interface User {
   full_name?: string;
 }
 
+// localStorage can hold a corrupted/tampered value; a throw at module init would
+// white-screen the app before React (and its ErrorBoundary) ever mounts.
+function safeParseUser(): User | null {
+  try {
+    return JSON.parse(localStorage.getItem('gentletap_user') || 'null');
+  } catch {
+    return null;
+  }
+}
+
 interface AuthState {
   user: User | null;
   orgId: string | null;
@@ -27,7 +37,7 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  user: JSON.parse(localStorage.getItem('gentletap_user') || 'null'),
+  user: safeParseUser(),
   orgId: localStorage.getItem('gentletap_org_id') || 'org_demo',
   orgName: localStorage.getItem('gentletap_org_name') || 'labahana',
   plan: localStorage.getItem('gentletap_plan') || 'free',

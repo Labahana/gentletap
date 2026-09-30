@@ -14,7 +14,7 @@ export const SetupBanner: React.FC = () => {
   // Session-scoped hide: re-appears on the next login until setup completes.
   if (!shouldShow || dismissed) return null;
 
-  const pct = Math.round((doneCount / total) * 100);
+  const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
 
   return (
     <div className="bg-white border border-blue-200 rounded-xl p-5 shadow-xs relative">

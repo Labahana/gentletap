@@ -87,7 +87,13 @@ def build_reminder_context(
     profile_row = (
         db.query(ClientProfile).filter(ClientProfile.client_id == client.id).one_or_none()
     )
-    history = (profile_row.history or {}) if profile_row else {}
+    # `history` is written in two shapes across the codebase (an aggregate dict by
+    # the profiler and a per-invoice list by recompute_client_profile). The
+    # aggregate fields read below only exist in the dict form; treat any other
+    # shape as empty so a list-shaped profile never raises and silently kills the
+    # whole intelligence gate.
+    _raw_history = profile_row.history if profile_row else None
+    history: dict = _raw_history if isinstance(_raw_history, dict) else {}
 
     settings_row = (
         db.query(OrgSettings).filter(OrgSettings.org_id == org.id).one_or_none()

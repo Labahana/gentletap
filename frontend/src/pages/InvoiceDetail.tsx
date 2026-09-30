@@ -37,6 +37,10 @@ export const InvoiceDetail: React.FC = () => {
   const [stepWhen, setStepWhen] = useState('');
   const [stepTemplate, setStepTemplate] = useState('');
   const [payLink, setPayLink] = useState('');
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const onActionError = (err: any) =>
+    setActionError(apiErrorMessage(err, 'That action failed. Please try again.'));
 
   const { data: invoice, isLoading } = useQuery({
     queryKey: ['invoiceDetail', id],
@@ -75,31 +79,37 @@ export const InvoiceDetail: React.FC = () => {
   const markPaidMutation = useMutation({
     mutationFn: async () => api.post(`/invoices/${id}/mark-paid`),
     onSuccess: invalidate,
+    onError: onActionError,
   });
 
   const pauseMutation = useMutation({
     mutationFn: async () => api.post(`/invoices/${id}/pause`),
     onSuccess: invalidate,
+    onError: onActionError,
   });
 
   const resumeMutation = useMutation({
     mutationFn: async () => api.post(`/invoices/${id}/resume`),
     onSuccess: invalidate,
+    onError: onActionError,
   });
 
   const sendNowMutation = useMutation({
     mutationFn: async () => api.post(`/invoices/${id}/send-now`),
     onSuccess: invalidate,
+    onError: onActionError,
   });
 
   const regenMutation = useMutation({
     mutationFn: async () => api.post(`/invoices/${id}/regenerate-draft`),
     onSuccess: invalidate,
+    onError: onActionError,
   });
 
   const disputeMutation = useMutation({
     mutationFn: async () => api.post(`/invoices/${id}/mark-disputed`),
     onSuccess: invalidate,
+    onError: onActionError,
   });
 
   const updateInvoiceMutation = useMutation({
@@ -162,10 +172,11 @@ export const InvoiceDetail: React.FC = () => {
             <>
               <button
                 onClick={() => sendNowMutation.mutate()}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-3 py-2 rounded-lg text-xs flex items-center gap-1.5"
+                disabled={sendNowMutation.isPending}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-3 py-2 rounded-lg text-xs flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <Zap className="w-3.5 h-3.5" />
-                Send Now
+                {sendNowMutation.isPending ? 'Sending…' : 'Send Now'}
               </button>
               <button
                 onClick={() => setSendModalOpen(true)}
@@ -177,7 +188,8 @@ export const InvoiceDetail: React.FC = () => {
               {invoice.stop_reminders ? (
                 <button
                   onClick={() => resumeMutation.mutate()}
-                  className="border border-gray-200 bg-white text-gray-700 font-medium px-3 py-2 rounded-lg text-xs flex items-center gap-1.5"
+                  disabled={resumeMutation.isPending}
+                  className="border border-gray-200 bg-white text-gray-700 font-medium px-3 py-2 rounded-lg text-xs flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <Play className="w-3.5 h-3.5" />
                   Resume
@@ -185,7 +197,8 @@ export const InvoiceDetail: React.FC = () => {
               ) : (
                 <button
                   onClick={() => pauseMutation.mutate()}
-                  className="border border-gray-200 bg-white text-gray-700 font-medium px-3 py-2 rounded-lg text-xs flex items-center gap-1.5"
+                  disabled={pauseMutation.isPending}
+                  className="border border-gray-200 bg-white text-gray-700 font-medium px-3 py-2 rounded-lg text-xs flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <Pause className="w-3.5 h-3.5" />
                   Pause
@@ -193,21 +206,24 @@ export const InvoiceDetail: React.FC = () => {
               )}
               <button
                 onClick={() => regenMutation.mutate()}
-                className="border border-gray-200 bg-white text-gray-700 font-medium px-3 py-2 rounded-lg text-xs flex items-center gap-1.5"
+                disabled={regenMutation.isPending}
+                className="border border-gray-200 bg-white text-gray-700 font-medium px-3 py-2 rounded-lg text-xs flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                Regenerate Draft
+                {regenMutation.isPending ? 'Regenerating…' : 'Regenerate Draft'}
               </button>
               <button
                 onClick={() => markPaidMutation.mutate()}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-3 py-2 rounded-lg text-xs flex items-center gap-1.5"
+                disabled={markPaidMutation.isPending}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-3 py-2 rounded-lg text-xs flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <CheckCircle className="w-3.5 h-3.5" />
                 Mark Paid
               </button>
               <button
                 onClick={() => disputeMutation.mutate()}
-                className="border border-rose-200 text-rose-700 font-medium px-3 py-2 rounded-lg text-xs flex items-center gap-1.5"
+                disabled={disputeMutation.isPending}
+                className="border border-rose-200 text-rose-700 font-medium px-3 py-2 rounded-lg text-xs flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <AlertCircle className="w-3.5 h-3.5" />
                 Mark Disputed
@@ -216,6 +232,12 @@ export const InvoiceDetail: React.FC = () => {
           )}
         </div>
       </div>
+
+      {actionError && (
+        <div className="text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+          {actionError}
+        </div>
+      )}
 
       <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-xs grid grid-cols-1 md:grid-cols-4 gap-6">
         <div>

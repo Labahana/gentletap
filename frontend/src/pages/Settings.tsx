@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle, Bot, ArrowRight } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, apiErrorMessage } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { DigestPreview } from '@/components/DigestPreview';
 import { useAutopilotStatus } from '@/hooks/useAutopilotStatus';
@@ -232,8 +232,12 @@ export const Settings: React.FC = () => {
         <div className="flex flex-wrap gap-3">
           <button
             onClick={async () => {
-              await api.post('/settings/export-data');
-              alert('Export started — check your email for the download.');
+              try {
+                await api.post('/settings/export-data');
+                alert('Export started — check your email for the download.');
+              } catch (err) {
+                alert(apiErrorMessage(err, 'Export failed. Please try again.'));
+              }
             }}
             className="border border-gray-200 text-xs font-semibold px-4 py-2 rounded-lg hover:bg-gray-50"
           >
@@ -242,9 +246,17 @@ export const Settings: React.FC = () => {
           <button
             onClick={async () => {
               const name = window.prompt('Type your organization name to confirm deletion:');
-              if (!name) return;
-              await api.delete('/settings/account');
-              alert('Deletion scheduled. You have 30 days to cancel from Settings.');
+              if (name === null) return;
+              if (name.trim() !== orgName.trim()) {
+                alert('That does not match your organization name. Deletion cancelled.');
+                return;
+              }
+              try {
+                await api.delete('/settings/account');
+                alert('Deletion scheduled. You have 30 days to cancel from Settings.');
+              } catch (err) {
+                alert(apiErrorMessage(err, 'Failed to schedule deletion. Please try again.'));
+              }
             }}
             className="border border-rose-200 text-rose-700 text-xs font-semibold px-4 py-2 rounded-lg"
           >

@@ -9,9 +9,15 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('gentletap_access_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  // Don't clobber a caller-supplied Authorization header (e.g. the affiliate
+  // dashboard uses a separate affiliate token; a dual-role user must keep it).
+  const existing =
+    config.headers?.Authorization || config.headers?.get?.('Authorization');
+  if (!existing) {
+    const token = localStorage.getItem('gentletap_access_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });
@@ -37,10 +43,13 @@ async function refreshAccessToken(): Promise<string | null> {
       refreshToken: data.refresh_token,
     });
     return data.access_token as string;
-  } catch {
-    // Refresh failed — the session is over; clear credentials so
-    // ProtectedRoute sends the user back to /login on the next render.
-    useAuthStore.getState().logout();
+  } catch (err: any) {
+    // Only end the session when the server actually rejected the refresh token
+    // (invalid/expired). A network error is transient — keep the session so the
+    // next request can retry the refresh instead of forcing a logout.
+    if (err?.response) {
+      useAuthStore.getState().logout();
+    }
     return null;
   }
 }
@@ -68,7 +77,18 @@ api.interceptors.response.use(
 );
 
 export function apiErrorMessage(err: any, fallback: string): string {
-  if (err.response?.data?.detail) return err.response.data.detail;
+  const detail = err.response?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  // FastAPI 422 validation errors return `detail` as an array of objects —
+  // rendering that as a React child crashes ("Objects are not valid…"). Coerce.
+  if (Array.isArray(detail)) {
+    const first: any = detail[0];
+    const msg = typeof first?.msg === 'string' ? first.msg : null;
+    return msg || 'Invalid request. Please check your input.';
+  }
+  if (detail != null && typeof detail === 'object') {
+    return 'Invalid request. Please check your input.';
+  }
   if (err.request && !err.response) {
     return 'Cannot reach the server. Check your connection and try again.';
   }
