@@ -8,8 +8,20 @@ from sqlalchemy.orm import Session
 from app.models.client import Client
 from app.models.invoice import Invoice
 from app.schemas.invoice import CSVPreviewRow, CSVImportPreviewResponse
+from app.services.reminder_contacts import normalize_phone_e164
 
 logger = logging.getLogger(__name__)
+
+
+def _clean_payment_link(value):
+    if not value:
+        return None
+    link = str(value).strip()
+    if not link:
+        return None
+    if not link.startswith(("http://", "https://")):
+        return None
+    return link[:2048]
 
 # Fuzzy column matching — maps each canonical field to accepted header aliases.
 COLUMN_ALIASES = {
@@ -21,6 +33,7 @@ COLUMN_ALIASES = {
     "currency": ["currency", "curr", "currency_code"],
     "due_date": ["due_date", "duedate", "date_due", "payment_due", "due"],
     "issue_date": ["issue_date", "invoice_date", "date_issued", "date", "created_date"],
+    "payment_link": ["payment_link", "pay_link", "payment_url", "pay_url", "invoice_link", "link"],
 }
 
 
@@ -53,6 +66,8 @@ def parse_and_preview_csv(file_contents: bytes) -> CSVImportPreviewResponse:
         currency = row.get("currency") or "USD"
         due_date = row.get("due_date") or None
         issue_date = row.get("issue_date") or None
+        client_phone = row.get("client_phone") or None
+        payment_link = row.get("payment_link") or None
 
         is_valid = True
         error_msg = None
@@ -82,10 +97,12 @@ def parse_and_preview_csv(file_contents: bytes) -> CSVImportPreviewResponse:
                 invoice_number=inv_num,
                 client_name=client_name or f"Row {idx+1} Client",
                 client_email=client_email,
+                client_phone=client_phone,
                 amount=amt_val,
                 currency=currency,
                 due_date=due_date,
                 issue_date=issue_date,
+                payment_link=payment_link,
                 is_valid=is_valid,
                 error_message=error_msg,
             )
@@ -106,6 +123,9 @@ def execute_csv_import(db: Session, org_id: str, rows: List[CSVPreviewRow]) -> i
         if not row.is_valid:
             continue
 
+        norm_phone = normalize_phone_e164(row.client_phone)
+        pay_link = _clean_payment_link(row.payment_link)
+
         # 1. Upsert Client
         client = db.query(Client).filter(Client.org_id == org_id, Client.name == row.client_name).first()
         if not client:
@@ -113,13 +133,17 @@ def execute_csv_import(db: Session, org_id: str, rows: List[CSVPreviewRow]) -> i
                 org_id=org_id,
                 name=row.client_name,
                 email=row.client_email,
+                phone=norm_phone,
                 currency=row.currency or "USD",
             )
             db.add(client)
             db.commit()
             db.refresh(client)
-        elif row.client_email and not client.email:
-            client.email = row.client_email
+        else:
+            if row.client_email and not client.email:
+                client.email = row.client_email
+            if norm_phone and not client.phone:
+                client.phone = norm_phone
             db.commit()
 
         # Parse dates if valid string
@@ -155,6 +179,8 @@ def execute_csv_import(db: Session, org_id: str, rows: List[CSVPreviewRow]) -> i
                 issue_date=parsed_issue_date,
                 status="unpaid",
                 imported_from="csv",
+                reminder_phone=norm_phone,
+                payment_link=pay_link,
             )
             db.add(invoice)
         else:
@@ -162,6 +188,8 @@ def execute_csv_import(db: Session, org_id: str, rows: List[CSVPreviewRow]) -> i
             invoice.balance = row.amount
             if parsed_due_date: invoice.due_date = parsed_due_date
             if parsed_issue_date: invoice.issue_date = parsed_issue_date
+            if norm_phone: invoice.reminder_phone = norm_phone
+            if pay_link: invoice.payment_link = pay_link
 
         imported_count += 1
 

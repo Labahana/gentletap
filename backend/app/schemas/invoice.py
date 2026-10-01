@@ -12,6 +12,7 @@ class InvoiceCreate(BaseModel):
     due_date: Optional[date] = None
     issue_date: Optional[date] = None
     payment_link: Optional[str] = None
+    reminder_phone: Optional[str] = None
 
 
 class InvoiceUpdate(BaseModel):
@@ -24,6 +25,7 @@ class InvoiceUpdate(BaseModel):
     status: Optional[str] = None
     expected_payment_date: Optional[date] = None
     payment_link: Optional[str] = None
+    reminder_phone: Optional[str] = None
 
 
 class InvoiceOut(BaseModel):
@@ -45,6 +47,7 @@ class InvoiceOut(BaseModel):
     imported_from: str
     expected_payment_date: Optional[date] = None
     payment_link: Optional[str] = None
+    reminder_phone: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     client: Optional[ClientOut] = None
@@ -57,10 +60,12 @@ class CSVPreviewRow(BaseModel):
     invoice_number: str
     client_name: str
     client_email: Optional[str] = None
+    client_phone: Optional[str] = None
     amount: float
     currency: str = "USD"
     due_date: Optional[str] = None
     issue_date: Optional[str] = None
+    payment_link: Optional[str] = None
     is_valid: bool = True
     error_message: Optional[str] = None
 

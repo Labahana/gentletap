@@ -52,6 +52,29 @@ def exchange_freshbooks_code(code: str) -> Dict[str, Any]:
         return response.json()
 
 
+def _fb_phone(fb_c: Dict[str, Any]):
+    """Best-effort mobile/phone extraction across FreshBooks client payload shapes."""
+    for key in ("mobile", "phone", "cell_phone", "bus_phone", "home_phone"):
+        val = fb_c.get(key)
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+    # v2.0 nests numbers as a list of {type, rating, value}.
+    numbers = fb_c.get("numbers")
+    if isinstance(numbers, list):
+        primary = None
+        for entry in numbers:
+            if not isinstance(entry, dict):
+                continue
+            value = entry.get("value")
+            if not (isinstance(value, str) and value.strip()):
+                continue
+            if entry.get("type") == "mobile":
+                return value.strip()
+            primary = primary or value.strip()
+        return primary
+    return None
+
+
 def sync_freshbooks_data(db: Session, org_id: str, connection: Connection) -> Tuple[int, int]:
     """
     Sync clients and outstanding invoices from FreshBooks.
@@ -143,6 +166,7 @@ def sync_freshbooks_data(db: Session, org_id: str, connection: Connection) -> Tu
                     continue
                 name = fb_c.get("organization") or f"{fb_c.get('first_name', fb_c.get('fname', ''))} {fb_c.get('last_name', fb_c.get('lname', ''))}".strip() or "FreshBooks Client"
                 email = fb_c.get("email")
+                phone = _fb_phone(fb_c)
 
                 db_c = db.query(Client).filter(Client.org_id == org_id, Client.external_client_id == ext_id).first()
                 if not db_c:
@@ -151,6 +175,7 @@ def sync_freshbooks_data(db: Session, org_id: str, connection: Connection) -> Tu
                         external_client_id=ext_id,
                         name=name,
                         email=email,
+                        phone=phone,
                     )
                     db.add(db_c)
                     clients_synced += 1
@@ -158,6 +183,8 @@ def sync_freshbooks_data(db: Session, org_id: str, connection: Connection) -> Tu
                     db_c.name = name
                     if email:
                         db_c.email = email
+                    if phone:
+                        db_c.phone = phone
             db.commit()
 
             # Sync Invoices

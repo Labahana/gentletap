@@ -37,6 +37,7 @@ export const InvoiceDetail: React.FC = () => {
   const [stepWhen, setStepWhen] = useState('');
   const [stepTemplate, setStepTemplate] = useState('');
   const [payLink, setPayLink] = useState('');
+  const [waPhone, setWaPhone] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
 
   const onActionError = (err: any) =>
@@ -68,6 +69,10 @@ export const InvoiceDetail: React.FC = () => {
   useEffect(() => {
     if (invoice) setPayLink(invoice.payment_link || '');
   }, [invoice?.payment_link]);
+
+  useEffect(() => {
+    if (invoice) setWaPhone(invoice.reminder_phone || '');
+  }, [invoice?.reminder_phone]);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['invoiceDetail', id] });
@@ -305,6 +310,46 @@ export const InvoiceDetail: React.FC = () => {
             {apiErrorMessage(updateInvoiceMutation.error, 'Could not save the payment link. Use a full https:// URL.')}
           </p>
         )}
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-xs">
+        <h3 className="text-sm font-bold text-gray-900 mb-1">WhatsApp number</h3>
+        <p className="text-xs text-gray-500 mb-3">
+          Overrides this client&apos;s default number for WhatsApp follow-ups on this invoice. Leave blank to use
+          the client&apos;s number ({invoice.client?.phone || 'none on file'}). Without any number, reminders go
+          email-only.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="tel"
+            value={waPhone}
+            onChange={(event) => setWaPhone(event.target.value)}
+            placeholder="+1 555 123 4567"
+            className="flex-1 min-w-[240px] border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          />
+          <button
+            onClick={() => updateInvoiceMutation.mutate({ reminder_phone: waPhone.trim() })}
+            disabled={updateInvoiceMutation.isPending}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-xs shadow-xs disabled:opacity-50"
+          >
+            {updateInvoiceMutation.isPending ? 'Saving…' : 'Save'}
+          </button>
+          {invoice.reminder_phone && (
+            <button
+              onClick={() => {
+                setWaPhone('');
+                updateInvoiceMutation.mutate({ reminder_phone: '' });
+              }}
+              disabled={updateInvoiceMutation.isPending}
+              className="px-3 py-2 text-xs font-medium text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100"
+            >
+              Clear override
+            </button>
+          )}
+        </div>
+        <p className="text-xs text-gray-500 mt-2">
+          Current recipient: {invoice.reminder_phone || invoice.client?.phone || '— (email only)'}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

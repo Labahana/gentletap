@@ -407,6 +407,48 @@ def process_single_reminder(db, schedule: ReminderSchedule, bypass_approval: boo
         return {"status": "sent", "message_id": msg.id, "schedule_id": schedule.id}
 
 
+def _notify_missing_phone(db, org, invoice) -> None:
+    """Surface a WhatsApp-gap once per invoice so the user can add a number.
+
+    The email reminder still went out (WhatsApp is only the follow-up), so this is
+    an advisory nudge — deduped against an existing unread notification for the
+    same invoice to avoid re-alerting on every retry.
+    """
+    try:
+        from app.models.notification import UserNotification
+
+        link = f"/dashboard/invoices/{invoice.id}"
+        already = (
+            db.query(UserNotification)
+            .filter(
+                UserNotification.org_id == org.id,
+                UserNotification.type == "needs_contact",
+                UserNotification.link == link,
+                UserNotification.read_at.is_(None),
+            )
+            .first()
+        )
+        if already:
+            return
+        db.add(
+            UserNotification(
+                org_id=org.id,
+                user_id=org.owner_user_id,
+                type="needs_contact",
+                title=f"Add a WhatsApp number — invoice #{invoice.number}",
+                body=(
+                    "Email reminder sent, but this client has no phone on file so the "
+                    "WhatsApp follow-up was skipped. Add a number to enable it."
+                ),
+                link=link,
+            )
+        )
+        db.commit()
+    except Exception as exc:  # noqa: BLE001 - a nudge must never break the pipeline
+        db.rollback()
+        logger.warning("needs_contact nudge failed: %s", exc)
+
+
 @celery_app.task(name="app.tasks.process_reminders.send_whatsapp_followup_task")
 def send_whatsapp_followup_task(invoice_id: str, step_index: int, email_message_id: str):
     db = SessionLocal()
@@ -433,7 +475,14 @@ def send_whatsapp_followup_task(invoice_id: str, step_index: int, email_message_
 
         org = db.query(Organization).filter(Organization.id == invoice.org_id).first()
         client = db.query(Client).filter(Client.id == invoice.client_id).first()
-        if not org or not client or not client.phone:
+        from app.services.reminder_contacts import effective_reminder_phone
+
+        to_phone = effective_reminder_phone(invoice, client)
+        if not org or not client or not to_phone:
+            # Email-only fallback: the client already got the email. Surface the gap once
+            # so the user can add a WhatsApp number instead of a silent, invisible skip.
+            if org:
+                _notify_missing_phone(db, org, invoice)
             return {"status": "skipped", "reason": "no_phone"}
 
         wa_settings = get_or_create_org_settings(db, org.id)
@@ -493,7 +542,7 @@ def send_whatsapp_followup_task(invoice_id: str, step_index: int, email_message_
             amount=f"{float(invoice.amount):,.2f} {invoice.currency}",
             days_overdue=days_overdue,
         )
-        result = send_whatsapp(client.phone, body, content_sid=sid or None, variables=variables)
+        result = send_whatsapp(to_phone, body, content_sid=sid or None, variables=variables)
         failed = result.get("status") == "failed"
         if failed:
             # Give the credit back — the message never reached the client.

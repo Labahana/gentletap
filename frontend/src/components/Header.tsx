@@ -40,6 +40,7 @@ export const Header: React.FC = () => {
     escalation: 'bg-amber-50 text-amber-600',
     sync_error: 'bg-rose-50 text-rose-600',
     billing: 'bg-blue-50 text-blue-600',
+    needs_contact: 'bg-sky-50 text-sky-600',
     system: 'bg-slate-100 text-slate-600',
   };
 

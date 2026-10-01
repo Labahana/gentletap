@@ -15,6 +15,7 @@ export const ClientDetail: React.FC = () => {
   const [tonePref, setTonePref] = useState('');
   const [channelPref, setChannelPref] = useState('email');
   const [bestSendTime, setBestSendTime] = useState('09:00');
+  const [phone, setPhone] = useState('');
 
   const { data: client, isLoading } = useQuery({
     queryKey: ['clientDetail', id],
@@ -47,6 +48,15 @@ export const ClientDetail: React.FC = () => {
       setBestSendTime(profile.preferences.best_send_time || '09:00');
     }
   }, [profile]);
+
+  React.useEffect(() => {
+    if (client) setPhone(client.phone || '');
+  }, [client?.phone]);
+
+  const phoneMutation = useMutation({
+    mutationFn: async () => api.patch(`/clients/${id}`, { phone: phone.trim() }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['clientDetail', id] }),
+  });
 
   const prefsMutation = useMutation({
     mutationFn: async () =>
@@ -131,6 +141,33 @@ export const ClientDetail: React.FC = () => {
             totalInvoices={profile?.total_invoices ?? 0}
           />
         </div>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-xs">
+        <h3 className="text-sm font-bold text-gray-900 mb-1">Default WhatsApp number</h3>
+        <p className="text-xs text-gray-500 mb-3">
+          Used for WhatsApp follow-ups on this client&apos;s invoices unless an invoice overrides it. Enter an
+          international number (e.g. +15551234567). Leave blank for email-only reminders.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+1 555 123 4567"
+            className="flex-1 min-w-[240px] border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          />
+          <button
+            onClick={() => phoneMutation.mutate()}
+            disabled={phoneMutation.isPending}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-xs shadow-xs disabled:opacity-50"
+          >
+            {phoneMutation.isPending ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+        {phoneMutation.error && (
+          <p className="text-xs text-rose-700 mt-2">Could not save the number. Please try again.</p>
+        )}
       </div>
 
       <div className="flex gap-2 border-b border-gray-200">

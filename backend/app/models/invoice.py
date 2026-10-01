@@ -31,5 +31,6 @@ class Invoice(Base, TimestampMixin):
     imported_from: Mapped[str] = mapped_column(String(20), default="manual", nullable=False)  # quickbooks|freshbooks|csv|manual
     expected_payment_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     payment_link: Mapped[Optional[str]] = mapped_column(String(2048), nullable=True)
+    reminder_phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
     client: Mapped["Client"] = relationship("Client", lazy="joined")

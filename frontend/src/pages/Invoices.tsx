@@ -22,6 +22,8 @@ export const Invoices: React.FC = () => {
   const [clientId, setClientId] = useState('');
   const [amount, setAmount] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [phone, setPhone] = useState('');
+  const [payLink, setPayLink] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
 
   // CSV Import preview state
@@ -106,11 +108,16 @@ export const Invoices: React.FC = () => {
         amount: parseFloat(amount),
         currency: 'USD',
         due_date: dueDate || null,
+        reminder_phone: phone.trim() || null,
+        payment_link: payLink.trim() || null,
       });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       setCreateModalOpen(false);
       setNumber('');
       setAmount('');
+      setDueDate('');
+      setPhone('');
+      setPayLink('');
     } catch (err: any) {
       if (err.response?.status === 403) {
         setCreateModalOpen(false);
@@ -373,6 +380,29 @@ export const Invoices: React.FC = () => {
                   onChange={(e) => setDueDate(e.target.value)}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">WhatsApp number <span className="text-gray-400 font-normal">(optional)</span></label>
+                  <input
+                    type="tel"
+                    placeholder="+1 555 123 4567"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Payment link <span className="text-gray-400 font-normal">(optional)</span></label>
+                  <input
+                    type="url"
+                    placeholder="https://pay.example.com/inv-001"
+                    value={payLink}
+                    onChange={(e) => setPayLink(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
               </div>
 
               <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">

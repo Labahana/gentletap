@@ -170,6 +170,20 @@ def sync_qbo_data(db: Session, org_id: str, connection: Connection) -> Tuple[int
                 total_amt = float(inv.get("TotalAmt", 0))
                 balance = float(inv.get("Balance", 0))
 
+                # QB hosts a pay/PDF URL on the invoice; use it as the reminder pay-link.
+                qbo_link = inv.get("InvoiceLink")
+                pay_link = qbo_link if isinstance(qbo_link, str) and qbo_link.startswith(("http://", "https://")) else None
+
+                def _qbo_date(val):
+                    s = (val or "")[:10]
+                    try:
+                        return datetime.strptime(s, "%Y-%m-%d").date()
+                    except ValueError:
+                        return None
+
+                due_d = _qbo_date(inv.get("DueDate"))
+                issue_d = _qbo_date(inv.get("TxnDate"))
+
                 db_client = db.query(Client).filter(Client.org_id == org_id, Client.external_client_id == cust_ref_id).first()
                 if not db_client:
                     db_client = Client(
@@ -195,12 +209,21 @@ def sync_qbo_data(db: Session, org_id: str, connection: Connection) -> Tuple[int
                             currency="USD",
                             status="unpaid",
                             imported_from="quickbooks",
+                            due_date=due_d,
+                            issue_date=issue_d,
+                            payment_link=pay_link,
                         )
                         db.add(db_inv)
                         invoices_synced += 1
                     else:
                         db_inv.balance = balance
                         db_inv.amount = total_amt
+                        if due_d:
+                            db_inv.due_date = due_d
+                        if issue_d:
+                            db_inv.issue_date = issue_d
+                        if pay_link:
+                            db_inv.payment_link = pay_link
             db.commit()
 
         connection.last_sync_at = datetime.now(timezone.utc)

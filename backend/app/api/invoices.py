@@ -36,11 +36,29 @@ def _clean_payment_link(value: Optional[str]) -> Optional[str]:
         raise HTTPException(status_code=422, detail="payment_link must be a valid http(s) URL")
     return link[:2048]
 
+
+def _clean_reminder_phone(value: Optional[str]) -> Optional[str]:
+    """Normalize a per-invoice WhatsApp override to E.164; reject un-normalizable input."""
+    if value is None:
+        return None
+    raw = value.strip()
+    if not raw:
+        return None
+    from app.services.reminder_contacts import normalize_phone_e164
+
+    normalized = normalize_phone_e164(raw)
+    if normalized is None:
+        raise HTTPException(
+            status_code=422,
+            detail="reminder_phone must be a valid phone number in international format (e.g. +15551234567)",
+        )
+    return normalized
+
 SAMPLE_IMPORT_CSV = (
-    "client_name,client_email,invoice_number,amount,currency,due_date,invoice_date\n"
-    "Acme Corp,billing@acmecorp.com,INV-1001,2450.00,USD,2026-08-04,2026-07-04\n"
-    "Starlight Design Studio,accounts@starlightdesign.io,INV-1002,3800.00,USD,2026-08-21,2026-07-21\n"
-    "Bluepeak Media,finance@bluepeak.io,INV-1003,950.00,USD,2026-09-01,2026-08-01\n"
+    "client_name,client_email,client_phone,invoice_number,amount,currency,due_date,invoice_date,payment_link\n"
+    "Acme Corp,billing@acmecorp.com,+15550192834,INV-1001,2450.00,USD,2026-08-04,2026-07-04,https://pay.stripe.com/acme/inv-1001\n"
+    "Starlight Design Studio,accounts@starlightdesign.io,,INV-1002,3800.00,USD,2026-08-21,2026-07-21,\n"
+    "Bluepeak Media,finance@bluepeak.io,+15550148877,INV-1003,950.00,USD,2026-09-01,2026-08-01,https://pay.acme.com/bluepeak/inv-1003\n"
 )
 
 
@@ -122,6 +140,12 @@ def create_invoice(
     if not client:
         raise HTTPException(status_code=400, detail="Invalid client ID")
 
+    reminder_phone = _clean_reminder_phone(req.reminder_phone)
+    # Backfill the client's default phone so future invoices from this contact
+    # inherit WhatsApp without re-entry (hybrid contact model).
+    if reminder_phone and not client.phone:
+        client.phone = reminder_phone
+
     invoice = Invoice(
         org_id=org.id,
         number=req.number,
@@ -134,6 +158,7 @@ def create_invoice(
         status="unpaid",
         imported_from="manual",
         payment_link=_clean_payment_link(req.payment_link),
+        reminder_phone=reminder_phone,
     )
     db.add(invoice)
 
@@ -215,6 +240,7 @@ def update_invoice(
     if req.status is not None: invoice.status = req.status
     if req.expected_payment_date is not None: invoice.expected_payment_date = req.expected_payment_date
     if req.payment_link is not None: invoice.payment_link = _clean_payment_link(req.payment_link)
+    if req.reminder_phone is not None: invoice.reminder_phone = _clean_reminder_phone(req.reminder_phone)
 
     db.commit()
     db.refresh(invoice)

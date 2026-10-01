@@ -14,6 +14,7 @@ from app.models.invoice import Invoice
 from app.models.org_settings import OrgSettings
 from app.models.organization import Organization
 from app.models.suppression import Suppression
+from app.services.reminder_contacts import effective_reminder_phone
 
 
 def _compute_days_overdue(inv: Invoice) -> int:
@@ -125,7 +126,7 @@ def build_reminder_context(
         sequence_paused=invoice.stop_reminders
         or _sequence_paused_for_invoice(db, str(invoice.id)),
         approved=True,
-        payment_link=None,
+        payment_link=invoice.payment_link,
     )
 
     ctx_profile = CtxClientProfile(
@@ -144,7 +145,7 @@ def build_reminder_context(
         client_id=str(client.id),
         client_name=client.name or "there",
         client_email=client.email,
-        client_phone=client.phone,
+        client_phone=effective_reminder_phone(invoice, client),
         email_suppressed=email_suppressed,
         user_plan=org.plan or "starter",
         sender_name=owner_name,
