@@ -23,6 +23,7 @@ from app.models.client import Client
 from app.models.invoice import Invoice
 from app.models.org_settings import OrgSettings
 from app.models.organization import Organization
+from app.models.reminder_job import ReminderJob
 from app.models.reminder_schedule import ReminderSchedule
 from app.models.sequence import Sequence, SequenceAssignment
 from app.models.user import User
@@ -131,3 +132,66 @@ def test_assign_on_create_requires_autopilot(db):
     db.commit()
     assert autopilot_assign_if_enabled(db, inv) is True
     assert db.query(SequenceAssignment).filter(SequenceAssignment.invoice_id == inv.id).count() == 1
+
+
+def _add_job(db, org, inv, seq, *, status, step=0):
+    job = ReminderJob(
+        org_id=org.id,
+        invoice_id=inv.id,
+        sequence_id=seq.id,
+        sequence_step=step,
+        scheduled_for=datetime.now(timezone.utc),
+        status=status,
+        last_error="intel_human_handoff_recommended" if status == "cancelled" else None,
+    )
+    db.add(job)
+    db.add(SequenceAssignment(sequence_id=seq.id, invoice_id=inv.id, status="active"))
+    db.commit()
+    return job
+
+
+def test_reconcile_revives_orphaned_invoice(db):
+    org, inv, seq = _seed(db)
+    job = _add_job(db, org, inv, seq, status="cancelled")
+
+    result = autopilot_reconcile_all(db)
+
+    assert result["revived"] == 1
+    db.refresh(job)
+    assert job.status == "pending"
+    assert job.last_error is None
+    assert job.attempts == 0
+
+
+def test_reconcile_does_not_revive_after_successful_send(db):
+    org, inv, seq = _seed(db)
+    _add_job(db, org, inv, seq, status="sent", step=0)
+    _add_job(db, org, inv, seq, status="cancelled", step=1)
+
+    result = autopilot_reconcile_all(db)
+
+    assert result["revived"] == 0
+    cancelled = (
+        db.query(ReminderJob)
+        .filter(ReminderJob.invoice_id == inv.id, ReminderJob.sequence_step == 1)
+        .first()
+    )
+    assert cancelled.status == "cancelled"
+
+
+def test_reconcile_does_not_revive_live_invoice(db):
+    org, inv, seq = _seed(db)
+    _add_job(db, org, inv, seq, status="pending")
+
+    result = autopilot_reconcile_all(db)
+
+    assert result["revived"] == 0
+    assert result["assigned"] == 0
+
+
+def test_reconcile_revive_is_idempotent(db):
+    org, inv, seq = _seed(db)
+    _add_job(db, org, inv, seq, status="cancelled")
+
+    assert autopilot_reconcile_all(db)["revived"] == 1
+    assert autopilot_reconcile_all(db)["revived"] == 0

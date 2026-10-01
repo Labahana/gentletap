@@ -318,6 +318,7 @@ def autopilot_reconcile_all(db: Session) -> dict:
         for row in db.query(OrgSettings.org_id).filter(OrgSettings.operation_mode == "autopilot").all()
     ]
     assigned = 0
+    revived = 0
     for org_id in org_ids:
         default_seq = _autopilot_default_sequence(db, org_id)
         if not default_seq:
@@ -336,8 +337,80 @@ def autopilot_reconcile_all(db: Session) -> dict:
         for inv in unassigned:
             assign_sequence_and_schedule(db, inv, default_seq)
             assigned += 1
+        revived += _revive_orphaned_invoices(db, org_id)
     db.commit()
-    return {"orgs": len(org_ids), "assigned": assigned}
+    return {"orgs": len(org_ids), "assigned": assigned, "revived": revived}
+
+
+def _revive_orphaned_invoices(db: Session, org_id: str) -> int:
+    """Self-heal invoices that have an assignment but no live dispatch job.
+
+    An autopilot invoice is orphaned when it is still chaseable (unpaid/chasing,
+    not stopped) yet has no pending/processing job AND has never successfully
+    sent — every job is cancelled/failed. That happens when a step is cancelled
+    before it fires (e.g. the old pre-emptive handoff suppression), so the
+    advance-after-send chain never started. Revive the furthest cancelled/failed
+    job to fire now; execute_job materializes the schedule row from the job, so
+    no ReminderSchedule manipulation is needed. Invoices that already sent a
+    step are left alone — a mid-sequence gap there is an intentional handoff.
+    """
+    live_invoice_ids = {
+        row[0]
+        for row in db.query(ReminderJob.invoice_id)
+        .filter(
+            ReminderJob.org_id == org_id,
+            ReminderJob.status.in_(["pending", "processing"]),
+        )
+        .all()
+    }
+    sent_invoice_ids = {
+        row[0]
+        for row in db.query(ReminderJob.invoice_id)
+        .filter(ReminderJob.org_id == org_id, ReminderJob.status == "sent")
+        .all()
+    }
+    assigned_invoices = (
+        db.query(Invoice)
+        .join(SequenceAssignment, SequenceAssignment.invoice_id == Invoice.id)
+        .filter(
+            Invoice.org_id == org_id,
+            Invoice.status.in_(["unpaid", "chasing"]),
+            Invoice.stop_reminders.is_(False),
+        )
+        .distinct()
+        .all()
+    )
+    now = datetime.now(timezone.utc)
+    count = 0
+    for inv in assigned_invoices:
+        if inv.id in live_invoice_ids or inv.id in sent_invoice_ids:
+            continue
+        dead_jobs = [
+            job
+            for job in db.query(ReminderJob)
+            .filter(
+                ReminderJob.invoice_id == inv.id,
+                ReminderJob.status.in_(["cancelled", "failed"]),
+            )
+            .all()
+        ]
+        if not dead_jobs:
+            continue
+        job = max(dead_jobs, key=lambda j: j.sequence_step)
+        job.status = "pending"
+        job.scheduled_for = now
+        job.attempts = 0
+        job.last_error = None
+        if not job.sequence_id:
+            assignment = (
+                db.query(SequenceAssignment)
+                .filter(SequenceAssignment.invoice_id == inv.id)
+                .first()
+            )
+            if assignment:
+                job.sequence_id = assignment.sequence_id
+        count += 1
+    return count
 
 
 def cancel_pending_reminders(db: Session, invoice_id: str, reason: str = "cancelled") -> int:
