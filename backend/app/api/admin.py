@@ -22,6 +22,7 @@ from app.api.deps import create_access_token, decode_token
 from app.config import get_settings
 from app.database import get_db
 from app.models.audit_log import AuditLog
+from app.models.chat import ChatHandoff, ChatMessage
 from app.models.connection import Connection
 from app.models.invoice import Invoice
 from app.models.message import Message
@@ -936,3 +937,116 @@ def audit_log(
             for a in items
         ],
     }
+
+
+# ---------------------------------------------------------------------------
+# Chat support handoffs
+# ---------------------------------------------------------------------------
+
+def _iso(dt):
+    return dt.isoformat() if dt else None
+
+
+def _handoff_dict(h: ChatHandoff, org_name: Optional[str]) -> dict:
+    pkg = h.context_package or {}
+    return {
+        "id": h.id,
+        "session_id": h.session_id,
+        "org_id": h.org_id,
+        "org_name": org_name,
+        "surface": h.surface,
+        "visitor_email": h.visitor_email,
+        "trigger": h.trigger,
+        "intent": h.intent,
+        "sentiment": h.sentiment,
+        "narrative": h.narrative,
+        "suggested_resolution": h.suggested_resolution,
+        "account": pkg.get("account", {}),
+        "sources": pkg.get("sources", []),
+        "transcript": pkg.get("transcript", []),
+        "status": h.status,
+        "notified": h.notified,
+        "admin_response": h.admin_response,
+        "created_at": _iso(h.created_at),
+        "resolved_at": _iso(h.resolved_at),
+    }
+
+
+@router.get("/handoffs", dependencies=[Depends(_READ_LIMIT)])
+def list_handoffs(
+    _: dict = Depends(require_admin_flexible),
+    db: Session = Depends(get_db),
+    status_f: Optional[str] = Query(None, alias="status"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    q = db.query(ChatHandoff, Organization.name).outerjoin(
+        Organization, ChatHandoff.org_id == Organization.id
+    )
+    counts = {
+        "open": db.query(ChatHandoff).filter(ChatHandoff.status == "open").count(),
+        "in_progress": db.query(ChatHandoff).filter(ChatHandoff.status == "in_progress").count(),
+        "resolved": db.query(ChatHandoff).filter(ChatHandoff.status == "resolved").count(),
+    }
+    if status_f:
+        q = q.filter(ChatHandoff.status == status_f)
+    total = q.count()
+    rows = q.order_by(ChatHandoff.created_at.desc()).offset(offset).limit(limit).all()
+    return {
+        "total": total,
+        "counts": counts,
+        "items": [_handoff_dict(h, name) for h, name in rows],
+    }
+
+
+@router.get("/handoffs/{handoff_id}/transcript", dependencies=[Depends(_READ_LIMIT)])
+def handoff_transcript(
+    handoff_id: str,
+    _: dict = Depends(require_admin_flexible),
+    db: Session = Depends(get_db),
+):
+    h = db.query(ChatHandoff).filter(ChatHandoff.id == handoff_id).first()
+    if not h:
+        raise HTTPException(status_code=404, detail="Handoff not found")
+    rows = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.session_id == h.session_id)
+        .order_by(ChatMessage.created_at.asc(), ChatMessage.id.asc())
+        .all()
+    )
+    return {
+        "handoff_id": handoff_id,
+        "messages": [
+            {"role": m.role, "content": m.content, "created_at": _iso(m.created_at)} for m in rows
+        ],
+    }
+
+
+class _HandoffAction(BaseModel):
+    status: Optional[str] = None  # open | in_progress | resolved
+    admin_response: Optional[str] = None
+
+
+@router.post("/handoffs/{handoff_id}", dependencies=[Depends(_ACTION_LIMIT)])
+def update_handoff(
+    handoff_id: str,
+    body: _HandoffAction,
+    admin: dict = Depends(require_admin_flexible),
+    db: Session = Depends(get_db),
+):
+    h = db.query(ChatHandoff).filter(ChatHandoff.id == handoff_id).first()
+    if not h:
+        raise HTTPException(status_code=404, detail="Handoff not found")
+    new_status = (body.status or "").strip()
+    if new_status:
+        if new_status not in ("open", "in_progress", "resolved"):
+            raise HTTPException(status_code=400, detail="Invalid status")
+        h.status = new_status
+        if new_status == "resolved":
+            h.resolved_at = datetime.now(timezone.utc)
+    if body.admin_response is not None:
+        h.admin_response = body.admin_response[:4000]
+    db.commit()
+    _audit(db, admin, "admin.update_handoff", "chat_handoff", h.id, org_id=h.org_id,
+           details={"status": h.status})
+    return {"ok": True, "status": h.status}

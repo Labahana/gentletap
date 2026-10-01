@@ -58,6 +58,7 @@ import { AffiliateTerms } from '@/pages/affiliates/AffiliateTerms';
 import { AdminDashboard } from '@/pages/admin/AdminDashboard';
 import { CookieConsent } from '@/components/CookieConsent';
 import { AffiliateRefTracker } from '@/components/AffiliateRefTracker';
+import { ChatWidget } from '@/components/ChatWidget';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -166,6 +167,7 @@ export const App: React.FC = () => {
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
           <AffiliateRefTracker />
+          <ChatWidget />
           <CookieConsent />
         </BrowserRouter>
       </QueryClientProvider>

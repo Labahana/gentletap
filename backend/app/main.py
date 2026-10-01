@@ -37,6 +37,7 @@ from app.api import (
     admin,
     onboarding,
     health,
+    chat,
 )
 
 logger = logging.getLogger("gentletap")
@@ -136,3 +137,4 @@ app.include_router(public.router, prefix=api_prefix)
 app.include_router(admin.router, prefix=api_prefix)
 app.include_router(onboarding.router, prefix=api_prefix)
 app.include_router(health.router, prefix=api_prefix)
+app.include_router(chat.router, prefix=api_prefix)

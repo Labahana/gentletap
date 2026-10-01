@@ -6,6 +6,7 @@ import {
   Building2,
   ClipboardList,
   DollarSign,
+  LifeBuoy,
   Pause,
   RefreshCw,
   ShieldAlert,
@@ -23,8 +24,9 @@ import { OrganizationsTab } from '@/components/admin/OrganizationsTab';
 import { UsersTab } from '@/components/admin/UsersTab';
 import { JobsTab } from '@/components/admin/JobsTab';
 import { AuditTab } from '@/components/admin/AuditTab';
+import { SupportTab } from '@/components/admin/SupportTab';
 
-type Tab = 'overview' | 'affiliates' | 'orgs' | 'users' | 'jobs' | 'audit';
+type Tab = 'overview' | 'affiliates' | 'orgs' | 'users' | 'jobs' | 'audit' | 'support';
 
 type AffiliateRow = {
   id: string;
@@ -205,7 +207,7 @@ export const AdminDashboard: React.FC = () => {
       setSearchParams((prev) => {
         const p = new URLSearchParams(prev);
         p.set('tab', next);
-        ['status', 'org'].forEach((k) => p.delete(k));
+        ['status', 'org', 'handoff'].forEach((k) => p.delete(k));
         if (params) Object.entries(params).forEach(([k, v]) => p.set(k, v));
         return p;
       });
@@ -219,6 +221,7 @@ export const AdminDashboard: React.FC = () => {
     { id: 'orgs', label: 'Organizations', icon: Building2 },
     { id: 'users', label: 'Users', icon: Users },
     { id: 'jobs', label: 'Jobs', icon: Wrench },
+    { id: 'support', label: 'Support', icon: LifeBuoy },
     { id: 'audit', label: 'Audit log', icon: ClipboardList },
   ];
 
@@ -277,6 +280,7 @@ export const AdminDashboard: React.FC = () => {
         {tab === 'orgs' && <OrganizationsTab />}
         {tab === 'users' && <UsersTab />}
         {tab === 'jobs' && <JobsTab key={jobStatus ?? 'all'} initialStatus={jobStatus} />}
+        {tab === 'support' && <SupportTab />}
         {tab === 'audit' && <AuditTab />}
       </main>
     </div>
