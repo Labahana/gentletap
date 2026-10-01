@@ -369,31 +369,36 @@ def _revive_orphaned_invoices(db: Session, org_id: str) -> int:
         .filter(ReminderJob.org_id == org_id, ReminderJob.status == "sent")
         .all()
     }
+    assigned_invoice_ids = {
+        row[0]
+        for row in db.query(SequenceAssignment.invoice_id)
+        .join(Invoice, Invoice.id == SequenceAssignment.invoice_id)
+        .filter(Invoice.org_id == org_id)
+        .all()
+    }
+    candidate_ids = list(assigned_invoice_ids - live_invoice_ids - sent_invoice_ids)
+    if not candidate_ids:
+        return 0
     assigned_invoices = (
         db.query(Invoice)
-        .join(SequenceAssignment, SequenceAssignment.invoice_id == Invoice.id)
         .filter(
-            Invoice.org_id == org_id,
+            Invoice.id.in_(candidate_ids),
             Invoice.status.in_(["unpaid", "chasing"]),
             Invoice.stop_reminders.is_(False),
         )
-        .distinct()
         .all()
     )
     now = datetime.now(timezone.utc)
     count = 0
     for inv in assigned_invoices:
-        if inv.id in live_invoice_ids or inv.id in sent_invoice_ids:
-            continue
-        dead_jobs = [
-            job
-            for job in db.query(ReminderJob)
+        dead_jobs = (
+            db.query(ReminderJob)
             .filter(
                 ReminderJob.invoice_id == inv.id,
                 ReminderJob.status.in_(["cancelled", "failed"]),
             )
             .all()
-        ]
+        )
         if not dead_jobs:
             continue
         job = max(dead_jobs, key=lambda j: j.sequence_step)
