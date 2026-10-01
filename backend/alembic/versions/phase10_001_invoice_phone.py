@@ -3,7 +3,7 @@
 Hybrid contact model: WhatsApp resolves invoice.reminder_phone ?? client.phone.
 This column adds the optional per-invoice override; the client default already exists.
 
-Revision ID: phase10_001_invoice_reminder_phone
+Revision ID: phase10_001_invoice_phone
 Revises: phase9_001_admin_controls
 """
 from typing import Union
@@ -11,7 +11,7 @@ from typing import Union
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "phase10_001_invoice_reminder_phone"
+revision: str = "phase10_001_invoice_phone"
 down_revision: Union[str, None] = "phase9_001_admin_controls"
 branch_labels = None
 depends_on = None
