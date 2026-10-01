@@ -21,6 +21,7 @@ import { INDUSTRIES, INDUSTRY_SLUGS } from "../src/data/industries";
 import { COMPETITOR_COMPARISONS, COMPETITOR_SLUGS } from "../src/data/competitor-comparisons";
 import { BLOG_POSTS, BLOG_POST_SLUGS } from "../src/data/blog-posts";
 import { PLAN_FEATURES, PLAN_INTROS } from "../src/data/pricing";
+import { APP_NAVIGATION } from "../src/data/app-navigation";
 
 const __filename = fileURLToPath(import.meta.url);
 const SITE_URL = "https://gentletap.co";
@@ -147,6 +148,12 @@ add("faq-overdue", "Following up on overdue invoices", `${SITE_URL}/how-to-follo
   OVERDUE_FOLLOW_UP_FAQ,
 ]);
 add("faq-affiliate", "Affiliate program", `${SITE_URL}/affiliates`, "faq", AFFILIATE_FAQ);
+
+// 10) Authoritative in-app + site navigation map, so the bot gives correct
+//     "where/how do I…" directions instead of guessing menu paths.
+add("nav-app", "GentleTap app navigation — where everything is in the dashboard", `${SITE_URL}/dashboard`, "guide", APP_NAVIGATION.inApp);
+add("nav-howto", "GentleTap how-to steps (connect FreshBooks/QuickBooks/Gmail, import CSV, autopilot, sequences, templates, billing, settings, export/delete)", `${SITE_URL}/integrations`, "guide", APP_NAVIGATION.howTo);
+add("nav-site", "GentleTap public website map (pricing, features, compare, blog, guides, affiliates, legal)", SITE_URL, "guide", APP_NAVIGATION.publicSite);
 
 const pack = {
   generated_at: new Date().toISOString(),

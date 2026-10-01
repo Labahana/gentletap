@@ -2,6 +2,7 @@
 
 import os
 import sys
+import json
 import uuid
 from types import SimpleNamespace
 
@@ -110,6 +111,20 @@ def test_retrieve_hits_corpus():
 def test_retrieve_falls_back_to_overview():
     docs = knowledge.retrieve("zzz qqq xyzzy nonwords")
     assert docs  # never empty as long as the pack loaded
+
+
+def test_navigation_grounding_connects_via_integrations():
+    # Regression: the bot once told a user "Settings → Connections". Connections
+    # actually live on the Integrations page, so the pack must ground the right path.
+    pack = knowledge._load_pack()
+    blob = json.dumps(pack)
+    assert "Settings → Connections" not in blob  # the wrong instruction is gone
+
+    docs = knowledge.retrieve("how do I connect my FreshBooks account")
+    joined = "\n".join(d["text"] for d in docs)
+    assert "Integrations" in joined
+    assert "Connect FreshBooks" in joined
+
 
 
 # ---------------------------------------------------------------------------

@@ -612,7 +612,7 @@ export const COMPETITOR_COMPARISONS: Record<CompetitorSlug, CompetitorComparison
     faq: [
       {
         q: "Does GentleTap work with FreshBooks?",
-        a: "Yes. Connect FreshBooks via OAuth in onboarding or Settings → Connections. GentleTap imports outstanding invoices, sends reminders from your Gmail, and stops when FreshBooks shows the balance paid.",
+        a: "Yes. Connect FreshBooks via OAuth from the Integrations page in your dashboard (Sidebar → Integrations → Connect FreshBooks), or during onboarding. GentleTap imports outstanding invoices, sends reminders from your Gmail, and stops when FreshBooks shows the balance paid.",
       },
     ],
   },
