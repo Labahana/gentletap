@@ -12,7 +12,7 @@ from app.models.audit_log import AuditLog
 from app.models.client import Client
 from app.models.invoice import Invoice
 from app.models.message import Message
-from app.services.email import send_email_dispatch, append_opt_out_footer, apply_signature
+from app.services.email import send_email_dispatch, apply_signature
 from app.services.rate_limit import allow
 from app.services.reminder_engine import get_or_create_org_settings
 from app.workers.celery_app import celery_app
@@ -103,7 +103,6 @@ def create_and_send_message(
 
     org_settings = get_or_create_org_settings(db, org_id)
     body_with_signature = apply_signature(body, org_settings.signature)
-    body_with_footer = append_opt_out_footer(body_with_signature, org_id=org_id, email=to_email)
 
     msg = Message(
         org_id=org_id,
@@ -112,7 +111,7 @@ def create_and_send_message(
         template_id=template_id,
         channel="email",
         subject=subject,
-        body=body_with_footer,
+        body=body_with_signature,
         status="queued",
         ai_provider_used=ai_provider_used,
     )
@@ -132,7 +131,7 @@ def create_and_send_message(
             org_id=org_id,
             to_email=to_email,
             subject=subject,
-            body=body_with_footer,
+            body=body_with_signature,
             send_via=send_via,
             db=db,
             thread=thread,

@@ -1,6 +1,5 @@
 from app.intelligence.channel_selector import select_channel
 from app.intelligence.risk_scorer import score_risk
-from app.intelligence.escalation import should_escalate
 from app.intelligence.schemas import (
     Action,
     Channel,
@@ -55,16 +54,6 @@ class IntelligenceEngine:
             return DecideResult(action=Action.WAIT, reason=reason)
 
         channel = select_channel(ctx)
-
-        if should_escalate(ctx):
-            risk = score_risk(ctx)
-            tone = select_tone(ctx, risk)
-            return DecideResult(
-                action=Action.ESCALATE,
-                channel=channel,
-                tone=tone,
-                reason="human_handoff_recommended",
-            )
 
         risk = score_risk(ctx)
         tone = select_tone(ctx, risk)

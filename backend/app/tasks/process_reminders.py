@@ -90,50 +90,6 @@ def _client_sent_in_last_24h(db, client_id: str) -> bool:
     )
 
 
-def _notify_escalation(db, invoice, ctx) -> None:
-    """Record an escalation decision and notify the org owner (human handoff)."""
-    try:
-        from app.models.audit_log import AuditLog
-        from app.models.notification import UserNotification
-        from app.models.organization import Organization
-        from app.intelligence.risk_scorer import score_risk
-
-        db.add(
-            AuditLog(
-                org_id=invoice.org_id,
-                actor_type="system",
-                action="reminder_escalated",
-                entity_type="invoice",
-                entity_id=invoice.id,
-                details={
-                    "client": ctx.client_name,
-                    "days_overdue": ctx.invoice.days_overdue,
-                    "risk": score_risk(ctx).value,
-                },
-            )
-        )
-        owner = (
-            db.query(Organization).filter(Organization.id == invoice.org_id).first()
-        )
-        if owner is not None:
-            db.add(
-                UserNotification(
-                    org_id=owner.id,
-                    user_id=owner.owner_user_id,
-                    type="escalation",
-                    title=f"Human handoff recommended — invoice #{invoice.number}",
-                    body=(
-                        f"{ctx.client_name}: {ctx.invoice.days_overdue} days overdue, "
-                        f"high relationship risk. GentleTap paused this reminder for you to handle personally."
-                    ),
-                )
-            )
-        db.commit()
-    except Exception as exc:  # noqa: BLE001 - notification must never break the pipeline
-        db.rollback()
-        logger.warning("Escalation notification failed: %s", exc)
-
-
 def process_single_reminder(db, schedule: ReminderSchedule, bypass_approval: bool = False) -> dict:
     lock_key = f"reminder:{schedule.invoice_id}:{schedule.step_index}"
     with redis_lock(lock_key, ttl_seconds=300) as acquired:
@@ -249,7 +205,6 @@ def process_single_reminder(db, schedule: ReminderSchedule, bypass_approval: boo
             from app.models.organization import Organization
             from app.intelligence.context_builder import build_reminder_context
             from app.intelligence.engine import engine as intel_engine
-            from app.intelligence.escalation import should_escalate
             from app.intelligence.risk_scorer import score_risk
             from app.intelligence.timing_optimizer import next_send_window
             from app.intelligence.tone_selector import select_tone
@@ -285,11 +240,9 @@ def process_single_reminder(db, schedule: ReminderSchedule, bypass_approval: boo
                     schedule.skip_reason = f"intel_{reason or 'wait'}"
                     return {"status": "skipped", "reason": f"intel_{reason}"}
 
-                if should_escalate(ctx):
-                    schedule.status = "skipped"
-                    schedule.skip_reason = "intel_human_handoff_recommended"
-                    _notify_escalation(db, invoice, ctx)
-                    return {"status": "skipped", "reason": "intel_escalated"}
+                # Autonomy: no pre-emptive human-handoff suppression. High-value /
+                # long-overdue invoices are still surfaced on the dashboard "needs you"
+                # list (needs_human), but the reminder itself always sends.
 
                 # Risk-aware tone override when drafting fresh (no fixed template).
                 if not schedule.template_id and not schedule.draft_body:
