@@ -75,14 +75,15 @@ def _model_for_plan(plan: Optional[str]) -> tuple[Optional[str], Optional[str]]:
 
 def chat_completion(system: str, user: str, *, plan: Optional[str] = None) -> dict:
     openai_model, kimi_model = _model_for_plan(plan)
+    timeout = float(get_settings().chat_timeout_seconds)
 
-    result = _parse(call_openai(user, system=system, model=openai_model))
+    result = _parse(call_openai(user, system=system, model=openai_model, timeout=timeout))
     if result:
         return result
-    result = _parse(call_kimi(user, system=system, model=kimi_model))
+    result = _parse(call_kimi(user, system=system, model=kimi_model, timeout=timeout))
     if result:
         return result
-    result = _parse(call_zai(user, system=system))
+    result = _parse(call_zai(user, system=system, timeout=timeout))
     if result:
         return result
 

@@ -57,8 +57,13 @@ def client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def rate_limit(limit: str, *, key_extra: str = ""):
-    """Build a dependency enforcing e.g. rate_limit("5/60") = 5 requests / 60s."""
+def rate_limit(limit: str, *, key_extra: str = "", fail_closed: bool = False):
+    """Build a dependency enforcing e.g. rate_limit("5/60") = 5 requests / 60s.
+
+    fail_closed=True makes a Redis outage return 503 instead of allowing the
+    request — use for unauthenticated, cost-bearing endpoints (e.g. public chat)
+    where an unlimited fallback is worse than a brief outage.
+    """
     count_part, _, window_part = limit.partition("/")
     max_requests = int(count_part)
     window_seconds = int(window_part) if window_part else 60
@@ -73,7 +78,13 @@ def rate_limit(limit: str, *, key_extra: str = ""):
             if current == 1:
                 r.expire(cache_key, window_seconds)
             ttl = r.ttl(cache_key)
-        except Exception as exc:  # noqa: BLE001 - fail open
+        except Exception as exc:  # noqa: BLE001
+            if fail_closed:
+                logger.error("Rate limiter unavailable (%s); rejecting (fail closed)", exc)
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Service temporarily unavailable. Please try again shortly.",
+                )
             logger.warning("Rate limiter unavailable (%s); allowing request", exc)
             return
 

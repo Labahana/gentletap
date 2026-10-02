@@ -13,7 +13,11 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
-def call_zai(prompt: str, system: str = "You write concise payment reminder emails.") -> Optional[str]:
+def call_zai(
+    prompt: str,
+    system: str = "You write concise payment reminder emails.",
+    timeout: Optional[float] = None,
+) -> Optional[str]:
     if not settings.zai_api_key:
         logger.info("Z.AI API key missing; skipping fallback provider")
         return None
@@ -31,7 +35,7 @@ def call_zai(prompt: str, system: str = "You write concise payment reminder emai
         "temperature": 0.7,
     }
     try:
-        with httpx.Client(timeout=float(settings.zai_timeout_seconds)) as client:
+        with httpx.Client(timeout=timeout if timeout is not None else float(settings.zai_timeout_seconds)) as client:
             res = client.post(
                 f"{settings.zai_api_base.rstrip('/')}/chat/completions",
                 headers=headers,

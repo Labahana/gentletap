@@ -17,6 +17,7 @@ def call_openai(
     prompt: str,
     system: str = "You write concise payment reminder emails.",
     model: Optional[str] = None,
+    timeout: Optional[float] = None,
 ) -> Optional[str]:
     if not settings.openai_api_key:
         logger.info("OPENAI_API_KEY missing; skipping OpenAI provider")
@@ -35,7 +36,7 @@ def call_openai(
         "temperature": 0.7,
     }
     try:
-        with httpx.Client(timeout=30.0) as client:
+        with httpx.Client(timeout=timeout if timeout is not None else 30.0) as client:
             res = client.post(
                 f"{settings.openai_api_base.rstrip('/')}/chat/completions",
                 headers=headers,

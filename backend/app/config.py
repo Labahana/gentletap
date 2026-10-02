@@ -103,6 +103,12 @@ class Settings(BaseSettings):
     zai_api_base: str = Field(default="https://api.z.ai/api/paas/v4/", validation_alias=AliasChoices("ZAI_BASE_URL", "zai_base_url"))
     zai_timeout_seconds: float = Field(default=30.0, validation_alias=AliasChoices("ZAI_TIMEOUT_SECONDS", "zai_timeout_seconds"))
 
+    # Support chatbot — per-provider wall-clock budget for a single turn and
+    # integrity caps for anonymous public sessions (see services/chat).
+    chat_timeout_seconds: float = Field(default=12.0, validation_alias=AliasChoices("CHAT_TIMEOUT_SECONDS", "chat_timeout_seconds"))
+    chat_public_max_messages: int = Field(default=40, validation_alias=AliasChoices("CHAT_PUBLIC_MAX_MESSAGES", "chat_public_max_messages"))
+    chat_public_daily_limit: int = Field(default=100, validation_alias=AliasChoices("CHAT_PUBLIC_DAILY_LIMIT", "chat_public_daily_limit"))
+
     # Paddle Billing
     paddle_api_key: str = Field(default="", validation_alias=AliasChoices("PADDLE_API_KEY", "paddle_api_key"))
     paddle_client_token: str = Field(default="", validation_alias=AliasChoices("PADDLE_CLIENT_TOKEN", "paddle_client_token"))

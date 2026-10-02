@@ -335,3 +335,81 @@ def test_admin_handoff_rejects_bad_status(db, client, monkeypatch):
 def test_admin_handoffs_require_admin(db, client):
     # no auth header -> 401
     assert client.get("/api/v1/admin/handoffs").status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Security fixes (#1-#4): PII purge, public budget fail-closed, session cap,
+# prompt-injection hardening
+# ---------------------------------------------------------------------------
+
+def test_anonymize_chat_data_scrubs_org_pii(db):
+    # #1: GDPR account purge must blank chat PII for the org but leave
+    # unrelated anonymous sessions untouched.
+    user = _user(db)
+    org = _org(db, owner=user)
+    sess = service.get_or_create_session(db, surface="app", session_id=None, org=org, user=user)
+    db.add(ChatMessage(session_id=sess.id, role="user", content="my email is a@b.com"))
+    visitor_sess = service.get_or_create_session(
+        db, surface="public", session_id=None, visitor_id="keep-me"
+    )
+    db.add(ChatMessage(session_id=visitor_sess.id, role="user", content="public hello"))
+    h = ChatHandoff(
+        session_id=sess.id, org_id=org.id, user_id=user.id, surface="app",
+        trigger="explicit_request", visitor_email="a@b.com", narrative="secret",
+        suggested_resolution="secret", context_package={"account": {"plan": "pro"}}, status="open",
+    )
+    db.add(h)
+    db.commit()
+
+    scrubbed = service.anonymize_chat_data(db, org.id)
+    db.commit()
+
+    assert scrubbed == 1
+    # org session + handoff scrubbed
+    assert sess.visitor_email is None and sess.visitor_id is None and sess.page is None
+    assert h.visitor_email is None and h.narrative == "[purged]"
+    assert h.suggested_resolution is None and h.context_package is None
+    for m in db.query(ChatMessage).filter(ChatMessage.session_id == sess.id).all():
+        assert m.content == "[purged]" and m.meta is None
+    # unrelated public session untouched
+    assert visitor_sess.visitor_id == "keep-me"
+    pub = db.query(ChatMessage).filter(ChatMessage.session_id == visitor_sess.id).all()
+    assert pub[0].content == "public hello"
+
+
+def test_public_session_message_cap(db, monkeypatch):
+    # #4: an anonymous session rotates to a fresh id once it hits the cap, so a
+    # single thread can't grow without bound.
+    monkeypatch.setattr(service, "get_settings", lambda: SimpleNamespace(chat_public_max_messages=2))
+    s1 = service.get_or_create_session(db, surface="public", session_id=None, visitor_id="v")
+    db.commit()
+
+    db.add(ChatMessage(session_id=s1.id, role="user", content="one"))
+    db.commit()
+    reused = service.get_or_create_session(db, surface="public", session_id=s1.id, visitor_id="v")
+    assert reused.id == s1.id  # under the cap -> same session
+
+    db.add(ChatMessage(session_id=s1.id, role="assistant", content="two"))
+    db.commit()
+    rotated = service.get_or_create_session(db, surface="public", session_id=s1.id, visitor_id="v")
+    assert rotated.id != s1.id  # at the cap -> brand new session
+    assert rotated.surface == "public" and rotated.visitor_id == "v"
+
+
+def test_public_chat_fails_closed_when_redis_down(client, monkeypatch):
+    # #2: the public budget fails CLOSED — a Redis outage must not leave an
+    # unauthenticated, cost-bearing endpoint wide open.
+    def boom():
+        raise RuntimeError("redis down")
+
+    monkeypatch.setattr("app.services.rate_limit.get_redis", boom)
+    r = client.post("/api/v1/chat/public", json={"message": "hello", "visitor_id": "v"})
+    assert r.status_code == 503
+
+
+def test_system_prompt_flags_untrusted_input():
+    # #3: prompt carries explicit anti-injection guidance.
+    from app.services.chat import prompts
+
+    assert "UNTRUSTED INPUT" in prompts.SYSTEM_PROMPT
+    assert "prompt-injection" in prompts.SYSTEM_PROMPT

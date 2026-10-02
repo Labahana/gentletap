@@ -90,6 +90,9 @@ def purge_deleted_accounts():
             org.paddle_customer_id = None
             org.paddle_subscription_id = None
             org.deletion_requested_at = None
+            # Wipe support-chat PII (transcripts, visitor emails, handoff packages)
+            from app.services.chat import service as chat_service
+            chat_service.anonymize_chat_data(db, org.id)
             purged += 1
         db.commit()
         return {"purged": purged}

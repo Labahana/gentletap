@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_and_org
+from app.config import get_settings
 from app.database import get_db
 from app.models.chat import ChatMessage, ChatSession
 from app.services.chat import service
@@ -23,6 +24,13 @@ from app.services.rate_limit import rate_limit
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
 _MAX_MESSAGE = 2000
+
+# Public turns cost provider money and thread time, so cap both burst (per
+# minute) and total spend (per IP per day). The daily cap fails CLOSED: if Redis
+# is down we would otherwise bill unlimited anonymous LLM calls.
+_public_daily_budget = rate_limit(
+    f"{get_settings().chat_public_daily_limit}/86400", key_extra="chat_daily", fail_closed=True
+)
 
 
 class ChatRequest(BaseModel):
@@ -36,7 +44,7 @@ class PublicChatRequest(ChatRequest):
     email: Optional[str] = Field(None, max_length=255)
 
 
-@router.post("/public", dependencies=[Depends(rate_limit("20/60"))])
+@router.post("/public", dependencies=[Depends(rate_limit("20/60")), Depends(_public_daily_budget)])
 def chat_public(req: PublicChatRequest, request: Request, db: Session = Depends(get_db)):
     """Anonymous marketing-site assistant. Product-only grounding, no account data."""
     visitor_id = req.visitor_id or request.headers.get("x-gentletap-visitor")

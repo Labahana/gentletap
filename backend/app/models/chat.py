@@ -22,7 +22,7 @@ class ChatSession(Base):
     # surface: 'public' (anonymous marketing visitor) | 'app' (authenticated user)
     surface: Mapped[str] = mapped_column(String(10), default="public", nullable=False)
     # Both null for anonymous public sessions; org-scoped for authenticated app chats.
-    org_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("organizations.id"), index=True, nullable=True)
+    org_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), index=True, nullable=True)
     user_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("users.id"), index=True, nullable=True)
     visitor_id: Mapped[Optional[str]] = mapped_column(String(64), index=True, nullable=True)
     visitor_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -40,7 +40,7 @@ class ChatMessage(Base):
     __tablename__ = "chat_messages"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    session_id: Mapped[str] = mapped_column(String(36), ForeignKey("chat_sessions.id"), index=True, nullable=False)
+    session_id: Mapped[str] = mapped_column(String(36), ForeignKey("chat_sessions.id", ondelete="CASCADE"), index=True, nullable=False)
     role: Mapped[str] = mapped_column(String(20), nullable=False)  # user|assistant|system
     content: Mapped[str] = mapped_column(Text, nullable=False)
     # assistant-only: {intent, sentiment, confidence, escalate, sources: [...], handoff_id}
@@ -54,8 +54,8 @@ class ChatHandoff(Base):
     __tablename__ = "chat_handoffs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    session_id: Mapped[str] = mapped_column(String(36), ForeignKey("chat_sessions.id"), index=True, nullable=False)
-    org_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("organizations.id"), index=True, nullable=True)
+    session_id: Mapped[str] = mapped_column(String(36), ForeignKey("chat_sessions.id", ondelete="CASCADE"), index=True, nullable=False)
+    org_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), index=True, nullable=True)
     user_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
     visitor_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     surface: Mapped[str] = mapped_column(String(10), default="public", nullable=False)

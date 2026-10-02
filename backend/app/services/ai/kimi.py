@@ -17,6 +17,7 @@ def call_kimi(
     prompt: str,
     system: str = "You write concise payment reminder emails.",
     model: Optional[str] = None,
+    timeout: Optional[float] = None,
 ) -> Optional[str]:
     if not settings.kimi_api_key:
         logger.info("Kimi API key missing; skipping primary provider")
@@ -35,7 +36,7 @@ def call_kimi(
         "temperature": 0.7,
     }
     try:
-        with httpx.Client(timeout=float(settings.kimi_timeout_seconds)) as client:
+        with httpx.Client(timeout=timeout if timeout is not None else float(settings.kimi_timeout_seconds)) as client:
             res = client.post(
                 f"{settings.kimi_api_base.rstrip('/')}/chat/completions",
                 headers=headers,

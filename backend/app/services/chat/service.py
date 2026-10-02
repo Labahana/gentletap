@@ -55,7 +55,11 @@ def get_or_create_session(
                     return _touch(existing, visitor_email, page)
             else:
                 if existing.surface == "public" and existing.visitor_id == visitor_id:
-                    return _touch(existing, visitor_email, page)
+                    # Bound an anonymous session's transcript (cost, memory and
+                    # prompt-injection accumulation). Over the cap, start fresh
+                    # instead of appending to an ever-growing thread.
+                    if _message_count(db, existing.id) < get_settings().chat_public_max_messages:
+                        return _touch(existing, visitor_email, page)
     sess = ChatSession(
         surface=surface,
         org_id=org.id if org else None,
@@ -67,6 +71,15 @@ def get_or_create_session(
     db.add(sess)
     db.flush()
     return sess
+
+
+def _message_count(db: Session, session_id: str) -> int:
+    return (
+        db.query(func.count(ChatMessage.id))
+        .filter(ChatMessage.session_id == session_id)
+        .scalar()
+        or 0
+    )
 
 
 def _touch(sess: ChatSession, visitor_email: Optional[str], page: Optional[str]) -> ChatSession:
@@ -243,6 +256,34 @@ def _admin_org_id(db: Session, admin_id: str) -> Optional[str]:
     use an org the admin actually owns so the bell insert doesn't violate it."""
     owned = db.query(Organization.id).filter(Organization.owner_user_id == admin_id).first()
     return owned[0] if owned else None
+
+
+def anonymize_chat_data(db: Session, org_id: str) -> int:
+    """GDPR account-purge: blank every PII-bearing field on an org's chat records.
+
+    Called from the delete-purge task. Rows are kept (so FKs stay intact and the
+    audit trail of *that support happened* survives) but visitor identity, page,
+    transcript content and the handoff context package are all wiped.
+    Returns the number of sessions scrubbed.
+    """
+    sessions = db.query(ChatSession).filter(ChatSession.org_id == org_id).all()
+    session_ids = [s.id for s in sessions]
+    for s in sessions:
+        s.visitor_email = None
+        s.visitor_id = None
+        s.page = None
+    if session_ids:
+        db.query(ChatMessage).filter(ChatMessage.session_id.in_(session_ids)).update(
+            {ChatMessage.content: "[purged]", ChatMessage.meta: None},
+            synchronize_session=False,
+        )
+    handoffs = db.query(ChatHandoff).filter(ChatHandoff.org_id == org_id).all()
+    for h in handoffs:
+        h.visitor_email = None
+        h.narrative = "[purged]"
+        h.suggested_resolution = None
+        h.context_package = None
+    return len(session_ids)
 
 
 def _notify_admins(db: Session, handoff: ChatHandoff, org: Optional[Organization], user: Optional[User]) -> None:
