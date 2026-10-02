@@ -50,11 +50,12 @@ def _fk_info(table: str, column: str) -> Optional[tuple]:
 
 def _swap(table: str, column: str, ref_table: str, ref_col: str, cascade: bool) -> None:
     info = _fk_info(table, column)
-    want = "c" if cascade else "n"  # confdeltype: c=CASCADE, n=NO ACTION
-    if info is not None and info[1] == want:
+    # confdeltype: 'c'=CASCADE, anything else (a/r/n/d) = non-cascade.
+    is_cascade = info is not None and info[1] == "c"
+    if info is not None and is_cascade == cascade:
         return  # already in the desired state
     if info is not None:
-        op.drop_constraint(info[0], table, type_="fk")
+        op.drop_constraint(info[0], table, type_="foreignkey")
     ondelete = "CASCADE" if cascade else None
     op.create_foreign_key(
         f"fk_{table}_{column}", table, ref_table, [column], [ref_col], ondelete=ondelete
