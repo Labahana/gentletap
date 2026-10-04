@@ -14,6 +14,7 @@ from app.services.freshbooks import get_freshbooks_auth_url, exchange_freshbooks
 from app.services.google_gmail import get_google_gmail_auth_url, exchange_google_code
 from app.services.oauth_state import create_state, verify_state
 from app.services.crypto import encrypt_secret
+from app.services.oauth_revoke import destroy_connection_secrets, revoke_connection_token
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -277,6 +278,9 @@ def disconnect_connection(
     if not conn:
         raise HTTPException(status_code=404, detail="Connection not found")
 
-    conn.status = "disconnected"
+    # Best-effort provider-side revocation first (uses the token while it still
+    # exists), then destroy the local secrets regardless of the outcome.
+    revoke_connection_token(conn)
+    destroy_connection_secrets(conn)
     db.commit()
-    return {"message": "Connection disconnected successfully"}
+    return {"message": "Connection disconnected and access revoked"}

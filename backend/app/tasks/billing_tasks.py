@@ -93,6 +93,13 @@ def purge_deleted_accounts():
             # Wipe support-chat PII (transcripts, visitor emails, handoff packages)
             from app.services.chat import service as chat_service
             chat_service.anonymize_chat_data(db, org.id)
+            # Revoke + destroy stored OAuth tokens so no live credential survives
+            # a GDPR erasure (best-effort provider call; local secrets always go).
+            from app.models.connection import Connection
+            from app.services.oauth_revoke import destroy_connection_secrets, revoke_connection_token
+            for conn in db.query(Connection).filter(Connection.org_id == org.id).all():
+                revoke_connection_token(conn)
+                destroy_connection_secrets(conn)
             purged += 1
         db.commit()
         return {"purged": purged}

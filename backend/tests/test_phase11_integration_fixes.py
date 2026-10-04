@@ -21,6 +21,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 from app.main import app
+from app.api.connections import disconnect_connection
 from app.models.client import Client
 from app.models.connection import Connection
 from app.models.invoice import Invoice
@@ -28,7 +29,7 @@ from app.models.message import Message
 from app.models.organization import Organization
 from app.models.user import User
 from app.models.whatsapp_credit import WhatsAppCredit
-from app.services import freshbooks, quickbooks
+from app.services import freshbooks, oauth_revoke, quickbooks
 from app.services.crypto import encrypt_secret
 from app.services.email import apply_signature
 from app.services.plan_gating import consume_whatsapp_quota, refund_whatsapp_quota
@@ -278,3 +279,109 @@ class TestFreshBooksAttribution:
         payer = db.query(Client).filter(Client.id == inv.client_id).one()
         assert payer.external_client_id == "77"
         assert payer.name == "Nova LLC"
+
+
+# --------------------------------------------------------------------------
+# OAuth disconnect / purge: revoke provider token + destroy local secrets
+# --------------------------------------------------------------------------
+class TestConnectionRevocation:
+    def _conn(self, db, org, provider="quickbooks"):
+        conn = Connection(
+            org_id=org.id,
+            provider=provider,
+            token_encrypted=encrypt_secret("real_access"),
+            refresh_token_encrypted=encrypt_secret("real_refresh"),
+            status="active",
+        )
+        db.add(conn)
+        db.flush()
+        return conn
+
+    def test_destroy_connection_secrets_blanks_columns(self, db):
+        _, org = _seed_org(db)
+        conn = self._conn(db, org)
+        oauth_revoke.destroy_connection_secrets(conn)
+        assert conn.token_encrypted == ""
+        assert conn.refresh_token_encrypted == ""
+        assert conn.token_expires_at is None
+        assert conn.status == "disconnected"
+
+    def test_disconnect_endpoint_revokes_then_blanks(self, db, monkeypatch):
+        user, org = _seed_org(db)
+        conn = self._conn(db, org)
+        calls = []
+
+        def _fake_revoke(c):
+            calls.append(c.id)
+            return False
+
+        monkeypatch.setattr("app.api.connections.revoke_connection_token", _fake_revoke)
+        resp = disconnect_connection(conn.id, user_and_org=(user, org), db=db)
+        assert resp["message"] == "Connection disconnected and access revoked"
+        assert calls == [conn.id]
+        db.refresh(conn)
+        assert conn.token_encrypted == ""
+        assert conn.refresh_token_encrypted == ""
+        assert conn.status == "disconnected"
+
+    def test_disconnect_missing_connection_404(self, db):
+        user, org = _seed_org(db)
+        with pytest.raises(Exception) as ei:
+            disconnect_connection("nope", user_and_org=(user, org), db=db)
+        assert getattr(ei.value, "status_code", None) == 404
+
+    def test_revoke_skips_mock_token(self):
+        conn = Connection(
+            org_id="x", provider="quickbooks",
+            token_encrypted="mock_access", refresh_token_encrypted="mock_refresh",
+        )
+        assert oauth_revoke.revoke_connection_token(conn) is False
+
+    def test_revoke_quickbooks_posts_refresh_token(self, monkeypatch):
+        monkeypatch.setattr(oauth_revoke.settings, "intuit_client_id", "cid", raising=False)
+        monkeypatch.setattr(oauth_revoke.settings, "intuit_client_secret", "csecret", raising=False)
+        captured = {}
+
+        class _Resp:
+            status_code = 200
+
+        class _Client:
+            def __init__(self, *a, **k):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def post(self, url, auth=None, json=None):
+                captured["url"] = url
+                captured["auth"] = auth
+                captured["json"] = json
+                return _Resp()
+
+        monkeypatch.setattr(oauth_revoke.httpx, "Client", _Client)
+        conn = Connection(
+            org_id="x", provider="quickbooks",
+            token_encrypted=encrypt_secret("acc"),
+            refresh_token_encrypted=encrypt_secret("reftok"),
+        )
+        assert oauth_revoke.revoke_connection_token(conn) is True
+        assert captured["url"] == oauth_revoke.QBO_REVOKE_URL
+        assert captured["json"]["token"] == "reftok"
+        assert captured["auth"] == ("cid", "csecret")
+
+    def test_revoke_never_raises_on_network_error(self, monkeypatch):
+        class _Boom:
+            def __init__(self, *a, **k):
+                raise RuntimeError("provider down")
+
+        monkeypatch.setattr(oauth_revoke.httpx, "Client", _Boom)
+        conn = Connection(
+            org_id="x", provider="quickbooks",
+            token_encrypted=encrypt_secret("acc"),
+            refresh_token_encrypted=encrypt_secret("reftok"),
+        )
+        # Provider outage must not bubble up — the caller still destroys locally.
+        assert oauth_revoke.revoke_connection_token(conn) is False
