@@ -374,6 +374,34 @@ class TestExecuteJobEndToEnd:
         )
         assert next_job is not None and next_job.status == "pending"
 
+    def test_execute_job_requeue_after_send_does_not_double_send(self, db, monkeypatch):
+        # A worker can crash after the provider send but before the schedule row
+        # is marked sent; the stuck-row reaper requeues it to pending. Re-running
+        # must NOT email the client twice — the durable queued Message row (committed
+        # before dispatch) trips the per-client 24h cap and reschedules instead.
+        invoice, seq = self._prepare(db, monkeypatch)
+        job = db.query(ReminderJob).filter(ReminderJob.invoice_id == invoice.id).one()
+        assert execute_job(db, job)["status"] == "sent"
+        first_count = db.query(Message).filter(Message.invoice_id == invoice.id).count()
+        assert first_count == 1
+
+        # Simulate the reaper: schedule + owning job forced back to pending.
+        row0 = (
+            db.query(ReminderSchedule)
+            .filter(ReminderSchedule.invoice_id == invoice.id, ReminderSchedule.step_index == 0)
+            .one()
+        )
+        row0.status = "pending"
+        job.status = "pending"
+        job.sequence_step = 0
+        db.commit()
+
+        result = execute_job(db, job)
+        assert result.get("status") == "rescheduled"
+        assert result.get("reason") == "client_24h_cap"
+        # Still exactly one email for this invoice — no double-send.
+        assert db.query(Message).filter(Message.invoice_id == invoice.id).count() == 1
+
     def test_execute_job_missing_invoice_fails(self, db):
         _, org, _, invoice = _seed_invoice(db)
         seq = _seed_sequence(db, org.id, STEPS)
