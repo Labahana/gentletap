@@ -106,6 +106,7 @@ class Settings(BaseSettings):
     # Support chatbot — per-provider wall-clock budget for a single turn and
     # integrity caps for anonymous public sessions (see services/chat).
     chat_timeout_seconds: float = Field(default=12.0, validation_alias=AliasChoices("CHAT_TIMEOUT_SECONDS", "chat_timeout_seconds"))
+    chat_provider_retries: int = Field(default=1, validation_alias=AliasChoices("CHAT_PROVIDER_RETRIES", "chat_provider_retries"))
     chat_public_max_messages: int = Field(default=40, validation_alias=AliasChoices("CHAT_PUBLIC_MAX_MESSAGES", "chat_public_max_messages"))
     chat_public_daily_limit: int = Field(default=100, validation_alias=AliasChoices("CHAT_PUBLIC_DAILY_LIMIT", "chat_public_daily_limit"))
 

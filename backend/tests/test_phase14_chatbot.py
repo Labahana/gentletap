@@ -413,3 +413,86 @@ def test_system_prompt_flags_untrusted_input():
 
     assert "UNTRUSTED INPUT" in prompts.SYSTEM_PROMPT
     assert "prompt-injection" in prompts.SYSTEM_PROMPT
+
+
+# ---------------------------------------------------------------------------
+# Provider retry helper (#105): transient -> retry, terminal -> give up
+# ---------------------------------------------------------------------------
+
+def _mk_resp(status, *, body=None, text="", headers=None):
+    return SimpleNamespace(
+        status_code=status,
+        headers=headers or {},
+        text=text,
+        json=lambda: body or {},
+    )
+
+
+class _FakeClient:
+    """Stand-in for httpx.Client that replays scripted responses / raises."""
+
+    def __init__(self, script):
+        self._script = list(script)
+        self.calls = 0
+
+    def __call__(self, *a, **k):  # httpx.Client(timeout=...) returns instance
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def post(self, *a, **k):
+        self.calls += 1
+        item = self._script.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+
+def test_retry_helper_retries_transient_then_succeeds(monkeypatch):
+    from app.services.ai import _retry
+
+    monkeypatch.setattr(_retry.time, "sleep", lambda *a, **k: None)
+    fake = _FakeClient([
+        _mk_resp(429, text="overloaded"),
+        _mk_resp(200, body={"choices": [{"message": {"content": " hello "}}]}),
+    ])
+    monkeypatch.setattr(_retry.httpx, "Client", fake)
+    out = _retry.post_chat_json(
+        label="T", url="http://x", headers={}, payload={}, timeout=1, retries=1
+    )
+    assert out == "hello"
+    assert fake.calls == 2
+
+
+def test_retry_helper_does_not_retry_terminal_4xx(monkeypatch):
+    from app.services.ai import _retry
+
+    monkeypatch.setattr(_retry.time, "sleep", lambda *a, **k: None)
+    fake = _FakeClient([_mk_resp(401, text="bad key")])
+    monkeypatch.setattr(_retry.httpx, "Client", fake)
+    out = _retry.post_chat_json(
+        label="T", url="http://x", headers={}, payload={}, timeout=1, retries=2
+    )
+    assert out is None
+    assert fake.calls == 1  # 401 is not transient
+
+
+def test_retry_helper_retries_network_error(monkeypatch):
+    from app.services.ai import _retry
+    import httpx
+
+    monkeypatch.setattr(_retry.time, "sleep", lambda *a, **k: None)
+    fake = _FakeClient([
+        httpx.ConnectError("boom"),
+        _mk_resp(200, body={"choices": [{"message": {"content": "ok"}}]}),
+    ])
+    monkeypatch.setattr(_retry.httpx, "Client", fake)
+    out = _retry.post_chat_json(
+        label="T", url="http://x", headers={}, payload={}, timeout=1, retries=1
+    )
+    assert out == "ok"
+    assert fake.calls == 2

@@ -5,9 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-import httpx
-
 from app.config import get_settings
+from app.services.ai._retry import post_chat_json
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -18,6 +17,7 @@ def call_kimi(
     system: str = "You write concise payment reminder emails.",
     model: Optional[str] = None,
     timeout: Optional[float] = None,
+    retries: int = 0,
 ) -> Optional[str]:
     if not settings.kimi_api_key:
         logger.info("Kimi API key missing; skipping primary provider")
@@ -35,19 +35,14 @@ def call_kimi(
         ],
         "temperature": 0.7,
     }
-    try:
-        with httpx.Client(timeout=timeout if timeout is not None else float(settings.kimi_timeout_seconds)) as client:
-            res = client.post(
-                f"{settings.kimi_api_base.rstrip('/')}/chat/completions",
-                headers=headers,
-                json=payload,
-            )
-            if res.status_code == 200:
-                return res.json()["choices"][0]["message"]["content"].strip()
-            logger.warning("Kimi API status %s: %s", res.status_code, res.text[:200])
-    except Exception as exc:
-        logger.warning("Kimi API failed: %s", exc)
-    return None
+    return post_chat_json(
+        label="Kimi",
+        url=f"{settings.kimi_api_base.rstrip('/')}/chat/completions",
+        headers=headers,
+        payload=payload,
+        timeout=timeout if timeout is not None else float(settings.kimi_timeout_seconds),
+        retries=retries,
+    )
 
 
 def generate_template_with_kimi(
