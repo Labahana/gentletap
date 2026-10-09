@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Tuple, Optional
 import httpx
@@ -17,6 +18,9 @@ settings = get_settings()
 FRESHBOOKS_AUTH_URL = "https://auth.freshbooks.com/service/auth/oauth/authorize"
 FRESHBOOKS_TOKEN_URL = "https://api.freshbooks.com/auth/oauth/token"
 FRESHBOOKS_API_BASE = "https://api.freshbooks.com/accounting/account"
+
+# FreshBooks invoice ids are numeric; interpolated into a URL path, so refuse anything else.
+_FB_ID_RE = re.compile(r"\d{1,20}")
 
 
 def get_freshbooks_auth_url(state: str) -> str:
@@ -209,6 +213,10 @@ def sync_freshbooks_data(db: Session, org_id: str, connection: Connection) -> Tu
                         detect_and_stop_if_paid(db, db_inv, method="freshbooks_sync")
                     elif db_inv.status == "paid":
                         db_inv.status = "unpaid"
+                        # Clear the stop flags too, or the reopened invoice sits
+                        # forever with stop_reminders=True and the reconciler skips it.
+                        db_inv.stop_reminders = False
+                        db_inv.paid_at = None
                     continue
 
                 if balance <= 0:
@@ -251,3 +259,60 @@ def sync_freshbooks_data(db: Session, org_id: str, connection: Connection) -> Tu
         raise e
 
     return (invoices_synced, clients_synced)
+
+
+def fetch_freshbooks_invoice_state(db: Session, connection: Connection, external_id: str) -> Optional[Dict[str, Any]]:
+    """Authoritative single-invoice read straight from FreshBooks.
+
+    Mirrors the QuickBooks read: a payment signal has to be confirmed against the
+    ledger itself, not a webhook payload or whatever the last sync window caught.
+    Returns None when there is nothing authoritative to say.
+    """
+    from app.services.crypto import decrypt_secret
+
+    if not external_id or not _FB_ID_RE.fullmatch(str(external_id)):
+        return None
+
+    access_token = decrypt_secret(connection.token_encrypted)
+    if access_token == "mock_fb_access_token":
+        return None
+
+    account_id = connection.account_id or ""
+    headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
+
+    try:
+        with httpx.Client() as client:
+            res = client.get(
+                f"{FRESHBOOKS_API_BASE}/{account_id}/invoices/view/{external_id}",
+                headers=headers,
+            )
+    except Exception as exc:  # noqa: BLE001 — never fail the caller on a provider hiccup
+        logger.warning("FreshBooks invoice read failed for %s: %s", external_id, exc)
+        return None
+
+    if res.status_code == 401:
+        connection.status = "expired"
+        db.commit()
+        logger.warning("FreshBooks access token expired while reading invoice %s", external_id)
+        return None
+    if res.status_code == 404:
+        return None
+    if res.status_code != 200:
+        logger.warning("FreshBooks invoice read for %s failed: HTTP %s", external_id, res.status_code)
+        return None
+
+    invoice = res.json().get("response", {}).get("result", {}).get("invoice") or {}
+    if not invoice:
+        return None
+    amount = float(invoice.get("amount", {}).get("amount", 0) or 0)
+    outstanding = invoice.get("outstanding")
+    balance = float(outstanding.get("amount", amount) or 0) if isinstance(outstanding, dict) else amount
+    links = invoice.get("links") or {}
+    view = links.get("view") if isinstance(links, dict) else None
+    return {
+        "balance": balance,
+        "amount": amount,
+        "paid_at": None,
+        "status": (invoice.get("status") or "").lower(),
+        "payment_link": view if isinstance(view, str) and view.startswith(("http://", "https://")) else None,
+    }

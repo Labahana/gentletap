@@ -6,7 +6,7 @@ import logging
 
 from app.database import SessionLocal
 from app.models.invoice import Invoice
-from app.services.payment_detect import detect_and_stop_if_paid
+from app.services.payment_detect import detect_and_stop_if_paid, refresh_invoice_from_provider
 from app.services.redis_lock import redis_lock
 from app.workers.celery_app import celery_app
 
@@ -70,7 +70,11 @@ def payment_detect_invoice_task(invoice_id: str):
         inv = db.query(Invoice).filter(Invoice.id == invoice_id).first()
         if not inv:
             return {"status": "error", "reason": "not_found"}
-        result = detect_and_stop_if_paid(db, inv, method="webhook")
+        # Webhook-triggered: the payload proved nothing about the balance, so re-read
+        # the invoice from the provider. Only CSV/manual rows fall back to local state.
+        result = refresh_invoice_from_provider(db, inv, method="webhook")
+        if result is None:
+            result = detect_and_stop_if_paid(db, inv, method="webhook")
         db.commit()
         return {"status": "ok", "result": result}
     except Exception:

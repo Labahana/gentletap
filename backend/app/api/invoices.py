@@ -226,7 +226,7 @@ def update_invoice(
     user_and_org=Depends(get_current_user_and_org),
     db: Session = Depends(get_db),
 ):
-    _, org = user_and_org
+    user, org = user_and_org
     invoice = db.query(Invoice).filter(Invoice.id == id, Invoice.org_id == org.id).first()
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
@@ -237,10 +237,28 @@ def update_invoice(
     if req.currency is not None: invoice.currency = req.currency
     if req.due_date is not None: invoice.due_date = req.due_date
     if req.issue_date is not None: invoice.issue_date = req.issue_date
-    if req.status is not None: invoice.status = req.status
     if req.expected_payment_date is not None: invoice.expected_payment_date = req.expected_payment_date
     if req.payment_link is not None: invoice.payment_link = _clean_payment_link(req.payment_link)
     if req.reminder_phone is not None: invoice.reminder_phone = _clean_reminder_phone(req.reminder_phone)
+
+    if req.status is not None:
+        if req.status == "paid":
+            # Last assignment on purpose: auto_stop zeroes the balance itself, so a
+            # bare status write here would skip cancelling pending reminders.
+            from app.services.payment_detect import auto_stop_on_payment
+
+            auto_stop_on_payment(
+                db,
+                invoice,
+                method="manual_status_edit",
+                actor_type="user",
+                actor_id=user.id,
+            )
+        else:
+            if invoice.status == "paid":
+                invoice.stop_reminders = False
+                invoice.paid_at = None
+            invoice.status = req.status
 
     db.commit()
     db.refresh(invoice)

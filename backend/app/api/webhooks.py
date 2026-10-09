@@ -10,7 +10,10 @@ from app.models.suppression import Suppression
 from app.models.audit_log import AuditLog
 from app.config import get_settings
 from app.services.email import apply_resend_event_to_message, decode_unsubscribe_token
-from app.services.payment_detect import auto_stop_on_payment, detect_and_stop_if_paid
+from app.services.payment_detect import (
+    detect_and_stop_if_paid,
+    refresh_invoice_from_provider,
+)
 from app.services.webhook_security import (
     verify_freshbooks,
     verify_intuit,
@@ -100,38 +103,40 @@ async def quickbooks_webhook(request: Request, db: Session = Depends(get_db)):
     import json as _json
 
     payload = _json.loads(raw)
-    # Accept flexible payloads: {invoice_id} or {external_id} or notifications list
+    # Payload ids are provider ids, never our own PKs — resolve them to invoices by
+    # external_id before touching anything.
     invoice_ids = []
-    if payload.get("invoice_id"):
-        invoice_ids.append(payload["invoice_id"])
-    if payload.get("external_id"):
-        inv = db.query(Invoice).filter(Invoice.external_id == str(payload["external_id"])).first()
+
+    def _resolve_ext(value):
+        if not value:
+            return
+        inv = db.query(Invoice).filter(Invoice.external_id == str(value)).first()
         if inv:
             invoice_ids.append(inv.id)
+
+    for key in ("invoice_id", "id", "external_id"):
+        _resolve_ext(payload.get(key))
     for note in payload.get("eventNotifications", []) or []:
         for entity in (note.get("dataChangeEvent") or {}).get("entities", []) or []:
-            if entity.get("name") == "Invoice" and entity.get("id"):
-                inv = db.query(Invoice).filter(Invoice.external_id == str(entity["id"])).first()
-                if inv:
-                    invoice_ids.append(inv.id)
+            if entity.get("name") == "Invoice":
+                _resolve_ext(entity.get("id"))
 
     results = []
     for iid in set(invoice_ids):
         inv = db.query(Invoice).filter(Invoice.id == iid).first()
         if not inv:
             continue
-        # Never trust a numeric `balance` from the payload — a forged "balance: 0"
-        # would fake a payment. Treat the (signature-verified) webhook as a trigger
-        # to re-check authoritative state via the provider sync / detect path.
-        if payload.get("status") == "paid":
-            results.append(auto_stop_on_payment(db, inv, method="quickbooks_webhook"))
-        else:
-            try:
-                from app.tasks.payment_detect import payment_detect_invoice_task
+        # Nothing in the payload is trusted as a payment fact — not the numeric
+        # balance, not the status. A signature only proves who sent it. Every event
+        # is a trigger to re-read the invoice from QuickBooks and reconcile.
+        try:
+            from app.tasks.payment_detect import payment_detect_invoice_task
 
-                payment_detect_invoice_task.delay(inv.id)
-            except Exception:
+            payment_detect_invoice_task.delay(inv.id)
+        except Exception:
+            if refresh_invoice_from_provider(db, inv, method="quickbooks_webhook") is None:
                 detect_and_stop_if_paid(db, inv, method="quickbooks_webhook")
+        results.append(inv.id)
     db.commit()
     return {"status": "ok", "processed": len(results), "results": results}
 
@@ -145,31 +150,32 @@ async def freshbooks_webhook(request: Request, db: Session = Depends(get_db)):
 
     payload = _json.loads(raw)
     invoice_ids = []
-    if payload.get("invoice_id"):
-        invoice_ids.append(payload["invoice_id"])
-    ext = payload.get("object_id") or payload.get("external_id")
-    if ext:
-        inv = db.query(Invoice).filter(Invoice.external_id == str(ext)).first()
+
+    def _resolve_ext(value):
+        if not value:
+            return
+        inv = db.query(Invoice).filter(Invoice.external_id == str(value)).first()
         if inv:
             invoice_ids.append(inv.id)
+
+    for key in ("invoice_id", "object_id", "external_id"):
+        _resolve_ext(payload.get(key))
 
     results = []
     for iid in set(invoice_ids):
         inv = db.query(Invoice).filter(Invoice.id == iid).first()
         if not inv:
             continue
-        # Don't apply a raw numeric `balance` from the payload — HMAC proves origin
-        # but the number is still client-influenced. Only an explicit paid status is
-        # trusted; otherwise re-check authoritative state via the detect path.
-        if payload.get("status") in ("paid", "received"):
-            results.append(auto_stop_on_payment(db, inv, method="freshbooks_webhook"))
-        else:
-            try:
-                from app.tasks.payment_detect import payment_detect_invoice_task
+        # Same rule as QuickBooks: the HMAC proves origin, not the numbers. Confirm
+        # the balance against FreshBooks before stopping reminders.
+        try:
+            from app.tasks.payment_detect import payment_detect_invoice_task
 
-                payment_detect_invoice_task.delay(inv.id)
-            except Exception:
+            payment_detect_invoice_task.delay(inv.id)
+        except Exception:
+            if refresh_invoice_from_provider(db, inv, method="freshbooks_webhook") is None:
                 detect_and_stop_if_paid(db, inv, method="freshbooks_webhook")
+        results.append(inv.id)
     db.commit()
     return {"status": "ok", "processed": len(results), "results": results}
 
