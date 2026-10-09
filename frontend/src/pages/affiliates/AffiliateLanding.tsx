@@ -243,7 +243,7 @@ export const AffiliateLanding: React.FC = () => {
             {
               icon: Link2,
               title: '2. Share your link',
-              body: `You get a unique ref code (${window.location.host}/?ref=yourcode). Clicks and signups are tracked automatically.`,
+              body: `You get a unique ref code (${typeof window !== 'undefined' ? window.location.host : 'gentletap.co'}/?ref=yourcode). Clicks and signups are tracked automatically.`,
             },
             {
               icon: DollarSign,
